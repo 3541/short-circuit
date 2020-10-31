@@ -1,0 +1,7 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+PointerAlignment: Left
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+Cpp11BracedListStyle: false
