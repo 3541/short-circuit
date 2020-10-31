@@ -53,8 +53,9 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
         // this could cause a leak of sockets, but if both the close request and
         // the actual close here fail, there are probably larger issues at play.
         int flags = fcntl(this->socket, F_GETFL);
-        if (fcntl(this->socket, F_SETFL, flags | O_NONBLOCK) == 0)
-            close(this->socket);
+        if (fcntl(this->socket, F_SETFL, flags | O_NONBLOCK) != 0 ||
+            close(this->socket) != 0)
+            log_error(errno, "Failed to close socket.");
     }
 
     buf_free(&this->recv_buf);
