@@ -9,14 +9,12 @@
 
 static FILE* log_out = NULL;
 
-void log_init(FILE* out) {
-    log_out = out;
-}
+void log_init(FILE* out) { log_out = out; }
 
 void log_fmt(enum LogLevel level, const char* fmt, ...) {
     if (level < LOG_LEVEL)
         return;
-    
+
     va_list args;
     va_start(args, fmt);
     vfprintf(log_out, fmt, args);

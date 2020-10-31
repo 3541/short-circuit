@@ -36,6 +36,8 @@ static void event_check_ops() {
     struct io_uring_probe* probe = io_uring_get_probe();
 
     REQUIRE_OP(probe, IORING_OP_ACCEPT);
+    REQUIRE_OP(probe, IORING_OP_RECV);
+    REQUIRE_OP(probe, IORING_OP_CLOSE);
 }
 
 struct io_uring event_init() {
@@ -67,7 +69,8 @@ bool event_accept_submit(struct Event* this, struct io_uring* uring, fd socket,
     return io_uring_submit(uring);
 }
 
-bool event_recv_submit(struct Event* this, struct io_uring* uring, fd socket, void* out_buf, size_t buf_len) {
+bool event_recv_submit(struct Event* this, struct io_uring* uring, fd socket,
+                       void* out_buf, size_t buf_len) {
     assert(this);
     assert(uring);
     assert(out_buf);

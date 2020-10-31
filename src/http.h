@@ -4,8 +4,7 @@
 
 #include "forward.h"
 
-#define HTTP_METHOD_ENUM                \
-    _METHOD(GET)
+#define HTTP_METHOD_ENUM _METHOD(GET)
 
 enum HttpMethod {
 #define _METHOD(M) M,

@@ -18,9 +18,9 @@
 #include "types.h"
 #include "util.h"
 
-static struct Connection* connection_freelist      = NULL;
-static size_t             connections_allocated    = 0;
-static bool               connection_accept_queued = false;
+static struct Connection* connection_freelist                   = NULL;
+static size_t             connections_allocated                 = 0;
+static bool               connection_accept_queued[NTRANSPORTS] = { false };
 
 static bool connection_close_submit(struct Connection*, struct io_uring*);
 
@@ -57,21 +57,23 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
             close(this->socket);
     }
 
-
     buf_free(&this->recv_buf);
 
     this->next          = connection_freelist;
     connection_freelist = this;
 }
 
-static bool connection_close_submit(struct Connection* this, struct io_uring* uring) {
+static bool connection_close_submit(struct Connection* this,
+                                    struct io_uring* uring) {
     assert(this);
     assert(uring);
 
     return event_close_submit(&this->last_event, uring, this->socket);
 }
 
-static void connection_close_handle(struct Connection* this, struct io_uring_cqe* cqe, struct io_uring* uring) {
+static void connection_close_handle(struct Connection* this,
+                                    struct io_uring_cqe* cqe,
+                                    struct io_uring*     uring) {
     assert(this);
     assert(this->last_event.type == CLOSE);
     assert(cqe);
@@ -100,7 +102,9 @@ static bool connection_recv_submit(struct Connection* this,
                              buf_cap(&this->recv_buf));
 }
 
-static bool connection_recv_handle(struct Connection* this, struct io_uring_cqe* cqe, struct io_uring* uring) {
+static bool connection_recv_handle(struct Connection* this,
+                                   struct io_uring_cqe* cqe,
+                                   struct io_uring*     uring) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -108,7 +112,8 @@ static bool connection_recv_handle(struct Connection* this, struct io_uring_cqe*
     // In the event of an error, kill this connection.
     if (cqe->res < 0) {
         // If there was something wrong with the socket, pretend it was closed.
-        if (cqe->res == -ENOTCONN || cqe->res == -EBADF || cqe->res == -ENOTSOCK)
+        if (cqe->res == -ENOTCONN || cqe->res == -EBADF ||
+            cqe->res == -ENOTSOCK)
             this->last_event.type = CLOSE;
         return false;
     } else if (cqe->res == 0) {
@@ -123,20 +128,33 @@ static bool connection_recv_handle(struct Connection* this, struct io_uring_cqe*
         return false;
     } else if (rc == 0) {
         // Need more data.
-        connection_recv_submit(this, uring);
+        return this->recv_submit(this, uring);
     }
 
     return true;
 }
 
 // Submit an ACCEPT on the uring.
-struct Connection* connection_accept_submit(struct io_uring* uring,
-                                            fd               listen_socket) {
+struct Connection* connection_accept_submit(struct io_uring*         uring,
+                                            enum ConnectionTransport transport,
+                                            fd listen_socket) {
     assert(uring);
 
     struct Connection* ret = connection_new();
     if (!ret)
         return NULL;
+
+    ret->transport = transport;
+    switch (transport) {
+    case PLAIN:
+        ret->recv_submit = connection_recv_submit;
+        ret->recv_handle = connection_recv_handle;
+        break;
+    case TLS:
+        PANIC("TODO: TLS");
+    default:
+        PANIC("Invalid transport.");
+    }
 
     ret->addr_len = sizeof(ret->client_addr);
 
@@ -146,12 +164,13 @@ struct Connection* connection_accept_submit(struct io_uring* uring,
         return NULL;
     }
 
-    connection_accept_queued = true;
+    connection_accept_queued[transport] = true;
     return ret;
 }
 
 // Handle the completion of an ACCEPT event.
-static bool connection_accept_handle(struct Connection* this, struct io_uring_cqe* cqe,
+static bool connection_accept_handle(struct Connection* this,
+                                     struct io_uring_cqe* cqe,
                                      struct io_uring* uring, fd listen_socket) {
     assert(this);
     assert(cqe);
@@ -162,21 +181,22 @@ static bool connection_accept_handle(struct Connection* this, struct io_uring_cq
 
     log_msg(TRACE, "Accept connection.");
 
-    connection_accept_queued = false;
+    connection_accept_queued[this->transport] = false;
 
     // First, renew the accept request. Failing to renew is not a fatal error,
     // and every event will try again to enqueue a new accept request if this
     // happens.
-    if (connection_accept_submit(uring, listen_socket))
-        connection_accept_queued = true;
+    if (connection_accept_submit(uring, this->transport, listen_socket))
+        connection_accept_queued[this->transport] = true;
 
     this->socket = cqe->res;
 
-    return connection_recv_submit(this, uring);
+    return this->recv_submit(this, uring);
 }
 
 // Dispatch an event pertaining to a connection. Returns false to die.
-bool connection_event_dispatch(struct Connection* this, struct io_uring_cqe* cqe, struct io_uring* uring,
+bool connection_event_dispatch(struct Connection* this,
+                               struct io_uring_cqe* cqe, struct io_uring* uring,
                                fd listen_socket) {
     assert(this);
     assert(cqe);
@@ -189,7 +209,7 @@ bool connection_event_dispatch(struct Connection* this, struct io_uring_cqe* cqe
         rc = connection_accept_handle(this, cqe, uring, listen_socket);
         break;
     case RECV:
-        rc = connection_recv_handle(this, cqe, uring);
+        rc = this->recv_handle(this, cqe, uring);
         break;
     case CLOSE:
         connection_close_handle(this, cqe, uring);
@@ -200,8 +220,8 @@ bool connection_event_dispatch(struct Connection* this, struct io_uring_cqe* cqe
     }
 
     // If there isn't an accept request in flight, try to make a new one.
-    if (!connection_accept_queued)
-        connection_accept_submit(uring, listen_socket);
+    if (!connection_accept_queued[this->transport])
+        connection_accept_submit(uring, this->transport, listen_socket);
 
     // Unrecoverable connection error. Clean this one up.
     if (!rc) {

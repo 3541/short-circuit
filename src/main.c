@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     struct io_uring uring         = event_init();
 
     struct Connection* current;
-    UNWRAPN(current, connection_accept_submit(&uring, listen_socket));
+    UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
 
     log_msg(TRACE, "Entering event loop.");
 

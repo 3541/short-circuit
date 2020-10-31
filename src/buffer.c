@@ -58,6 +58,6 @@ void buf_free(struct Buffer* this) {
 
     free(this->data);
     this->data = NULL;
-    this->cap = 0;
-    this->len = 0;
+    this->cap  = 0;
+    this->len  = 0;
 }
