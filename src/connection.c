@@ -22,8 +22,6 @@ static struct Connection* connection_freelist                   = NULL;
 static size_t             connections_allocated                 = 0;
 static bool               connection_accept_queued[NTRANSPORTS] = { false };
 
-static bool connection_close_submit(struct Connection*, struct io_uring*);
-
 static struct Connection* connection_new() {
     struct Connection* ret = NULL;
     if (connection_freelist) {
@@ -44,7 +42,8 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
 
     // If the socket hasn't been closed, arrange it. The close handle event will
     // call free when it's done.
-    if (this->last_event.type != INVALID && this->last_event.type != CLOSE) {
+    if (this->last_event.type != INVALID_EVENT &&
+        this->last_event.type != CLOSE) {
         // If the submission was successful, we're done.
         if (connection_close_submit(this, uring))
             return;
@@ -59,13 +58,75 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
     }
 
     buf_free(&this->recv_buf);
+    if (buf_initialized(&this->send_buf))
+        buf_free(&this->send_buf);
 
     this->next          = connection_freelist;
     connection_freelist = this;
 }
 
-static bool connection_close_submit(struct Connection* this,
-                                    struct io_uring* uring) {
+void connection_reset(struct Connection* this) {
+    assert(this);
+
+    buf_reset(&this->recv_buf);
+    buf_reset(&this->send_buf);
+
+    memset(&this->request, 0, sizeof(struct HttpRequest));
+}
+
+bool connection_send_submit(struct Connection* this, struct io_uring* uring,
+                            int flags) {
+    assert(this);
+    assert(uring);
+
+    // Need to restore the buffer state, since it shouldn't be consumed until
+    // the event returns. Nevertheless, we want to use the nice API here.
+    struct Buffer prev_buf_state = this->send_buf;
+
+    struct Buffer* buf     = &this->send_buf;
+    size_t         len     = buf_len(buf);
+    size_t         pending = buf_pending(buf);
+    // If the buffer is wrapped, this submission will require two linked events.
+    int send_flags = flags;
+    if (len > pending)
+        send_flags |= IOSQE_IO_LINK;
+
+    TRYB(event_send_submit(&this->last_event, uring, this->socket,
+                           buf_read_ptr(buf), pending, send_flags));
+    buf_read(buf, pending);
+
+    if (len > pending) {
+        buf_read(&prev_buf_state, pending); // No event for linked chains.
+
+        TRYB(event_send_submit(&this->last_event, uring, this->socket,
+                               buf_read_ptr(buf), buf_pending(buf), flags));
+        buf_read(buf, buf_pending(buf));
+    }
+
+    assert(buf_len(buf) == 0);
+
+    this->send_buf = prev_buf_state;
+    return true;
+}
+
+static bool connection_send_handle(struct Connection* this,
+                                   struct io_uring_cqe* cqe,
+                                   struct io_uring*     uring) {
+    assert(this);
+    assert(uring);
+    assert(cqe);
+
+    if (cqe->res < 0) {
+        log_error(-cqe->res, "SEND");
+        return false;
+    }
+
+    buf_read(&this->send_buf, cqe->res);
+
+    return http_response_handle(this, uring);
+}
+
+bool connection_close_submit(struct Connection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
@@ -80,6 +141,9 @@ static void connection_close_handle(struct Connection* this,
     assert(cqe);
     assert(uring);
 
+    if (cqe->res < 0)
+        log_error(-cqe->res, "CLOSE");
+
     connection_free(this, uring);
 }
 
@@ -89,18 +153,25 @@ static bool connection_recv_buf_init(struct Connection* this) {
     return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY);
 }
 
+bool connection_send_buf_init(struct Connection* this) {
+    assert(this);
+
+    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY);
+}
+
 // Submit a request to receive as much data as the buffer can handle.
 static bool connection_recv_submit(struct Connection* this,
-                                   struct io_uring* uring) {
+                                   struct io_uring* uring, int flags) {
     assert(this);
     assert(uring);
+    (void)flags;
 
     if (!buf_initialized(&this->recv_buf) && !connection_recv_buf_init(this))
         return false;
 
     return event_recv_submit(&this->last_event, uring, this->socket,
                              buf_write_ptr(&this->recv_buf),
-                             buf_cap(&this->recv_buf));
+                             buf_space(&this->recv_buf));
 }
 
 static bool connection_recv_handle(struct Connection* this,
@@ -124,12 +195,12 @@ static bool connection_recv_handle(struct Connection* this,
     // Update buffer pointers.
     buf_wrote(&this->recv_buf, cqe->res);
 
-    int8_t rc = http_request_parse(this, uring);
+    int8_t rc = http_request_handle(this, uring);
     if (rc < 0) {
         return false;
     } else if (rc == 0) {
         // Need more data.
-        return this->recv_submit(this, uring);
+        return this->recv_submit(this, uring, 0);
     }
 
     return true;
@@ -150,6 +221,8 @@ struct Connection* connection_accept_submit(struct io_uring*         uring,
     case PLAIN:
         ret->recv_submit = connection_recv_submit;
         ret->recv_handle = connection_recv_handle;
+
+        ret->send_submit = connection_send_submit;
         break;
     case TLS:
         PANIC("TODO: TLS");
@@ -192,7 +265,7 @@ static bool connection_accept_handle(struct Connection* this,
 
     this->socket = cqe->res;
 
-    return this->recv_submit(this, uring);
+    return this->recv_submit(this, uring, 0);
 }
 
 // Dispatch an event pertaining to a connection. Returns false to die.
@@ -209,13 +282,16 @@ bool connection_event_dispatch(struct Connection* this,
     case ACCEPT:
         rc = connection_accept_handle(this, cqe, uring, listen_socket);
         break;
+    case SEND:
+        rc = connection_send_handle(this, cqe, uring);
+        break;
     case RECV:
         rc = this->recv_handle(this, cqe, uring);
         break;
     case CLOSE:
         connection_close_handle(this, cqe, uring);
         break;
-    case INVALID:
+    case INVALID_EVENT:
         fprintf(stderr, "Got event with state INVALID.\n");
         return false;
     }

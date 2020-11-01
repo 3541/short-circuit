@@ -40,7 +40,10 @@ int main(int argc, char** argv) {
         struct io_uring_cqe* cqe;
         UNWRAPSD(io_uring_wait_cqe(&uring, &cqe));
 
-        struct Event* event = io_uring_cqe_get_data(cqe);
+        uintptr_t event_ptr = cqe->user_data;
+        if (event_ptr & EVENT_PTR_IGNORE)
+            goto next;
+        struct Event* event = (struct Event*)event_ptr;
 
         if (cqe->res < 0) {
             log_error(-cqe->res, event_type_name(event->type));

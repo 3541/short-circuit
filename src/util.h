@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,3 +43,11 @@
             PANIC_FMT("UNWRAP(%s)", #X);                                       \
         }                                                                      \
     } while (0)
+
+// Bubble up an error condition. Requires the caller and callee to return a
+// boolean.
+#define TRYB(T)                                                                \
+    do {                                                                       \
+        if (!(T))                                                              \
+            return false;                                                      \
+    } while (0);

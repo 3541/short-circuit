@@ -12,12 +12,12 @@ const char* event_type_name(enum EventType ty) {
     static const struct {
         enum EventType ty;
         const char*    name;
-    } names[] = { EVENT_TYPE_ENUM{ 0, NULL } };
+    } EVENT_NAMES[] = { EVENT_TYPE_ENUM{ 0, NULL } };
 #undef _EVENT_TYPE
 
-    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
-        if (ty == names[i].ty)
-            return names[i].name;
+    for (size_t i = 0; i < sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0]); i++) {
+        if (ty == EVENT_NAMES[i].ty)
+            return EVENT_NAMES[i].name;
     }
 
     return "INVALID";
@@ -59,12 +59,33 @@ bool event_accept_submit(struct Event* this, struct io_uring* uring, fd socket,
     struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
     if (!sqe)
         return false;
-
     this->type = ACCEPT;
 
     io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr,
                          inout_addr_len, 0);
     io_uring_sqe_set_data(sqe, this);
+
+    return io_uring_submit(uring);
+}
+
+bool event_send_submit(struct Event* this, struct io_uring* uring, fd socket,
+                       const void* buf, size_t len, int flags) {
+    assert(this);
+    assert(uring);
+    assert(buf);
+
+    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    TRYB(sqe);
+    this->type = SEND;
+
+    uintptr_t this_ptr = (uintptr_t)this;
+
+    if (flags & IOSQE_IO_LINK) {
+        this_ptr |= EVENT_PTR_IGNORE;
+    }
+
+    io_uring_prep_send(sqe, socket, buf, len, flags);
+    io_uring_sqe_set_data(sqe, (void*)this_ptr);
 
     return io_uring_submit(uring);
 }

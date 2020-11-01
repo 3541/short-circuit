@@ -6,10 +6,12 @@
 #include "buffer.h"
 #include "event.h"
 #include "forward.h"
+#include "http.h"
 #include "types.h"
 
 // Callback types to submit events.
-typedef bool (*ConnectionSubmit)(struct Connection*, struct io_uring*);
+typedef bool (*ConnectionSubmit)(struct Connection*, struct io_uring*,
+                                 int flags);
 typedef bool (*ConnectionHandle)(struct Connection*, struct io_uring_cqe*,
                                  struct io_uring*);
 
@@ -28,14 +30,26 @@ struct Connection {
     ConnectionSubmit recv_submit;
     ConnectionHandle recv_handle;
 
+    ConnectionSubmit send_submit;
+
     struct Buffer recv_buf;
+    struct Buffer send_buf;
+
+    struct HttpRequest request;
 
     // For the freelist.
     struct Connection* next;
 };
 
+void connection_reset(struct Connection*);
+
 struct Connection* connection_accept_submit(struct io_uring*,
                                             enum ConnectionTransport,
                                             fd listen_socket);
+bool connection_send_submit(struct Connection*, struct io_uring*, int flags);
+bool connection_close_submit(struct Connection*, struct io_uring*);
+
+bool connection_send_buf_init(struct Connection*);
+
 bool connection_event_dispatch(struct Connection*, struct io_uring_cqe*,
                                struct io_uring*, fd listen_socket);

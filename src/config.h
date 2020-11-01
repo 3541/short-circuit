@@ -15,3 +15,8 @@ static const enum LogLevel LOG_LEVEL = TRACE;
 static const size_t MAX_ALLOCATED_CONNECTIONS = 4096;
 static const size_t RECV_BUF_INITIAL_CAPACITY = 2048;
 static const size_t RECV_BUF_MAX_CAPACITY     = 10240;
+static const size_t SEND_BUF_INITIAL_CAPACITY = 2048;
+static const size_t SEND_BUF_MAX_CAPACITY     = 4096;
+
+#define HTTP_ERROR_BODY_MAX_LENGTH 512
+static const size_t HTTP_REQUEST_LINE_MAX_LENGTH = 2048;
