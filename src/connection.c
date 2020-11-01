@@ -57,6 +57,8 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
             log_error(errno, "Failed to close socket.");
     }
 
+    connection_reset(this);
+
     buf_free(&this->recv_buf);
     if (buf_initialized(&this->send_buf))
         buf_free(&this->send_buf);
@@ -71,7 +73,7 @@ void connection_reset(struct Connection* this) {
     buf_reset(&this->recv_buf);
     buf_reset(&this->send_buf);
 
-    memset(&this->request, 0, sizeof(struct HttpRequest));
+    http_request_reset(&this->request);
 }
 
 bool connection_send_submit(struct Connection* this, struct io_uring* uring,

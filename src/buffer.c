@@ -157,6 +157,9 @@ uint8_t* buf_memmem(struct Buffer* this, const char* needle) {
     assert(buf_initialized(this));
     assert(needle);
 
+    if (buf_len(this) == 0)
+        return NULL;
+
     size_t needle_len = strnlen(needle, buf_len(this));
     assert(needle_len > 0);
 
@@ -195,7 +198,7 @@ uint8_t* buf_token_next(struct Buffer* this, const char* delim) {
 
     // Zero out all delimiters.
     size_t last = end;
-    for (; last <= this->tail && strchr(delim, this->data[last]);
+    for (; last < this->tail && strchr(delim, this->data[last]);
          last = (last + 1) % this->cap)
         this->data[last] = '\0';
 

@@ -7,6 +7,7 @@
 
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
+    _METHOD(HTTP_METHOD_GET, "GET")                                            \
     _METHOD(HTTP_METHOD_UNKNOWN, "__UNKNOWN")
 
 enum HttpMethod {
@@ -40,6 +41,8 @@ enum HttpContentType {
     _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                           \
     _STATUS(400, HTTP_STATUS_BAD_REQUEST, "Bad Request")                       \
     _STATUS(414, HTTP_STATUS_URI_TOO_LONG, "URI Too Long")                     \
+    _STATUS(431, HTTP_STATUS_HEADER_TOO_LARGE,                                 \
+            "Request Header Fields Too Large")                                 \
     _STATUS(501, HTTP_STATUS_NOT_IMPLEMENTED, "Not Implemented")
 
 enum HttpStatus {
@@ -62,9 +65,12 @@ struct HttpRequest {
     enum HttpVersion version;
     enum HttpMethod  method;
     bool             keep_alive;
+    char* target;
+    const char*      host;
 
-    enum HttpContentType content_type;
+    enum HttpContentType response_content_type;
 };
 
+void http_request_reset(struct HttpRequest*);
 int8_t http_request_handle(struct Connection*, struct io_uring*);
 bool   http_response_handle(struct Connection*, struct io_uring*);

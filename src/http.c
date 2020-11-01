@@ -5,6 +5,7 @@
 #include <liburing.h>
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 #include "buffer.h"
@@ -20,6 +21,18 @@ static const bool HTTP_RESPONSE_ALLOW = false;
 static bool http_response_close_submit(struct Connection*, struct io_uring*);
 static bool http_response_error_submit(struct Connection*, struct io_uring*,
                                        enum HttpStatus, bool close);
+
+void http_request_reset(struct HttpRequest* this) {
+    assert(this);
+
+    if (this->host)
+        free((char*)this->host);
+
+    if (this->target)
+        free(this->target);
+
+    memset(this, 0, sizeof(struct HttpRequest));
+}
 
 #define _METHOD(M, N) { M, N },
 static const struct {
@@ -49,7 +62,7 @@ static enum HttpMethod http_request_method_parse(const uint8_t* str) {
 static const struct {
     enum HttpVersion version;
     const char*      str;
-} HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM{ 0, NULL } };
+} HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM{ 0, "" } };
 #undef _VERSION
 
 static const char* http_version_string(enum HttpVersion version) {
@@ -117,7 +130,7 @@ static const char* http_content_type_name(enum HttpContentType type) {
     return NULL;
 }
 
-// Try to parse as much of the first line of the HTTP request as possible.
+// Try to parse the first line of the HTTP request.
 // Returns:
 //   -1 on error.
 //    0 for more data.
@@ -134,7 +147,7 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
 
     this->version      = HTTP_VERSION_11;
     this->keep_alive   = true;
-    this->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
+    this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
@@ -163,7 +176,13 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
         break;
     }
 
-    this->version = http_version_parse(buf_token_next(buf, " "));
+    this->target = strndup((char*)buf_token_next(buf, " "), HTTP_REQUEST_URI_MAX_LENGTH + 1);
+    if (strlen(this->target) > HTTP_REQUEST_URI_MAX_LENGTH) {
+        log_msg(TRACE, "Request URI is too long.");
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE), 2, -1);
+    }
+
+    this->version = http_version_parse(buf_token_next(buf, HTTP_NEWLINE));
     if (this->version == HTTP_VERSION_INVALID) {
         log_msg(TRACE, "Got a bad HTTP version.");
         this->version = HTTP_VERSION_11;
@@ -175,12 +194,48 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
         this->keep_alive = false;
     }
 
-    if (!buf_consume(buf, HTTP_NEWLINE))
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                2, -1);
-
     this->state = REQUEST_PARSED_FIRST_LINE;
+
+    return 1;
+}
+
+// Try to parse the first line of the HTTP request.
+// Returns:
+//   -1 on error.
+//    0 for more data.
+//    1 on completion.
+//    2 to bail successfully (for HTTP errors, which are "successful" from the
+//    perspective of a connection).
+static int8_t http_request_parse_headers(struct Connection* conn, struct io_uring* uring) {
+    assert(conn);
+    assert(uring);
+
+    struct HttpRequest* this = &conn->request;
+    struct Buffer* buf = &conn->recv_buf;
+
+    if (!buf_memmem(buf, HTTP_NEWLINE)) {
+        if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
+            return 0;
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_HEADER_TOO_LARGE, HTTP_RESPONSE_CLOSE), 2, -1);
+    }
+
+    while (buf->data[buf->head] != '\r' && buf->head != buf->tail) {
+        if (!buf_memmem(buf, HTTP_NEWLINE))
+            return 0;
+
+        char* name = (char*)buf_token_next(buf, ": ");
+        char* value = (char*)buf_token_next(buf, HTTP_NEWLINE);
+
+        if (strcasecmp(name, "Connection") == 0)
+            this->keep_alive = strcasecmp(value, "Keep-Alive") == 0;
+        else if (strcasecmp(name, "Host") == 0)
+            this->host = strndup(value, HTTP_REQUEST_HOST_MAX_LENGTH);
+    }
+
+    if (!buf_consume(buf, HTTP_NEWLINE))
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE), 2, -1);
+
+    this->state = REQUEST_PARSED_HEADERS;
 
     return 1;
 }
@@ -200,20 +255,27 @@ int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
     switch (this->state) {
     case REQUEST_INIT:
         rc = http_request_parse_first_line(conn, uring);
-        if (rc == -1 || rc == 0)
-            return rc;
-        else if (rc == 2)
+        if (rc == 2)
             return 1;
+        else if (rc != 1)
+            return rc;
         // fallthrough
     case REQUEST_PARSED_FIRST_LINE:
+        rc = http_request_parse_headers(conn, uring);
+        if (rc == 2)
+            return 1;
+        else if (rc != 1)
+            return rc;
         break;
+    case REQUEST_PARSED_HEADERS:
+        PANIC("TODO: Handle REQUEST_PARSED_HEADERS.");
     case REQUEST_CLOSING:
         return 1;
     default:
         break;
     }
 
-    PANIC("TODO");
+    PANIC("TODO: Handle whatever request did this.");
 }
 
 // Respond to a completed send event.
@@ -342,7 +404,7 @@ static bool http_response_prep_headers(struct Connection* conn,
         TRYB(http_response_prep_header_num(conn, "Content-Length",
                                            content_length));
     TRYB(http_response_prep_header(conn, "Content-Type",
-                                   http_content_type_name(this->content_type)));
+                                   http_content_type_name(this->response_content_type)));
 
     return true;
 }
@@ -407,7 +469,7 @@ static bool http_response_error_submit(struct Connection* conn,
     struct HttpRequest* this = &conn->request;
 
     this->state        = REQUEST_RESPONDING;
-    this->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
+    this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
     const char* body = http_response_error_make_body(conn, status);
     TRYB(body);
