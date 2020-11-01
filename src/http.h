@@ -16,7 +16,7 @@ enum HttpMethod {
 };
 
 #define HTTP_VERSION_ENUM                                                      \
-    _VERSION(INVALID_VERSION, "")                                              \
+    _VERSION(HTTP_VERSION_INVALID, "")                                         \
     _VERSION(HTTP_VERSION_10, "HTTP/1.0")                                      \
     _VERSION(HTTP_VERSION_11, "HTTP/1.1")
 

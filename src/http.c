@@ -63,6 +63,24 @@ static const char* http_version_string(enum HttpVersion version) {
     return NULL;
 }
 
+static enum HttpVersion http_version_parse(const uint8_t* str) {
+    assert(str && *str);
+
+    for (const uint8_t* sp = str; *sp; sp++)
+        if (!isprint(*sp))
+            return HTTP_VERSION_INVALID;
+
+    const char* version_str = (const char*)str;
+    for (size_t i = 0;
+         i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
+         i++) {
+        if (strcasecmp(version_str, HTTP_VERSION_STRINGS[i].str) == 0)
+            return HTTP_VERSION_STRINGS[i].version;
+    }
+
+    return HTTP_VERSION_INVALID;
+}
+
 static const char* http_status_reason(enum HttpStatus status) {
 #define _STATUS(CODE, TYPE, REASON) { CODE, REASON },
     static const struct {
@@ -118,7 +136,9 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
     this->keep_alive   = true;
     this->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
-    if (!buf_memmem(buf, (const uint8_t*)HTTP_NEWLINE, sizeof(HTTP_NEWLINE) - 1)) {
+    // If no CRLF has appeared so far, and the length of the data is
+    // permissible, bail and wait for more.
+    if (!buf_memmem(buf, HTTP_NEWLINE)) {
         if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
             return 0;
         return http_response_error_submit(conn, uring, HTTP_STATUS_URI_TOO_LONG,
@@ -140,7 +160,24 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
                                           HTTP_RESPONSE_ALLOW)
                    ? 2
                    : -1;
+    default:
+        break;
     }
+
+    this->version = http_version_parse(buf_token_next(buf, " "));
+    if (this->version == HTTP_VERSION_INVALID) {
+        log_msg(TRACE, "Got a bad HTTP version.");
+        return http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                          HTTP_RESPONSE_CLOSE)
+                   ? 2
+                   : -1;
+    }
+
+    if (!buf_consume(buf, HTTP_NEWLINE))
+        return http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                          HTTP_RESPONSE_CLOSE)
+                   ? 2
+                   : -1;
 
     PANIC("TODO: Parse rest of first line.");
 }

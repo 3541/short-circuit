@@ -153,10 +153,11 @@ void buf_read(struct Buffer* this, size_t len) {
 }
 
 // Similar to memmem, but handles wrapping of the buffer.
-uint8_t* buf_memmem(struct Buffer* this, const uint8_t* needle,
-                    size_t needle_len) {
+uint8_t* buf_memmem(struct Buffer* this, const char* needle) {
     assert(buf_initialized(this));
     assert(needle);
+
+    size_t needle_len = strnlen(needle, buf_len(this));
     assert(needle_len > 0);
 
     uint8_t* found =
@@ -207,6 +208,20 @@ uint8_t* buf_token_next(struct Buffer* this, const char* delim) {
     uint8_t* ret = &this->data[this->head];
     this->head   = last;
     return ret;
+}
+
+bool buf_consume(struct Buffer* this, const char* needle) {
+    assert(this);
+    assert(needle);
+
+    uint8_t* pos = buf_memmem(this, needle);
+    TRYB(pos);
+
+    if (pos - this->data != (ssize_t)this->head)
+        return false;
+
+    buf_read(this, strnlen(needle, buf_pending(this)));
+    return true;
 }
 
 void buf_free(struct Buffer* this) {

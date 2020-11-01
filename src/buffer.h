@@ -37,7 +37,8 @@ bool     buf_write_num(struct Buffer*, ssize_t);
 const uint8_t* buf_read_ptr(const struct Buffer*);
 uint8_t*       buf_read_ptr_mut(struct Buffer*);
 void           buf_read(struct Buffer*, size_t);
-uint8_t* buf_memmem(struct Buffer*, const uint8_t* needle, size_t needle_len);
-uint8_t* buf_token_next(struct Buffer*, const char* delim);
+uint8_t*       buf_memmem(struct Buffer*, const char* needle);
+uint8_t*       buf_token_next(struct Buffer*, const char* delim);
+bool           buf_consume(struct Buffer*, const char* needle);
 
 void buf_free(struct Buffer*);
