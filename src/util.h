@@ -44,10 +44,16 @@
         }                                                                      \
     } while (0)
 
-// Bubble up an error condition. Requires the caller and callee to return a
-// boolean.
+// Bubble up an error condition. Requires the caller to return a boolean and the
+// callee to return a falsy value on failure.
 #define TRYB(T)                                                                \
     do {                                                                       \
         if (!(T))                                                              \
             return false;                                                      \
+    } while (0);
+
+// Map a truthy/falsy return to something else.
+#define RET_MAP(F, T, E)                                                       \
+    do {                                                                       \
+        return F ? T : E;                                                      \
     } while (0);

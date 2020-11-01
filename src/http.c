@@ -141,25 +141,24 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
     if (!buf_memmem(buf, HTTP_NEWLINE)) {
         if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
             return 0;
-        return http_response_error_submit(conn, uring, HTTP_STATUS_URI_TOO_LONG,
-                                          HTTP_RESPONSE_CLOSE);
+        RET_MAP(http_response_error_submit(
+                    conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
+                2, -1);
     }
 
     this->method = http_request_method_parse(buf_token_next(buf, " "));
     switch (this->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
-        return http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                          HTTP_RESPONSE_CLOSE)
-                   ? 2
-                   : -1;
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
     case HTTP_METHOD_UNKNOWN:
         log_msg(TRACE, "Got an unknown method.");
-        return http_response_error_submit(conn, uring,
-                                          HTTP_STATUS_NOT_IMPLEMENTED,
-                                          HTTP_RESPONSE_ALLOW)
-                   ? 2
-                   : -1;
+        RET_MAP(http_response_error_submit(conn, uring,
+                                           HTTP_STATUS_NOT_IMPLEMENTED,
+                                           HTTP_RESPONSE_ALLOW),
+                2, -1);
     default:
         break;
     }
@@ -167,19 +166,23 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
     this->version = http_version_parse(buf_token_next(buf, " "));
     if (this->version == HTTP_VERSION_INVALID) {
         log_msg(TRACE, "Got a bad HTTP version.");
-        return http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                          HTTP_RESPONSE_CLOSE)
-                   ? 2
-                   : -1;
+        this->version = HTTP_VERSION_11;
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
+    } else if (this->version == HTTP_VERSION_10) {
+        // HTTP/1.0 is 'Connection: Close' by default.
+        this->keep_alive = false;
     }
 
     if (!buf_consume(buf, HTTP_NEWLINE))
-        return http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                          HTTP_RESPONSE_CLOSE)
-                   ? 2
-                   : -1;
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
 
-    PANIC("TODO: Parse rest of first line.");
+    this->state = REQUEST_PARSED_FIRST_LINE;
+
+    return 1;
 }
 
 // Try to parse as much of the HTTP request as possible.
@@ -201,6 +204,8 @@ int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
             return rc;
         else if (rc == 2)
             return 1;
+        // fallthrough
+    case REQUEST_PARSED_FIRST_LINE:
         break;
     case REQUEST_CLOSING:
         return 1;
