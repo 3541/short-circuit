@@ -267,9 +267,14 @@ static bool http_response_prep_date_header(struct Connection* conn) {
     struct Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, "Date: "));
+
     time_t current_time = time(NULL);
-    TRYB(strftime((char*)buf_write_ptr(buf), buf_space(buf),
-                  "%a, %d %b %Y %H:M:%S GMT", gmtime(&current_time)));
+    size_t written =
+        strftime((char*)buf_write_ptr(buf), buf_space(buf),
+                 "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time));
+    TRYB(written);
+    buf_wrote(buf, written);
+
     TRYB(buf_write_str(buf, HTTP_NEWLINE));
 
     return true;
