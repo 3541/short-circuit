@@ -145,8 +145,8 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
     struct HttpRequest* this = &conn->request;
     struct Buffer* buf       = &conn->recv_buf;
 
-    this->version      = HTTP_VERSION_11;
-    this->keep_alive   = true;
+    this->version               = HTTP_VERSION_11;
+    this->keep_alive            = true;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
     // If no CRLF has appeared so far, and the length of the data is
@@ -176,10 +176,13 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
         break;
     }
 
-    this->target = strndup((char*)buf_token_next(buf, " "), HTTP_REQUEST_URI_MAX_LENGTH + 1);
+    this->target = strndup((char*)buf_token_next(buf, " "),
+                           HTTP_REQUEST_URI_MAX_LENGTH + 1);
     if (strlen(this->target) > HTTP_REQUEST_URI_MAX_LENGTH) {
         log_msg(TRACE, "Request URI is too long.");
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE), 2, -1);
+        RET_MAP(http_response_error_submit(
+                    conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
+                2, -1);
     }
 
     this->version = http_version_parse(buf_token_next(buf, HTTP_NEWLINE));
@@ -206,24 +209,28 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
 //    1 on completion.
 //    2 to bail successfully (for HTTP errors, which are "successful" from the
 //    perspective of a connection).
-static int8_t http_request_parse_headers(struct Connection* conn, struct io_uring* uring) {
+static int8_t http_request_parse_headers(struct Connection* conn,
+                                         struct io_uring*   uring) {
     assert(conn);
     assert(uring);
 
     struct HttpRequest* this = &conn->request;
-    struct Buffer* buf = &conn->recv_buf;
+    struct Buffer* buf       = &conn->recv_buf;
 
     if (!buf_memmem(buf, HTTP_NEWLINE)) {
         if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
             return 0;
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_HEADER_TOO_LARGE, HTTP_RESPONSE_CLOSE), 2, -1);
+        RET_MAP(http_response_error_submit(conn, uring,
+                                           HTTP_STATUS_HEADER_TOO_LARGE,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
     }
 
     while (buf->data[buf->head] != '\r' && buf->head != buf->tail) {
         if (!buf_memmem(buf, HTTP_NEWLINE))
             return 0;
 
-        char* name = (char*)buf_token_next(buf, ": ");
+        char* name  = (char*)buf_token_next(buf, ": ");
         char* value = (char*)buf_token_next(buf, HTTP_NEWLINE);
 
         if (strcasecmp(name, "Connection") == 0)
@@ -233,7 +240,9 @@ static int8_t http_request_parse_headers(struct Connection* conn, struct io_urin
     }
 
     if (!buf_consume(buf, HTTP_NEWLINE))
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE), 2, -1);
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
 
     this->state = REQUEST_PARSED_HEADERS;
 
@@ -407,8 +416,9 @@ static bool http_response_prep_headers(struct Connection* conn,
     if (content_length >= 0)
         TRYB(http_response_prep_header_num(conn, "Content-Length",
                                            content_length));
-    TRYB(http_response_prep_header(conn, "Content-Type",
-                                   http_content_type_name(this->response_content_type)));
+    TRYB(http_response_prep_header(
+        conn, "Content-Type",
+        http_content_type_name(this->response_content_type)));
 
     return true;
 }
@@ -472,7 +482,7 @@ static bool http_response_error_submit(struct Connection* conn,
 
     struct HttpRequest* this = &conn->request;
 
-    this->state        = REQUEST_RESPONDING;
+    this->state                 = REQUEST_RESPONDING;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
     const char* body = http_response_error_make_body(conn, status);

@@ -28,7 +28,7 @@ static struct Connection* connection_new() {
         ret                 = connection_freelist;
         connection_freelist = ret->next;
         memset(ret, 0, sizeof(struct Connection));
-    } else if (connections_allocated < MAX_ALLOCATED_CONNECTIONS) {
+    } else if (connections_allocated < CONNECTION_MAX_ALLOCATED) {
         ret = calloc(1, sizeof(struct Connection));
     } else {
         ERR("Too many connections allocated.");

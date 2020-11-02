@@ -65,12 +65,12 @@ struct HttpRequest {
     enum HttpVersion version;
     enum HttpMethod  method;
     bool             keep_alive;
-    char* target;
+    char*            target;
     const char*      host;
 
     enum HttpContentType response_content_type;
 };
 
-void http_request_reset(struct HttpRequest*);
+void   http_request_reset(struct HttpRequest*);
 int8_t http_request_handle(struct Connection*, struct io_uring*);
 bool   http_response_handle(struct Connection*, struct io_uring*);
