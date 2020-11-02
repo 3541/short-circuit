@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+rm -rf build
+
+meson build/debug $@
+meson build/san -Db_sanitize=address,undefined $@
+meson build/release --buildtype=release $@
