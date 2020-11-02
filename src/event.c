@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <liburing.h>
 #include <stdbool.h>
+#include <string.h>
+#include <sys/utsname.h>
 
 #include "config.h"
 #include "util.h"
@@ -31,6 +33,27 @@ const char* event_type_name(enum EventType ty) {
                 #OP);                                                          \
     } while (0)
 
+// Check that the kernel is recent enough to support io_uring and
+// io_uring_probe.
+static void event_check_kver() {
+    struct utsname info;
+    UNWRAPSD(uname(&info));
+
+    char* release = strdup(info.release);
+
+    uint8_t version_major = strtol(strtok(info.release, "."), NULL, 10);
+    uint8_t version_minor = strtol(strtok(NULL, "."), NULL, 10);
+
+    if (version_major < MIN_KERNEL_VERSION_MAJOR ||
+        (version_major == MIN_KERNEL_VERSION_MAJOR &&
+         version_minor < MIN_KERNEL_VERSION_MINOR))
+        PANIC_FMT(
+            "Kernel version %s is not supported. At least %d.%d is required.",
+            release, MIN_KERNEL_VERSION_MAJOR, MIN_KERNEL_VERSION_MINOR);
+
+    free(release);
+}
+
 // All ops used should be checked here.
 static void event_check_ops() {
     struct io_uring_probe* probe = io_uring_get_probe();
@@ -38,9 +61,13 @@ static void event_check_ops() {
     REQUIRE_OP(probe, IORING_OP_ACCEPT);
     REQUIRE_OP(probe, IORING_OP_RECV);
     REQUIRE_OP(probe, IORING_OP_CLOSE);
+
+    free(probe);
 }
 
 struct io_uring event_init() {
+    event_check_kver();
+
     struct io_uring ret;
     UNWRAPSD(io_uring_queue_init(URING_ENTRIES, &ret, 0));
 
