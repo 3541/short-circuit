@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include "forward.h"
-#include "types.h"
+#include "socket.h"
 
 static const uintptr_t EVENT_PTR_IGNORE = 1;
 

@@ -15,7 +15,7 @@
 #include "event.h"
 #include "http.h"
 #include "log.h"
-#include "types.h"
+#include "socket.h"
 #include "util.h"
 
 static struct Connection* connection_freelist                   = NULL;

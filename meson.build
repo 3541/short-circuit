@@ -22,6 +22,7 @@ src = files([
              'src/connection.c',
              'src/event.c',
              'src/http.c',
+             'src/http_parse.c',
              'src/log.c',
              'src/socket.c'
            ])

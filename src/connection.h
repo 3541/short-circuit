@@ -7,7 +7,7 @@
 #include "event.h"
 #include "forward.h"
 #include "http.h"
-#include "types.h"
+#include "socket.h"
 
 // Callback types to submit events.
 typedef bool (*ConnectionSubmit)(struct Connection*, struct io_uring*,
