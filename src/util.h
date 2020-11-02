@@ -13,10 +13,7 @@
         exit(EXIT_FAILURE);                                                    \
     } while (0)
 
-#define PANIC(msg)                                                             \
-    do {                                                                       \
-        PANIC_FMT("%s", (msg));                                                \
-    } while (0)
+#define PANIC(msg) PANIC_FMT("%s", (msg))
 
 // "unwrap" a return value which is falsy on error, and assign to T on success.
 // This is useful for fatal errors (e.g., allocation failures).

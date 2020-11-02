@@ -7,8 +7,7 @@ project(
     'warning_level=3',
     'werror=true',
     'buildtype=debug',
-    'b_pie=true',
-    'b_lto=true'
+    'b_ndebug=if-release'
   ]
 )
 

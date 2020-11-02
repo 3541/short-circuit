@@ -252,6 +252,7 @@ int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
     struct HttpRequest* this = &conn->request;
     int8_t rc                = -1;
 
+    // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case REQUEST_INIT:
         rc = http_request_parse_first_line(conn, uring);
@@ -266,15 +267,18 @@ int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
             return 1;
         else if (rc != 1)
             return rc;
-        break;
+        // fallthrough
     case REQUEST_PARSED_HEADERS:
         PANIC("TODO: Handle REQUEST_PARSED_HEADERS.");
+        break;
+    case REQUEST_RESPONDING:
+        PANIC("TODO: Handle REQUEST_RESPONDING.");
+        break;
     case REQUEST_CLOSING:
         return 1;
-    default:
-        break;
     }
 
+    log_fmt(TRACE, "State: %d", this->state);
     PANIC("TODO: Handle whatever request did this.");
 }
 
