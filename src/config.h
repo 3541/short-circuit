@@ -26,3 +26,4 @@ static const size_t HTTP_REQUEST_LINE_MAX_LENGTH   = 2048;
 static const size_t HTTP_REQUEST_HEADER_MAX_LENGTH = 2048;
 static const size_t HTTP_REQUEST_HOST_MAX_LENGTH   = 512;
 static const size_t HTTP_REQUEST_URI_MAX_LENGTH    = 512;
+static const size_t HTTP_REQUEST_CONTENT_MAX_LENGTH = 10240;

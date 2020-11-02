@@ -22,6 +22,18 @@ static bool http_response_close_submit(struct Connection*, struct io_uring*);
 static bool http_response_error_submit(struct Connection*, struct io_uring*,
                                        enum HttpStatus, bool close);
 
+static void http_request_init(struct HttpRequest* this) {
+    assert(this);
+
+    this->state                       = REQUEST_INIT;
+    this->version                     = HTTP_VERSION_11;
+    this->keep_alive                  = true;
+    this->content_length              = -1;
+    this->transfer_encodings          = HTTP_TRANSFER_ENCODING_IDENTITY;
+    this->response_transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
+    this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
+}
+
 void http_request_reset(struct HttpRequest* this) {
     assert(this);
 
@@ -38,7 +50,7 @@ void http_request_reset(struct HttpRequest* this) {
 static const struct {
     enum HttpMethod method;
     const char*     name;
-} HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM{ 0, "" } };
+} HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
 static enum HttpMethod http_request_method_parse(const uint8_t* str) {
@@ -62,7 +74,7 @@ static enum HttpMethod http_request_method_parse(const uint8_t* str) {
 static const struct {
     enum HttpVersion version;
     const char*      str;
-} HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM{ 0, "" } };
+} HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
 static const char* http_version_string(enum HttpVersion version) {
@@ -91,7 +103,7 @@ static enum HttpVersion http_version_parse(const uint8_t* str) {
             return HTTP_VERSION_STRINGS[i].version;
     }
 
-    return HTTP_VERSION_INVALID;
+    return HTTP_VERSION_UNKNOWN;
 }
 
 static const char* http_status_reason(enum HttpStatus status) {
@@ -105,7 +117,7 @@ static const char* http_status_reason(enum HttpStatus status) {
     for (size_t i = 0;
          i < sizeof(HTTP_STATUS_REASONS) / sizeof(HTTP_STATUS_REASONS[0]);
          i++) {
-        if (HTTP_STATUS_REASONS[i].status == status)
+        if (status == HTTP_STATUS_REASONS[i].status)
             return HTTP_STATUS_REASONS[i].reason;
     }
 
@@ -116,18 +128,36 @@ static const char* http_status_reason(enum HttpStatus status) {
 static const struct {
     enum HttpContentType type;
     const char*          str;
-} HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM{ 0, NULL } };
+} HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 
 static const char* http_content_type_name(enum HttpContentType type) {
     for (size_t i = 0; i < sizeof(HTTP_CONTENT_TYPE_NAMES) /
                                sizeof(HTTP_CONTENT_TYPE_NAMES[0]);
          i++) {
-        if (HTTP_CONTENT_TYPE_NAMES[i].type == type)
+        if (type == HTTP_CONTENT_TYPE_NAMES[i].type)
             return HTTP_CONTENT_TYPE_NAMES[i].str;
     }
 
     return NULL;
+}
+
+#define _TENCODING(E, S) { HTTP_##E, S },
+static const struct {
+    HttpTransferEncoding encoding;
+    const char*          value;
+} HTTP_TRANSFER_ENCODING_VALUES[] = { HTTP_TRANSFER_ENCODING_ENUM };
+#undef _TENCODING
+
+static HttpTransferEncoding http_transfer_encoding_parse(const char* value) {
+    for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
+                               sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
+         i++) {
+        if (strcasecmp(value, HTTP_TRANSFER_ENCODING_VALUES[i].value) == 0)
+            return HTTP_TRANSFER_ENCODING_VALUES[i].encoding;
+    }
+
+    return HTTP_TRANSFER_ENCODING_INVALID;
 }
 
 // Try to parse the first line of the HTTP request.
@@ -144,10 +174,6 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
 
     struct HttpRequest* this = &conn->request;
     struct Buffer* buf       = &conn->recv_buf;
-
-    this->version               = HTTP_VERSION_11;
-    this->keep_alive            = true;
-    this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
@@ -172,6 +198,11 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_ALLOW),
                 2, -1);
+    case HTTP_METHOD_BREW:
+        log_msg(TRACE, "I'm a teapot.");
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_IM_A_TEAPOT,
+                                           HTTP_RESPONSE_ALLOW),
+                2, -1);
     default:
         break;
     }
@@ -186,12 +217,17 @@ static int8_t http_request_parse_first_line(struct Connection* conn,
     }
 
     this->version = http_version_parse(buf_token_next(buf, HTTP_NEWLINE));
-    if (this->version == HTTP_VERSION_INVALID) {
+    if (this->version == HTTP_VERSION_INVALID ||
+        this->version == HTTP_VERSION_UNKNOWN) {
         log_msg(TRACE, "Got a bad HTTP version.");
         this->version = HTTP_VERSION_11;
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                2, -1);
+        RET_MAP(
+            http_response_error_submit(conn, uring,
+                                       (this->version == HTTP_VERSION_INVALID)
+                                           ? HTTP_STATUS_BAD_REQUEST
+                                           : HTTP_STATUS_VERSION_NOT_SUPPORTED,
+                                       HTTP_RESPONSE_CLOSE),
+            2, -1);
     } else if (this->version == HTTP_VERSION_10) {
         // HTTP/1.0 is 'Connection: Close' by default.
         this->keep_alive = false;
@@ -233,16 +269,66 @@ static int8_t http_request_parse_headers(struct Connection* conn,
         char* name  = (char*)buf_token_next(buf, ": ");
         char* value = (char*)buf_token_next(buf, HTTP_NEWLINE);
 
+        // TODO: Handle general headers.
         if (strcasecmp(name, "Connection") == 0)
             this->keep_alive = strcasecmp(value, "Keep-Alive") == 0;
         else if (strcasecmp(name, "Host") == 0)
             this->host = strndup(value, HTTP_REQUEST_HOST_MAX_LENGTH);
+        else if (strcasecmp(name, "Transfer-Encoding") == 0)
+            this->transfer_encodings |= http_transfer_encoding_parse(value);
+        else if (strcasecmp(name, "Content-Length") == 0) {
+            char*   endptr     = NULL;
+            ssize_t new_length = strtol(value, &endptr, 10);
+
+            // RFC 7230 § 3.3.3, step 4: Invalid or conflicting Content-Length
+            // -> 400.
+            if (*endptr != '\0' || (this->content_length != -1 &&
+                                    this->content_length != new_length))
+                RET_MAP(http_response_error_submit(conn, uring,
+                                                   HTTP_STATUS_BAD_REQUEST,
+                                                   HTTP_RESPONSE_CLOSE),
+                        2, -1);
+
+            if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
+                RET_MAP(http_response_error_submit(
+                            conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                            HTTP_RESPONSE_CLOSE),
+                        2, -1);
+
+            this->content_length = new_length;
+        }
     }
 
     if (!buf_consume(buf, HTTP_NEWLINE))
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 2, -1);
+
+    // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
+    // a request, and the server MUST respond with a 400.
+    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
+        (this->transfer_encodings & HTTP_TRANSFER_ENCODING_CHUNKED) == 0)
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
+
+    // RFC7230 § 3.3.3, step 3: Transfer-Encoding overrides Content-Length.
+    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
+        this->content_length >= 0)
+        this->content_length = -1;
+
+    // TODO: Support other transfer encodings.
+    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0)
+        RET_MAP(http_response_error_submit(conn, uring,
+                                           HTTP_STATUS_NOT_IMPLEMENTED,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
+
+    // RFC7230 § 3.3.3, step 6: default to Content-Length of 0.
+    if (this->content_length == -1 &&
+        ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) == 0)) {
+        this->content_length = 0;
+    }
 
     this->state = REQUEST_PARSED_HEADERS;
 
@@ -264,6 +350,7 @@ int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case REQUEST_INIT:
+        http_request_init(this);
         rc = http_request_parse_first_line(conn, uring);
         if (rc == 2)
             return 1;
