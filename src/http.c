@@ -283,7 +283,7 @@ static int8_t http_request_parse_headers(struct Connection* conn,
             this->host = strndup(value, HTTP_REQUEST_HOST_MAX_LENGTH);
 
             // ibid. Invalid field-value -> 400.
-            for (char* sp = this->host; sp && *sp; sp++)
+            for (const char* sp = this->host; sp && *sp; sp++)
                 if (!isgraph(*sp))
                     RET_MAP(http_response_error_submit(conn, uring,
                                                        HTTP_STATUS_BAD_REQUEST,
