@@ -11,8 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
       - name: deps
-        run: sudo apt-get -y install meson ninja-build
+        run: pip install meson ninja
       - name: configure
         run: ./configure
       - name: build-debug
