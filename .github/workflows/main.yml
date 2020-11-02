@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: deps
-        run: sudo apt-get -y install meson ninja
+        run: sudo apt-get -y install meson ninja-build
       - name: configure
         run: ./configure
       - name: build-debug
