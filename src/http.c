@@ -272,9 +272,24 @@ static int8_t http_request_parse_headers(struct Connection* conn,
         // TODO: Handle general headers.
         if (strcasecmp(name, "Connection") == 0)
             this->keep_alive = strcasecmp(value, "Keep-Alive") == 0;
-        else if (strcasecmp(name, "Host") == 0)
+        else if (strcasecmp(name, "Host") == 0) {
+            // RFC7230 § 5.4: >1 Host header -> 400.
+            if (this->host)
+                RET_MAP(http_response_error_submit(conn, uring,
+                                                   HTTP_STATUS_BAD_REQUEST,
+                                                   HTTP_RESPONSE_CLOSE),
+                        2, -1)
+
             this->host = strndup(value, HTTP_REQUEST_HOST_MAX_LENGTH);
-        else if (strcasecmp(name, "Transfer-Encoding") == 0)
+
+            // ibid. Invalid field-value -> 400.
+            for (char* sp = this->host; sp && *sp; sp++)
+                if (!isgraph(*sp))
+                    RET_MAP(http_response_error_submit(conn, uring,
+                                                       HTTP_STATUS_BAD_REQUEST,
+                                                       HTTP_RESPONSE_CLOSE),
+                            2, -1);
+        } else if (strcasecmp(name, "Transfer-Encoding") == 0)
             this->transfer_encodings |= http_transfer_encoding_parse(value);
         else if (strcasecmp(name, "Content-Length") == 0) {
             char*   endptr     = NULL;
@@ -312,7 +327,7 @@ static int8_t http_request_parse_headers(struct Connection* conn,
                                            HTTP_RESPONSE_CLOSE),
                 2, -1);
 
-    // RFC7230 § 3.3.3, step 3: Transfer-Encoding overrides Content-Length.
+    // ibid.
     if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
         this->content_length >= 0)
         this->content_length = -1;
@@ -329,6 +344,12 @@ static int8_t http_request_parse_headers(struct Connection* conn,
         ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) == 0)) {
         this->content_length = 0;
     }
+
+    // RFC7230 § 5.4: HTTP/1.1 messages must have a Host header.
+    if (this->version == HTTP_VERSION_11 && !this->host)
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
 
     this->state = REQUEST_PARSED_HEADERS;
 
