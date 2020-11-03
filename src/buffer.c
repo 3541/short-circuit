@@ -11,21 +11,24 @@
 
 // TODO: This should probably hand out slices of a pre-registered buffer of some
 // kind, to reduce the overhead of malloc and of mapping buffers into kernel
-// memory. For now, it just allocates a buffer.
-bool buf_init(struct Buffer* this, size_t cap) {
+// memory. For now, it just allocates or initializes a buffer. A buffer can be
+// overlaid on existing memory by passing it to buf_init with a non-null data
+// field. In such cases, care should be taken not to trigger an unintended
+// resize (and thus copy).
+bool buf_init(struct Buffer* this, size_t cap, size_t max_cap) {
     assert(!buf_initialized(this));
 
     if (!this->data)
-        this->data = calloc(cap, sizeof(uint8_t));
-    if (!this->data)
-        return false;
+        TRYB(this->data = calloc(cap, sizeof(uint8_t)));
     this->cap = cap;
+    this->max_cap = max_cap;
 
     return true;
 }
 
 bool buf_initialized(const struct Buffer* this) {
     assert(this);
+    assert(this->head <= this->tail);
 
     return this->data;
 }
@@ -37,57 +40,86 @@ void buf_reset(struct Buffer* this) {
     this->tail = 0;
 }
 
+bool buf_reset_if_empty(struct Buffer* this) {
+    assert(buf_initialized(this));
+
+    if (this->head != this->tail)
+        return false;
+
+    buf_reset(this);
+    return true;
+}
+
 // Length of the contents of the buffer.
 size_t buf_len(const struct Buffer* this) {
     assert(buf_initialized(this));
-    return (this->tail >= this->head) ? this->tail - this->head
-                                      : this->cap - (this->head - this->tail);
-}
-
-// Length readable in a single read (i.e., contiguous data).
-size_t buf_pending(const struct Buffer* this) {
-    assert(buf_initialized(this));
-    return (this->tail >= this->head) ? this->tail - this->head
-                                      : this->cap - this->head;
+    return this->tail - this->head;
 }
 
 // Total available capacity for writing.
 size_t buf_cap(const struct Buffer* this) {
     assert(buf_initialized(this));
-    return this->cap - buf_len(this) - 1;
+    return this->cap - buf_len(this);
 }
 
 // Available space for a single write (i.e., continguous space).
-size_t buf_space(const struct Buffer* this) {
+size_t buf_space(struct Buffer* this) {
     assert(buf_initialized(this));
-    return (this->tail >= this->head) ? this->cap - this->tail - !this->head
-                                      : this->head - this->tail - 1;
+
+    buf_reset_if_empty(this);
+    return this->cap - this->tail;
+}
+
+// Compact the contents to the start of the buffer.
+static bool buf_compact(struct Buffer* this) {
+    assert(buf_initialized(this));
+    assert(this->head != 0);
+
+    return memmove(this->data, &this->data[this->head], buf_len(this));
+}
+
+// Attempt to grow the buffer to fit at least min_extra_cap more bytes.
+bool buf_ensure_cap(struct Buffer* this, size_t min_extra_cap) {
+    assert(buf_initialized(this));
+
+    if (buf_space(this) >= min_extra_cap)
+        return true;
+    // Nope.
+    if (this->cap + min_extra_cap > this->max_cap)
+        return false;
+
+    if (buf_cap(this) >= min_extra_cap)
+        return buf_compact(this);
+
+    uint8_t* new_data = realloc(this->data, MIN(this->cap * 2, this->max_cap));
+    TRYB(new_data);
+    this->data = new_data;
+
+    return true;
 }
 
 // Pointer for writing into the buffer.
 uint8_t* buf_write_ptr(struct Buffer* this) {
     assert(this);
 
+    buf_reset_if_empty(this);
     return this->data + this->tail;
 }
 
 // Bytes have been written into the buffer.
 void buf_wrote(struct Buffer* this, size_t len) {
     assert(buf_initialized(this));
-    assert(this->tail + len <= this->cap);
+    assert(this->tail + len < this->cap);
 
     this->tail += len;
-    this->tail %= this->cap;
 }
 
 bool buf_write_byte(struct Buffer* this, uint8_t byte) {
     assert(buf_initialized(this));
 
-    if (buf_space(this) < 1)
-        return false;
+    TRYB(buf_ensure_cap(this, 1));
 
     this->data[this->tail++] = byte;
-    this->tail %= this->cap;
 
     return true;
 }
@@ -95,13 +127,12 @@ bool buf_write_byte(struct Buffer* this, uint8_t byte) {
 bool buf_write_str(struct Buffer* this, const char* str) {
     assert(buf_initialized(this));
 
-    size_t len = strnlen(str, buf_cap(this) + 1);
-    if (len > buf_cap(this))
-        PANIC("TODO: Buffer growing.");
-    size_t i = 0;
-    for (; i < len; i++)
-        this->data[(this->tail + i) % this->cap] = str[i];
+    size_t len = strnlen(str, this->max_cap + 1);
+    if (len + buf_len(this) > this->max_cap)
+        return false;
+    TRYB(buf_ensure_cap(this, len));
 
+    TRYB(memcpy(buf_write_ptr(this), str, len));
     buf_wrote(this, len);
     return true;
 }
@@ -150,10 +181,9 @@ void buf_read(struct Buffer* this, size_t len) {
     assert(this->head + len <= this->cap);
 
     this->head += len;
-    this->head %= this->cap;
+    buf_reset_if_empty(this);
 }
 
-// Similar to memmem, but handles wrapping of the buffer.
 uint8_t* buf_memmem(struct Buffer* this, const char* needle) {
     assert(buf_initialized(this));
     assert(needle);
@@ -164,16 +194,7 @@ uint8_t* buf_memmem(struct Buffer* this, const char* needle) {
     size_t needle_len = strnlen(needle, buf_len(this));
     assert(needle_len > 0);
 
-    uint8_t* found =
-        memmem(&this->data[this->head], buf_pending(this), needle, needle_len);
-    if (found)
-        return found;
-
-    // Not wrapped, so there's no needle.
-    if (buf_len(this) == buf_pending(this))
-        return NULL;
-    return memmem(this->data, buf_len(this) - buf_pending(this), needle,
-                  needle_len);
+    return memmem(&this->data[this->head], buf_len(this), needle, needle_len);
 }
 
 // Get a token from the buffer. NOTE: This updates the head of the buffer, so
@@ -194,20 +215,14 @@ uint8_t* buf_token_next(struct Buffer* this, const char* delim) {
     // Find following delimiter.
     size_t end = this->head;
     for (; end < this->tail && !strchr(delim, this->data[end]);
-         end = (end + 1) % this->cap)
+         end++)
         ;
 
     // Zero out all delimiters.
     size_t last = end;
     for (; last < this->tail && strchr(delim, this->data[last]);
-         last = (last + 1) % this->cap)
+         last++)
         this->data[last] = '\0';
-
-    // In this case, the buffer probably needs to be grown to fit the whole
-    // token contiguously, and then the rest of the contents moved to the
-    // beginning of the buffer.
-    if (end < this->head)
-        PANIC("TODO: Handle wrapping in buf_token_next.");
 
     uint8_t* ret = &this->data[this->head];
     this->head   = last;
@@ -224,7 +239,7 @@ bool buf_consume(struct Buffer* this, const char* needle) {
     if (pos - this->data != (ssize_t)this->head)
         return false;
 
-    buf_read(this, strnlen(needle, buf_pending(this)));
+    buf_read(this, strnlen(needle, buf_len(this)));
     return true;
 }
 

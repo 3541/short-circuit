@@ -81,34 +81,8 @@ bool connection_send_submit(struct Connection* this, struct io_uring* uring,
     assert(this);
     assert(uring);
 
-    // Need to restore the buffer state, since it shouldn't be consumed until
-    // the event returns. Nevertheless, we want to use the nice API here.
-    struct Buffer prev_buf_state = this->send_buf;
-
-    struct Buffer* buf     = &this->send_buf;
-    size_t         len     = buf_len(buf);
-    size_t         pending = buf_pending(buf);
-    // If the buffer is wrapped, this submission will require two linked events.
-    int send_flags = flags;
-    if (len > pending)
-        send_flags |= IOSQE_IO_LINK;
-
-    TRYB(event_send_submit(&this->last_event, uring, this->socket,
-                           buf_read_ptr(buf), pending, send_flags));
-    buf_read(buf, pending);
-
-    if (len > pending) {
-        buf_read(&prev_buf_state, pending); // No event for linked chains.
-
-        TRYB(event_send_submit(&this->last_event, uring, this->socket,
-                               buf_read_ptr(buf), buf_pending(buf), flags));
-        buf_read(buf, buf_pending(buf));
-    }
-
-    assert(buf_len(buf) == 0);
-
-    this->send_buf = prev_buf_state;
-    return true;
+    struct Buffer* buf = &this->send_buf;
+    return event_send_submit(&this->last_event, uring, this->socket, buf_read_ptr(buf), buf_len(buf), flags);
 }
 
 static bool connection_send_handle(struct Connection* this,
@@ -152,13 +126,13 @@ static void connection_close_handle(struct Connection* this,
 static bool connection_recv_buf_init(struct Connection* this) {
     assert(this);
 
-    return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY);
+    return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY, RECV_BUF_MAX_CAPACITY);
 }
 
 bool connection_send_buf_init(struct Connection* this) {
     assert(this);
 
-    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY);
+    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY, SEND_BUF_MAX_CAPACITY);
 }
 
 // Submit a request to receive as much data as the buffer can handle.
