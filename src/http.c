@@ -10,6 +10,7 @@
 #include "config.h"
 #include "connection.h"
 #include "http_parse.h"
+#include "uri.h"
 #include "util.h"
 
 static bool http_response_close_submit(struct Connection*, struct io_uring*);
@@ -32,8 +33,8 @@ void http_request_reset(struct HttpRequest* this) {
     if (this->host)
         free((char*)this->host);
 
-    if (this->target)
-        free(this->target);
+    if (uri_is_initialized(&this->target))
+        uri_free(&this->target);
 
     memset(this, 0, sizeof(struct HttpRequest));
 }
@@ -268,6 +269,9 @@ bool http_response_error_submit(struct Connection* conn, struct io_uring* uring,
     assert(conn);
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
+
+    log_fmt(DEBUG, "HTTP error %d. %s", status,
+            close ? "Closing connection." : "");
 
     struct HttpRequest* this = &conn->request;
 

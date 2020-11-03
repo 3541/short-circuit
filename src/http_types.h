@@ -39,6 +39,7 @@ enum HttpContentType {
 #define HTTP_STATUS_ENUM                                                       \
     _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                           \
     _STATUS(400, HTTP_STATUS_BAD_REQUEST, "Bad Request")                       \
+    _STATUS(404, HTTP_STATUS_NOT_FOUND, "Not Found")                           \
     _STATUS(413, HTTP_STATUS_PAYLOAD_TOO_LARGE, "Payload Too Large")           \
     _STATUS(414, HTTP_STATUS_URI_TOO_LONG, "URI Too Long")                     \
     _STATUS(418, HTTP_STATUS_IM_A_TEAPOT, "I'm a teapot")                      \

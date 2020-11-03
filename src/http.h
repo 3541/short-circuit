@@ -6,6 +6,7 @@
 
 #include "forward.h"
 #include "http_types.h"
+#include "uri.h"
 
 #define HTTP_NEWLINE "\r\n"
 
@@ -22,7 +23,7 @@ struct HttpRequest {
 
     enum HttpVersion version;
     enum HttpMethod  method;
-    char*            target;
+    struct Uri       target;
 
     bool                 keep_alive;
     const char*          host;

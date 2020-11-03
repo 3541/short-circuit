@@ -24,7 +24,8 @@ src = files([
              'src/http.c',
              'src/http_parse.c',
              'src/log.c',
-             'src/socket.c'
+             'src/socket.c',
+             'src/uri.c'
            ])
 
 executable(

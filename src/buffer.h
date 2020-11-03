@@ -15,7 +15,7 @@ struct Buffer {
     size_t   tail;
     size_t   head;
     size_t   cap;
-    size_t max_cap;
+    size_t   max_cap;
 };
 
 bool buf_init(struct Buffer*, size_t cap, size_t max_cap);
@@ -42,6 +42,8 @@ uint8_t*       buf_read_ptr_mut(struct Buffer*);
 void           buf_read(struct Buffer*, size_t);
 uint8_t*       buf_memmem(struct Buffer*, const char* needle);
 uint8_t*       buf_token_next(struct Buffer*, const char* delim);
+uint8_t*       buf_token_next_copy(struct Buffer*, const char* delim);
+char*          buf_token_next_str(struct Buffer*, const char* delim);
 bool           buf_consume(struct Buffer*, const char* needle);
 
 void buf_free(struct Buffer*);

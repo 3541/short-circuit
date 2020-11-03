@@ -11,19 +11,14 @@
 #include "socket.h"
 #include "util.h"
 
-void usage(const char* name) {
-    printf("Usage:\n\t%s [:port]\n", name);
-    exit(EXIT_FAILURE);
-}
+const char*  WEB_ROOT;
+const size_t WEB_ROOT_LENGTH;
 
-int main(int argc, char** argv) {
+int main(void) {
     int port = DEFAULT_LISTEN_PORT;
-    if (argc > 1) {
-        if (argv[1][0] != ':')
-            usage(argv[0]);
 
-        port = atoi(&argv[1][1]);
-    }
+    WEB_ROOT                   = realpath(DEFAULT_WEB_ROOT, NULL);
+    *(size_t*)&WEB_ROOT_LENGTH = strlen(WEB_ROOT);
 
     log_init(stdout);
 

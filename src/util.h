@@ -1,10 +1,15 @@
 #pragma once
 
+#include <ctype.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "log.h"
+
+#define ALLOW_UNUSED __attribute__((unused))
+#define INLINE       static inline ALLOW_UNUSED
 
 // Abort with a message.
 #define PANIC_FMT(fmt, ...)                                                    \
@@ -29,6 +34,13 @@
 #define UNWRAPSD(X)                                                            \
     do {                                                                       \
         if ((X) < 0) {                                                         \
+            PANIC_FMT("UNWRAP(%s)", #X);                                       \
+        }                                                                      \
+    } while (0)
+
+#define UNWRAPND(X)                                                            \
+    do {                                                                       \
+        if (!(X)) {                                                            \
             PANIC_FMT("UNWRAP(%s)", #X);                                       \
         }                                                                      \
     } while (0)
@@ -61,3 +73,12 @@
     do {                                                                       \
         return F ? T : E;                                                      \
     } while (0);
+
+INLINE bool bytes_are_string(const uint8_t* bytes) {
+    if (!bytes)
+        return false;
+    for (const uint8_t* sp = bytes; *sp; sp++)
+        TRYB(isascii(*sp));
+
+    return true;
+}

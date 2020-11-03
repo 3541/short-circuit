@@ -8,6 +8,8 @@
 #include "config.h"
 #include "connection.h"
 #include "http.h"
+#include "http_types.h"
+#include "uri.h"
 #include "util.h"
 
 #define _METHOD(M, N) { M, N },
@@ -20,9 +22,7 @@ static const struct {
 static enum HttpMethod http_request_method_parse(const uint8_t* str) {
     assert(str && *str);
 
-    for (const uint8_t* sp = str; *sp; sp++)
-        if (!isalpha(*sp))
-            return HTTP_METHOD_INVALID;
+    TRYB_MAP(bytes_are_string(str), HTTP_METHOD_INVALID);
 
     const char* method_str = (const char*)str;
     for (size_t i = 0;
@@ -55,9 +55,7 @@ const char* http_version_string(enum HttpVersion version) {
 static enum HttpVersion http_version_parse(const uint8_t* str) {
     assert(str && *str);
 
-    for (const uint8_t* sp = str; *sp; sp++)
-        if (!isprint(*sp))
-            return HTTP_VERSION_INVALID;
+    TRYB_MAP(bytes_are_string(str), HTTP_VERSION_INVALID);
 
     const char* version_str = (const char*)str;
     for (size_t i = 0;
@@ -114,6 +112,8 @@ static const struct {
 #undef _TENCODING
 
 static HttpTransferEncoding http_transfer_encoding_parse(const char* value) {
+    assert(value && *value);
+
     for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
                                sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
          i++) {
@@ -171,14 +171,28 @@ int8_t http_request_first_line_parse(struct Connection* conn,
         break;
     }
 
-    this->target = strndup((char*)buf_token_next(buf, " "),
-                           HTTP_REQUEST_URI_MAX_LENGTH + 1);
-    if (strlen(this->target) > HTTP_REQUEST_URI_MAX_LENGTH) {
-        log_msg(TRACE, "Request URI is too long.");
+    uint8_t* target_str = buf_token_next(buf, " ");
+    if (!target_str)
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_CLOSE),
+                2, -1);
+    switch (uri_parse(&this->target, target_str)) {
+    case URI_PARSE_BAD_URI:
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
+                                           HTTP_RESPONSE_ALLOW),
+                2, -1);
+    case URI_PARSE_TOO_LONG:
         RET_MAP(http_response_error_submit(
                     conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
                 2, -1);
+    default:
+        break;
     }
+
+    if (!uri_path_is_contained(&this->target, WEB_ROOT, WEB_ROOT_LENGTH))
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
+                                           HTTP_RESPONSE_ALLOW),
+                2, -1);
 
     this->version = http_version_parse(buf_token_next(buf, HTTP_NEWLINE));
     if (this->version == HTTP_VERSION_INVALID ||
@@ -230,8 +244,14 @@ int8_t http_request_headers_parse(struct Connection* conn,
         if (!buf_memmem(buf, HTTP_NEWLINE))
             return 0;
 
-        char* name  = (char*)buf_token_next(buf, ": ");
-        char* value = (char*)buf_token_next(buf, HTTP_NEWLINE);
+        uint8_t* name_bytes  = buf_token_next(buf, ": ");
+        uint8_t* value_bytes = buf_token_next(buf, HTTP_NEWLINE);
+
+        TRYB(bytes_are_string(name_bytes));
+        TRYB(bytes_are_string(value_bytes));
+
+        char* name  = (char*)name_bytes;
+        char* value = (char*)value_bytes;
 
         // TODO: Handle general headers.
         if (strcasecmp(name, "Connection") == 0)
@@ -253,9 +273,14 @@ int8_t http_request_headers_parse(struct Connection* conn,
                                                        HTTP_STATUS_BAD_REQUEST,
                                                        HTTP_RESPONSE_CLOSE),
                             2, -1);
-        } else if (strcasecmp(name, "Transfer-Encoding") == 0)
+        } else if (strcasecmp(name, "Transfer-Encoding") == 0) {
             this->transfer_encodings |= http_transfer_encoding_parse(value);
-        else if (strcasecmp(name, "Content-Length") == 0) {
+            if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
+                RET_MAP(http_response_error_submit(conn, uring,
+                                                   HTTP_STATUS_BAD_REQUEST,
+                                                   HTTP_RESPONSE_CLOSE),
+                        2, -1);
+        } else if (strcasecmp(name, "Content-Length") == 0) {
             char*   endptr     = NULL;
             ssize_t new_length = strtol(value, &endptr, 10);
 

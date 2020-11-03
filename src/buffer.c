@@ -16,11 +16,9 @@
 // field. In such cases, care should be taken not to trigger an unintended
 // resize (and thus copy).
 bool buf_init(struct Buffer* this, size_t cap, size_t max_cap) {
-    assert(!buf_initialized(this));
-
     if (!this->data)
         TRYB(this->data = calloc(cap, sizeof(uint8_t)));
-    this->cap = cap;
+    this->cap     = cap;
     this->max_cap = max_cap;
 
     return true;
@@ -214,19 +212,32 @@ uint8_t* buf_token_next(struct Buffer* this, const char* delim) {
 
     // Find following delimiter.
     size_t end = this->head;
-    for (; end < this->tail && !strchr(delim, this->data[end]);
-         end++)
+    for (; end < this->tail && !strchr(delim, this->data[end]); end++)
         ;
 
     // Zero out all delimiters.
     size_t last = end;
-    for (; last < this->tail && strchr(delim, this->data[last]);
-         last++)
+    for (; last < this->tail && strchr(delim, this->data[last]); last++)
         this->data[last] = '\0';
 
     uint8_t* ret = &this->data[this->head];
     this->head   = last;
     return ret;
+}
+
+uint8_t* buf_token_next_copy(struct Buffer* this, const char* delim) {
+    uint8_t* ret_orig = buf_token_next(this, delim);
+    size_t   len      = strnlen((const char*)ret_orig, buf_len(this));
+
+    uint8_t* ret = calloc(len, sizeof(uint8_t));
+    memcpy(ret, ret_orig, len + 1);
+    return ret;
+}
+
+char* buf_token_next_str(struct Buffer* this, const char* delim) {
+    uint8_t* ret_bytes = buf_token_next(this, delim);
+    TRYB_MAP(bytes_are_string(ret_bytes), NULL);
+    return (char*)ret_bytes;
 }
 
 bool buf_consume(struct Buffer* this, const char* needle) {

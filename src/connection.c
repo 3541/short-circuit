@@ -82,7 +82,8 @@ bool connection_send_submit(struct Connection* this, struct io_uring* uring,
     assert(uring);
 
     struct Buffer* buf = &this->send_buf;
-    return event_send_submit(&this->last_event, uring, this->socket, buf_read_ptr(buf), buf_len(buf), flags);
+    return event_send_submit(&this->last_event, uring, this->socket,
+                             buf_read_ptr(buf), buf_len(buf), flags);
 }
 
 static bool connection_send_handle(struct Connection* this,
@@ -126,13 +127,15 @@ static void connection_close_handle(struct Connection* this,
 static bool connection_recv_buf_init(struct Connection* this) {
     assert(this);
 
-    return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY, RECV_BUF_MAX_CAPACITY);
+    return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
+                    RECV_BUF_MAX_CAPACITY);
 }
 
 bool connection_send_buf_init(struct Connection* this) {
     assert(this);
 
-    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY, SEND_BUF_MAX_CAPACITY);
+    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
+                    SEND_BUF_MAX_CAPACITY);
 }
 
 // Submit a request to receive as much data as the buffer can handle.
