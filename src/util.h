@@ -49,6 +49,13 @@
             return false;                                                      \
     } while (0);
 
+// Bubble up an error condition, mapping the error to the given value.
+#define TRYB_MAP(T, E)                                                         \
+    do {                                                                       \
+        if (!(T))                                                              \
+            return E;                                                          \
+    } while (0);
+
 // Map a truthy/falsy return to something else.
 #define RET_MAP(F, T, E)                                                       \
     do {                                                                       \

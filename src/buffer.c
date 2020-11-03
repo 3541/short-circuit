@@ -15,7 +15,8 @@
 bool buf_init(struct Buffer* this, size_t cap) {
     assert(!buf_initialized(this));
 
-    this->data = calloc(cap, sizeof(uint8_t));
+    if (!this->data)
+        this->data = calloc(cap, sizeof(uint8_t));
     if (!this->data)
         return false;
     this->cap = cap;
