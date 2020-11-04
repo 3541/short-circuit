@@ -18,7 +18,7 @@
 #define _METHOD(M, N) { M, CS(N) },
 static const struct {
     enum HttpMethod method;
-    CString     name;
+    CString         name;
 } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
@@ -40,7 +40,7 @@ static enum HttpMethod http_request_method_parse(CByteString str) {
 #define _VERSION(V, S) { V, CS(S) },
 static const struct {
     enum HttpVersion version;
-    CString      str;
+    CString          str;
 } HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
@@ -75,7 +75,7 @@ CString http_status_reason(enum HttpStatus status) {
 #define _STATUS(CODE, TYPE, REASON) { CODE, CS(REASON) },
     static const struct {
         enum HttpStatus status;
-        CString     reason;
+        CString         reason;
     } HTTP_STATUS_REASONS[] = { HTTP_STATUS_ENUM };
 #undef STATUS
 
@@ -92,7 +92,7 @@ CString http_status_reason(enum HttpStatus status) {
 #define _CTYPE(T, S) { T, CS(S) },
 static const struct {
     enum HttpContentType type;
-    CString          str;
+    CString              str;
 } HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 
@@ -110,7 +110,7 @@ CString http_content_type_name(enum HttpContentType type) {
 #define _TENCODING(E, S) { HTTP_##E, CS(S) },
 static const struct {
     HttpTransferEncoding encoding;
-    CString          value;
+    CString              value;
 } HTTP_TRANSFER_ENCODING_VALUES[] = { HTTP_TRANSFER_ENCODING_ENUM };
 #undef _TENCODING
 
@@ -152,7 +152,8 @@ int8_t http_request_first_line_parse(struct Connection* conn,
                 2, -1);
     }
 
-    this->method = http_request_method_parse(BS_CONST(buf_token_next(buf, CS(" "))));
+    this->method =
+        http_request_method_parse(BS_CONST(buf_token_next(buf, CS(" "))));
     switch (this->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
@@ -197,7 +198,8 @@ int8_t http_request_first_line_parse(struct Connection* conn,
                                            HTTP_RESPONSE_ALLOW),
                 2, -1);
 
-    this->version = http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
+    this->version =
+        http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
     if (this->version == HTTP_VERSION_INVALID ||
         this->version == HTTP_VERSION_UNKNOWN) {
         log_msg(TRACE, "Got a bad HTTP version.");
@@ -247,12 +249,15 @@ int8_t http_request_headers_parse(struct Connection* conn,
         if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
             return 0;
 
-        CString name = S_CONST(buf_token_next_str(buf, CS(": ")));
+        CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
         CString value = S_CONST(buf_token_next_str(buf, HTTP_NEWLINE));
 
         // RFC7230 § 5.4: Invalid field-value -> 400.
         if (!name.ptr || !value.ptr)
-            RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE), 2, -1);
+            RET_MAP(http_response_error_submit(conn, uring,
+                                               HTTP_STATUS_BAD_REQUEST,
+                                               HTTP_RESPONSE_CLOSE),
+                    2, -1);
 
         // TODO: Handle general headers.
         if (string_cmpi(name, CS("Connection")) == 0)

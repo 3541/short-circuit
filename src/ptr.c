@@ -6,11 +6,11 @@
 #include <string.h>
 
 ByteString bstring_alloc(size_t len) {
-    return (ByteString) { .ptr = calloc(len, sizeof(uint8_t)), .len = len };
+    return (ByteString){ .ptr = calloc(len, sizeof(uint8_t)), .len = len };
 }
 
 ByteString bstring_realloc(ByteString this, size_t new_len) {
-    return (ByteString) { .ptr = realloc(this.ptr, new_len), .len = new_len };
+    return (ByteString){ .ptr = realloc(this.ptr, new_len), .len = new_len };
 }
 
 void bstring_concat(ByteString str, size_t count, ...) {
@@ -31,11 +31,11 @@ void bstring_free(ByteString this) {
 }
 
 String string_alloc(size_t len) {
-    return (String) { .ptr = calloc(len, sizeof(char)), .len = len };
+    return (String){ .ptr = calloc(len, sizeof(char)), .len = len };
 }
 
 CString string_from(const char* str) {
-    return (CString) { .ptr = str, .len = strlen(str) };
+    return (CString){ .ptr = str, .len = strlen(str) };
 }
 
 void string_free(String this) {

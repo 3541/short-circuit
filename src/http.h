@@ -27,7 +27,7 @@ struct HttpRequest {
     struct Uri       target;
 
     bool                 keep_alive;
-    CString host;
+    CString              host;
     HttpTransferEncoding transfer_encodings;
     ssize_t              content_length;
 

@@ -110,7 +110,7 @@ ByteString buf_write_ptr(struct Buffer* this) {
 // Pointer for writing as a string into the buffer.
 String buf_write_ptr_string(struct Buffer* this) {
     ByteString ret_bytes = buf_write_ptr(this);
-    return (String) { .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
+    return (String){ .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
 }
 
 // Bytes have been written into the buffer.
@@ -230,7 +230,8 @@ ByteString buf_token_next(struct Buffer* this, CString delim) {
     for (; last < this->tail && strchr(delim.ptr, this->data.ptr[last]); last++)
         this->data.ptr[last] = '\0';
 
-    ByteString ret = { .ptr = &this->data.ptr[this->head], .len = end - this->head };
+    ByteString ret = { .ptr = &this->data.ptr[this->head],
+                       .len = end - this->head };
     this->head     = last;
     return ret;
 }

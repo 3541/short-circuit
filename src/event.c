@@ -15,7 +15,7 @@ CString event_type_name(enum EventType ty) {
 #define _EVENT_TYPE(E) { E, CS(#E) },
     static const struct {
         enum EventType ty;
-        CString    name;
+        CString        name;
     } EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 

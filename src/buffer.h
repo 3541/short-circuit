@@ -31,7 +31,7 @@ size_t buf_space(struct Buffer*);
 bool buf_ensure_cap(struct Buffer*, size_t extra_cap);
 
 ByteString buf_write_ptr(struct Buffer*);
-String buf_write_ptr_string(struct Buffer*);
+String     buf_write_ptr_string(struct Buffer*);
 void       buf_wrote(struct Buffer*, size_t);
 bool       buf_write_byte(struct Buffer*, uint8_t);
 bool       buf_write_str(struct Buffer*, CString);

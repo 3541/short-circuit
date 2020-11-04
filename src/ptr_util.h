@@ -6,17 +6,26 @@
 
 #include "ptr.h"
 
-#define CS(S)                                                         \
+#define CS(S)                                                                  \
     (CString) { .ptr = S, .len = (sizeof(S) - 1) / sizeof(char) }
-#define CS_NULL (CString) { .ptr = NULL, .len = 0 };
-#define S_NULL (String) { .ptr = NULL, .len = 0 };
-ALWAYS_INLINE String CS_MUT(CString s) { return (String) { .ptr = (char*)s.ptr, .len = s.len }; }
-ALWAYS_INLINE CString S_CONST(String s) { return (CString) { .ptr = s.ptr, .len = s.len }; }
+#define CS_NULL (CString){ .ptr = NULL, .len = 0 };
+#define S_NULL  (String){ .ptr = NULL, .len = 0 };
+ALWAYS_INLINE String CS_MUT(CString s) {
+    return (String){ .ptr = (char*)s.ptr, .len = s.len };
+}
+ALWAYS_INLINE CString S_CONST(String s) {
+    return (CString){ .ptr = s.ptr, .len = s.len };
+}
 
-#define CBS(S) (CByteString) { .ptr = (uint8_t*)S, .len = (sizeof(S) - 1) / sizeof(char) }
-#define BS_NULL (ByteString) { .ptr = NULL, .len = 0 };
-ALWAYS_INLINE ByteString CBS_MUT(CByteString s) { return (ByteString) { .ptr = (uint8_t*)s.ptr, .len = s.len }; }
-ALWAYS_INLINE CByteString BS_CONST(ByteString s) { return  (CByteString) { .ptr = s.ptr, .len = s.len }; }
+#define CBS(S)                                                                 \
+    (CByteString) { .ptr = (uint8_t*)S, .len = (sizeof(S) - 1) / sizeof(char) }
+#define BS_NULL (ByteString){ .ptr = NULL, .len = 0 };
+ALWAYS_INLINE ByteString CBS_MUT(CByteString s) {
+    return (ByteString){ .ptr = (uint8_t*)s.ptr, .len = s.len };
+}
+ALWAYS_INLINE CByteString BS_CONST(ByteString s) {
+    return (CByteString){ .ptr = s.ptr, .len = s.len };
+}
 
 INLINE const uint8_t* bstring_end(CByteString string) {
     return string.ptr + string.len;
@@ -32,7 +41,8 @@ INLINE bool bstring_is_string(CByteString string) {
 
 INLINE ByteString bstring_offset(ByteString string, size_t offset) {
     assert(offset < string.len);
-    return (ByteString) { .ptr = string.ptr + offset, .len = string.len - offset };
+    return (ByteString){ .ptr = string.ptr + offset,
+                         .len = string.len - offset };
 }
 
 INLINE String bstring_as_string(ByteString bstring) {
@@ -67,7 +77,7 @@ INLINE ByteString bstring_clone(CByteString other) {
 
 INLINE String string_clone(CString other) {
     ByteString ret_bytes = bstring_clone(cstring_as_cbstring(other));
-    return (String) { .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
+    return (String){ .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
 }
 
 INLINE int string_cmpi(CString s1, CString s2) {

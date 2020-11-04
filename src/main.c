@@ -16,7 +16,7 @@ CString WEB_ROOT;
 int main(void) {
     int port = DEFAULT_LISTEN_PORT;
 
-    WEB_ROOT                   = string_from(realpath(DEFAULT_WEB_ROOT, NULL));
+    WEB_ROOT = string_from(realpath(DEFAULT_WEB_ROOT, NULL));
 
     log_init(stdout);
 
