@@ -72,7 +72,7 @@ static void uri_collapse_dot_segments(uint8_t* str) {
     assert(*str == '/');
 
     size_t segments = 0;
-    for (uint8_t* sp = str; *sp; sp++, segments += *sp == '/')
+    for (uint8_t* sp = str; *sp; segments += *sp++ == '/')
         ;
     uint8_t** segment_ptrs = calloc(segments, sizeof(uint8_t*));
     UNWRAPND(segment_ptrs);
@@ -124,11 +124,11 @@ int8_t uri_parse(struct Uri* ret, uint8_t* str) {
     assert(ret);
     assert(str);
 
-    size_t len = strlen((char*)str);
+    size_t len = strlen((char*)str) + 1;
     if (len > HTTP_REQUEST_URI_MAX_LENGTH)
         return URI_PARSE_TOO_LONG;
 
-    struct Buffer  buf_ = { .data = str };
+    struct Buffer  buf_ = { .data = str, .tail = len };
     struct Buffer* buf  = &buf_;
     buf_init(buf, len, len);
 
@@ -177,9 +177,16 @@ bool uri_path_is_contained(struct Uri* this, const char* real_root,
     char*  buf     = malloc(buf_len);
     snprintf(buf, buf_len, "%s/%s", real_root, (char*)this->path);
 
+    bool rc = true;
+
     for (size_t i = 0; i < path_length; i++)
-        TRYB(real_root[i] == buf[i]);
-    return true;
+        if (real_root[i] != buf[i]) {
+            rc = false;
+            break;
+        }
+
+    free(buf);
+    return rc;
 }
 
 bool uri_is_initialized(struct Uri* this) {
