@@ -13,6 +13,7 @@
 ALWAYS_INLINE String CS_MUT(CString s) { return (String) { .ptr = (char*)s.ptr, .len = s.len }; }
 ALWAYS_INLINE CString S_CONST(String s) { return (CString) { .ptr = s.ptr, .len = s.len }; }
 
+#define CBS(S) (CByteString) { .ptr = (uint8_t*)S, .len = (sizeof(S) - 1) / sizeof(char) }
 #define BS_NULL (ByteString) { .ptr = NULL, .len = 0 };
 ALWAYS_INLINE ByteString CBS_MUT(CByteString s) { return (ByteString) { .ptr = (uint8_t*)s.ptr, .len = s.len }; }
 ALWAYS_INLINE CByteString BS_CONST(ByteString s) { return  (CByteString) { .ptr = s.ptr, .len = s.len }; }

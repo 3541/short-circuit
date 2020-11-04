@@ -173,21 +173,26 @@ bool uri_path_is_contained(struct Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
-/*    size_t buf_len = real_root.len + this->path.len + 1;
-    char*  buf     = malloc(buf_len);
-    snprintf(buf, buf_len, "%s/%s", real_root.ptr, this->path.ptr);*/
-    ByteString buf = bstring_alloc(real_root.len + this->path.len + 1);
-    bstring_concat(buf, 3, cstring_as_cbstring(real_root), "/", this->path);
+    ByteString buf = bstring_alloc(real_root.len + this->path.len + 2);
+    bstring_concat(buf, 4, cstring_as_cbstring(real_root), CBS("/"), this->path, CBS("\0"));
 
     bool rc = true;
 
+    char* real_target = realpath((char*)buf.ptr, NULL);
+    if (!real_target) {
+        rc = false;
+        goto done;
+    }
+
     for (size_t i = 0; i < real_root.len; i++) {
-        if (real_root.ptr[i] != buf.ptr[i]) {
+        if (real_root.ptr[i] != real_target[i]) {
             rc = false;
             break;
         }
     }
 
+    free(real_target);
+done:
     bstring_free(buf);
     return rc;
 }

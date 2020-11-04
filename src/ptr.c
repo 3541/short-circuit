@@ -19,8 +19,8 @@ void bstring_concat(ByteString str, size_t count, ...) {
 
     size_t offset = 0;
     for (size_t i = 0; i < count; i++) {
-        ByteString arg = va_arg(args, ByteString);
-        bstring_copy(bstring_offset(str, offset), BS_CONST(arg));
+        CByteString arg = va_arg(args, CByteString);
+        bstring_copy(bstring_offset(str, offset), arg);
         offset += arg.len;
     }
 }
