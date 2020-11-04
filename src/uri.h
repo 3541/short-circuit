@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "forward.h"
+#include "ptr.h"
 
 #define URI_SCHEME_ENUM                                                        \
     _SCHEME(URI_SCHEME_UNSPECIFIED, "")                                        \
@@ -20,10 +21,10 @@ enum UriScheme {
 
 struct Uri {
     enum UriScheme scheme;
-    char*          authority;
-    uint8_t*       path;
-    uint8_t*       query;
-    uint8_t*       fragment;
+    String         authority;
+    ByteString     path;
+    ByteString     query;
+    ByteString     fragment;
 };
 
 #define URI_PARSE_ERROR    -2
@@ -31,8 +32,7 @@ struct Uri {
 #define URI_PARSE_TOO_LONG 0
 #define URI_PARSE_SUCCESS  1
 
-int8_t uri_parse(struct Uri*, uint8_t*);
-bool   uri_path_is_contained(struct Uri*, const char* real_root,
-                             size_t path_length);
+int8_t uri_parse(struct Uri*, ByteString);
+bool   uri_path_is_contained(struct Uri*, CString real_root);
 bool   uri_is_initialized(struct Uri*);
 void   uri_free(struct Uri*);

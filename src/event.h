@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "forward.h"
+#include "ptr.h"
 #include "socket.h"
 
 static const uintptr_t EVENT_PTR_IGNORE = 1;
@@ -23,7 +24,7 @@ enum EventType {
 #undef _EVENT_TYPE
 };
 
-const char* event_type_name(enum EventType);
+CString event_type_name(enum EventType);
 
 struct Event {
     enum EventType type;
@@ -35,7 +36,7 @@ bool event_accept_submit(struct Event*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len);
 bool event_send_submit(struct Event*, struct io_uring*, fd socket,
-                       const void* buf, size_t len, int flags);
+                       CByteString data, int flags);
 bool event_recv_submit(struct Event*, struct io_uring*, fd socket,
-                       void* out_buf, size_t buf_len);
+                       ByteString out_data);
 bool event_close_submit(struct Event*, struct io_uring*, fd socket);

@@ -10,6 +10,8 @@
 #include "config.h"
 #include "connection.h"
 #include "http_parse.h"
+#include "ptr.h"
+#include "ptr_util.h"
 #include "uri.h"
 #include "util.h"
 
@@ -30,8 +32,8 @@ static void http_request_init(struct HttpRequest* this) {
 void http_request_reset(struct HttpRequest* this) {
     assert(this);
 
-    if (this->host)
-        free((char*)this->host);
+    if (this->host.ptr)
+        string_free(CS_MUT(this->host));
 
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
@@ -128,8 +130,8 @@ static bool http_response_prep_status_line(struct Connection* conn,
     TRYB(buf_write_num(buf, status));
     TRYB(buf_write_byte(buf, ' '));
 
-    const char* reason = http_status_reason(status);
-    if (!reason) {
+    CString reason = http_status_reason(status);
+    if (!reason.ptr) {
         log_fmt(WARN, "Invalid HTTP status %d.", status);
         return false;
     }
@@ -139,31 +141,30 @@ static bool http_response_prep_status_line(struct Connection* conn,
     return true;
 }
 
-static bool http_response_prep_header(struct Connection* conn, const char* name,
-                                      const char* value) {
+static bool http_response_prep_header(struct Connection* conn, CString name,
+                                      CString value) {
     assert(conn);
-    assert(name);
-    assert(value);
+    assert(name.ptr);
+    assert(value.ptr);
 
     struct Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, name));
-    TRYB(buf_write_str(buf, ": "));
+    TRYB(buf_write_str(buf, CS(": ")));
     TRYB(buf_write_str(buf, value));
     TRYB(buf_write_str(buf, HTTP_NEWLINE));
     return true;
 }
 
-static bool http_response_prep_header_num(struct Connection* conn,
-                                          const char* name, ssize_t value) {
+static bool http_response_prep_header_num(struct Connection* conn, CString name,
+                                          ssize_t value) {
     assert(conn);
-    assert(name);
-    assert(value);
+    assert(name.ptr);
 
     struct Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, name));
-    TRYB(buf_write_str(buf, ": "));
+    TRYB(buf_write_str(buf, CS(": ")));
     TRYB(buf_write_num(buf, value));
     TRYB(buf_write_str(buf, HTTP_NEWLINE));
     return true;
@@ -174,12 +175,13 @@ static bool http_response_prep_date_header(struct Connection* conn) {
 
     struct Buffer* buf = &conn->send_buf;
 
-    TRYB(buf_write_str(buf, "Date: "));
+    TRYB(buf_write_str(buf, CS("Date: ")));
 
     time_t current_time = time(NULL);
+    String write_ptr    = buf_write_ptr_string(buf);
     size_t written =
-        strftime((char*)buf_write_ptr(buf), buf_space(buf),
-                 "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time));
+        strftime(write_ptr.ptr, write_ptr.len, "%a, %d %b %Y %H:%M:%S GMT",
+                 gmtime(&current_time));
     TRYB(written);
     buf_wrote(buf, written);
 
@@ -200,15 +202,16 @@ static bool http_response_prep_headers(struct Connection* conn,
     TRYB(http_response_prep_date_header(conn));
     if (close || !this->keep_alive || content_length < 0) {
         this->keep_alive = false;
-        TRYB(http_response_prep_header(conn, "Connection", "Close"));
+        TRYB(http_response_prep_header(conn, CS("Connection"), CS("Close")));
     } else {
-        TRYB(http_response_prep_header(conn, "Connection", "Keep-Alive"));
+        TRYB(http_response_prep_header(conn, CS("Connection"),
+                                       CS("Keep-Alive")));
     }
     if (content_length >= 0)
-        TRYB(http_response_prep_header_num(conn, "Content-Length",
+        TRYB(http_response_prep_header_num(conn, CS("Content-Length"),
                                            content_length));
     TRYB(http_response_prep_header(
-        conn, "Content-Type",
+        conn, CS("Content-Type"),
         http_content_type_name(this->response_content_type)));
 
     return true;
@@ -222,14 +225,14 @@ static bool http_response_prep_headers_done(struct Connection* conn) {
 }
 
 // Write out a response body to the send buffer.
-static bool http_response_prep_body(struct Connection* conn, const char* body) {
+static bool http_response_prep_body(struct Connection* conn, CString body) {
     assert(conn);
 
     return buf_write_str(&conn->send_buf, body);
 }
 
-static const char* http_response_error_make_body(struct Connection* conn,
-                                                 enum HttpStatus    status) {
+static CString http_response_error_make_body(struct Connection* conn,
+                                             enum HttpStatus    status) {
     assert(conn);
     (void)conn;
     assert(status != HTTP_STATUS_INVALID);
@@ -249,10 +252,11 @@ static const char* http_response_error_make_body(struct Connection* conn,
                  "</body>\n"
                  "</html>\n",
                  status, status,
-                 http_status_reason(status)) > HTTP_ERROR_BODY_MAX_LENGTH)
-        return NULL;
+                 http_status_reason(status).ptr) > HTTP_ERROR_BODY_MAX_LENGTH)
+        return CS_NULL;
 
-    return body;
+    return (CString){ .ptr = body,
+                      .len = strnlen(body, HTTP_ERROR_BODY_MAX_LENGTH) };
 }
 
 static bool http_response_close_submit(struct Connection* conn,
@@ -279,11 +283,10 @@ bool http_response_error_submit(struct Connection* conn, struct io_uring* uring,
     this->state                 = REQUEST_RESPONDING;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
-    const char* body = http_response_error_make_body(conn, status);
-    TRYB(body);
+    CString body = http_response_error_make_body(conn, status);
+    TRYB(body.ptr);
 
-    TRYB(http_response_prep_headers(
-        conn, status, strnlen(body, HTTP_ERROR_BODY_MAX_LENGTH), close));
+    TRYB(http_response_prep_headers(conn, status, body.len, close));
     TRYB(http_response_prep_headers_done(conn));
 
     TRYB(http_response_prep_body(conn, body));

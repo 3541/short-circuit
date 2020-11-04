@@ -10,6 +10,7 @@
 
 #define ALLOW_UNUSED __attribute__((unused))
 #define INLINE       static inline ALLOW_UNUSED
+#define ALWAYS_INLINE INLINE __attribute__((always_inline))
 
 // Abort with a message.
 #define PANIC_FMT(fmt, ...)                                                    \

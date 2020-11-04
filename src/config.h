@@ -30,5 +30,3 @@
 #define HTTP_REQUEST_URI_MAX_LENGTH     512
 #define HTTP_REQUEST_CONTENT_MAX_LENGTH 10240
 
-extern const char*  WEB_ROOT;
-extern const size_t WEB_ROOT_LENGTH;

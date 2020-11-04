@@ -83,7 +83,7 @@ bool connection_send_submit(struct Connection* this, struct io_uring* uring,
 
     struct Buffer* buf = &this->send_buf;
     return event_send_submit(&this->last_event, uring, this->socket,
-                             buf_read_ptr(buf), buf_len(buf), flags);
+                             buf_read_ptr(buf), flags);
 }
 
 static bool connection_send_handle(struct Connection* this,
@@ -149,8 +149,7 @@ static bool connection_recv_submit(struct Connection* this,
         return false;
 
     return event_recv_submit(&this->last_event, uring, this->socket,
-                             buf_write_ptr(&this->recv_buf),
-                             buf_space(&this->recv_buf));
+                             buf_write_ptr(&this->recv_buf));
 }
 
 static bool connection_recv_handle(struct Connection* this,

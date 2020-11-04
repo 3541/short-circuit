@@ -11,14 +11,12 @@
 #include "socket.h"
 #include "util.h"
 
-const char*  WEB_ROOT;
-const size_t WEB_ROOT_LENGTH;
+CString WEB_ROOT;
 
 int main(void) {
     int port = DEFAULT_LISTEN_PORT;
 
-    WEB_ROOT                   = realpath(DEFAULT_WEB_ROOT, NULL);
-    *(size_t*)&WEB_ROOT_LENGTH = strlen(WEB_ROOT);
+    WEB_ROOT                   = string_from(realpath(DEFAULT_WEB_ROOT, NULL));
 
     log_init(stdout);
 
@@ -41,7 +39,7 @@ int main(void) {
         struct Event* event = (struct Event*)event_ptr;
 
         if (cqe->res < 0) {
-            log_error(-cqe->res, event_type_name(event->type));
+            log_error(-cqe->res, event_type_name(event->type).ptr);
             // Can't do much if ACCEPT doesn't work.
             if (event->type == ACCEPT) {
                 free(event);

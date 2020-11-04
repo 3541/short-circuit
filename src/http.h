@@ -6,9 +6,10 @@
 
 #include "forward.h"
 #include "http_types.h"
+#include "ptr.h"
 #include "uri.h"
 
-#define HTTP_NEWLINE "\r\n"
+#define HTTP_NEWLINE CS("\r\n")
 
 enum HttpRequestState {
     REQUEST_INIT,
@@ -26,7 +27,7 @@ struct HttpRequest {
     struct Uri       target;
 
     bool                 keep_alive;
-    const char*          host;
+    CString host;
     HttpTransferEncoding transfer_encodings;
     ssize_t              content_length;
 

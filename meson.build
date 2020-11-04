@@ -4,7 +4,7 @@ project(
   version: '0.1.0',
   default_options: [
     'c_std=gnu18',
-    'warning_level=3',
+    'warning_level=2',
     'werror=true',
     'buildtype=debug',
     'b_ndebug=if-release'
@@ -24,6 +24,7 @@ src = files([
              'src/http.c',
              'src/http_parse.c',
              'src/log.c',
+             'src/ptr.c',
              'src/socket.c',
              'src/uri.c'
            ])

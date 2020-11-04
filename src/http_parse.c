@@ -7,41 +7,44 @@
 #include "buffer.h"
 #include "config.h"
 #include "connection.h"
+#include "global.h"
 #include "http.h"
 #include "http_types.h"
+#include "ptr.h"
+#include "ptr_util.h"
 #include "uri.h"
 #include "util.h"
 
-#define _METHOD(M, N) { M, N },
+#define _METHOD(M, N) { M, CS(N) },
 static const struct {
     enum HttpMethod method;
-    const char*     name;
+    CString     name;
 } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
-static enum HttpMethod http_request_method_parse(const uint8_t* str) {
-    assert(str && *str);
+static enum HttpMethod http_request_method_parse(CByteString str) {
+    assert(str.ptr && *str.ptr);
 
-    TRYB_MAP(bytes_are_string(str), HTTP_METHOD_INVALID);
+    CString method_str = cbstring_as_cstring(str);
+    TRYB_MAP(method_str.ptr, HTTP_METHOD_INVALID);
 
-    const char* method_str = (const char*)str;
     for (size_t i = 0;
          i < sizeof(HTTP_METHOD_NAMES) / sizeof(HTTP_METHOD_NAMES[0]); i++) {
-        if (strcasecmp(method_str, HTTP_METHOD_NAMES[i].name) == 0)
+        if (string_cmpi(method_str, HTTP_METHOD_NAMES[i].name) == 0)
             return HTTP_METHOD_NAMES[i].method;
     }
 
     return HTTP_METHOD_UNKNOWN;
 }
 
-#define _VERSION(V, S) { V, S },
+#define _VERSION(V, S) { V, CS(S) },
 static const struct {
     enum HttpVersion version;
-    const char*      str;
+    CString      str;
 } HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
-const char* http_version_string(enum HttpVersion version) {
+CString http_version_string(enum HttpVersion version) {
     for (size_t i = 0;
          i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
          i++) {
@@ -49,31 +52,31 @@ const char* http_version_string(enum HttpVersion version) {
             return HTTP_VERSION_STRINGS[i].str;
     }
 
-    return NULL;
+    return CS_NULL;
 }
 
-static enum HttpVersion http_version_parse(const uint8_t* str) {
-    assert(str && *str);
+static enum HttpVersion http_version_parse(CByteString str) {
+    assert(str.ptr && *str.ptr);
 
-    TRYB_MAP(bytes_are_string(str), HTTP_VERSION_INVALID);
+    CString version_str = cbstring_as_cstring(str);
+    TRYB_MAP(version_str.ptr, HTTP_VERSION_INVALID);
 
-    const char* version_str = (const char*)str;
     for (size_t i = 0;
          i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
          i++) {
-        if (strcasecmp(version_str, HTTP_VERSION_STRINGS[i].str) == 0)
+        if (string_cmpi(version_str, HTTP_VERSION_STRINGS[i].str) == 0)
             return HTTP_VERSION_STRINGS[i].version;
     }
 
     return HTTP_VERSION_UNKNOWN;
 }
 
-const char* http_status_reason(enum HttpStatus status) {
-#define _STATUS(CODE, TYPE, REASON) { CODE, REASON },
+CString http_status_reason(enum HttpStatus status) {
+#define _STATUS(CODE, TYPE, REASON) { CODE, CS(REASON) },
     static const struct {
         enum HttpStatus status;
-        const char*     reason;
-    } HTTP_STATUS_REASONS[] = { HTTP_STATUS_ENUM{ 0, NULL } };
+        CString     reason;
+    } HTTP_STATUS_REASONS[] = { HTTP_STATUS_ENUM };
 #undef STATUS
 
     for (size_t i = 0;
@@ -83,17 +86,17 @@ const char* http_status_reason(enum HttpStatus status) {
             return HTTP_STATUS_REASONS[i].reason;
     }
 
-    return NULL;
+    return CS_NULL;
 }
 
-#define _CTYPE(T, S) { T, S },
+#define _CTYPE(T, S) { T, CS(S) },
 static const struct {
     enum HttpContentType type;
-    const char*          str;
+    CString          str;
 } HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 
-const char* http_content_type_name(enum HttpContentType type) {
+CString http_content_type_name(enum HttpContentType type) {
     for (size_t i = 0; i < sizeof(HTTP_CONTENT_TYPE_NAMES) /
                                sizeof(HTTP_CONTENT_TYPE_NAMES[0]);
          i++) {
@@ -101,23 +104,23 @@ const char* http_content_type_name(enum HttpContentType type) {
             return HTTP_CONTENT_TYPE_NAMES[i].str;
     }
 
-    return NULL;
+    return CS_NULL;
 }
 
-#define _TENCODING(E, S) { HTTP_##E, S },
+#define _TENCODING(E, S) { HTTP_##E, CS(S) },
 static const struct {
     HttpTransferEncoding encoding;
-    const char*          value;
+    CString          value;
 } HTTP_TRANSFER_ENCODING_VALUES[] = { HTTP_TRANSFER_ENCODING_ENUM };
 #undef _TENCODING
 
-static HttpTransferEncoding http_transfer_encoding_parse(const char* value) {
-    assert(value && *value);
+static HttpTransferEncoding http_transfer_encoding_parse(CString value) {
+    assert(value.ptr && *value.ptr);
 
     for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
                                sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
          i++) {
-        if (strcasecmp(value, HTTP_TRANSFER_ENCODING_VALUES[i].value) == 0)
+        if (string_cmpi(value, HTTP_TRANSFER_ENCODING_VALUES[i].value) == 0)
             return HTTP_TRANSFER_ENCODING_VALUES[i].encoding;
     }
 
@@ -141,7 +144,7 @@ int8_t http_request_first_line_parse(struct Connection* conn,
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
-    if (!buf_memmem(buf, HTTP_NEWLINE)) {
+    if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
             return 0;
         RET_MAP(http_response_error_submit(
@@ -149,7 +152,7 @@ int8_t http_request_first_line_parse(struct Connection* conn,
                 2, -1);
     }
 
-    this->method = http_request_method_parse(buf_token_next(buf, " "));
+    this->method = http_request_method_parse(BS_CONST(buf_token_next(buf, CS(" "))));
     switch (this->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
@@ -171,8 +174,8 @@ int8_t http_request_first_line_parse(struct Connection* conn,
         break;
     }
 
-    uint8_t* target_str = buf_token_next(buf, " ");
-    if (!target_str)
+    ByteString target_str = buf_token_next(buf, CS(" "));
+    if (!target_str.ptr)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 2, -1);
@@ -189,12 +192,12 @@ int8_t http_request_first_line_parse(struct Connection* conn,
         break;
     }
 
-    if (!uri_path_is_contained(&this->target, WEB_ROOT, WEB_ROOT_LENGTH))
+    if (!uri_path_is_contained(&this->target, WEB_ROOT))
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
                                            HTTP_RESPONSE_ALLOW),
                 2, -1);
 
-    this->version = http_version_parse(buf_token_next(buf, HTTP_NEWLINE));
+    this->version = http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
     if (this->version == HTTP_VERSION_INVALID ||
         this->version == HTTP_VERSION_UNKNOWN) {
         log_msg(TRACE, "Got a bad HTTP version.");
@@ -231,7 +234,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
     struct HttpRequest* this = &conn->request;
     struct Buffer* buf       = &conn->recv_buf;
 
-    if (!buf_memmem(buf, HTTP_NEWLINE)) {
+    if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
             return 0;
         RET_MAP(http_response_error_submit(conn, uring,
@@ -240,49 +243,39 @@ int8_t http_request_headers_parse(struct Connection* conn,
                 2, -1);
     }
 
-    while (buf->data[buf->head] != '\r' && buf->head != buf->tail) {
-        if (!buf_memmem(buf, HTTP_NEWLINE))
+    while (buf->data.ptr[buf->head] != '\r' && buf->head != buf->tail) {
+        if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
             return 0;
 
-        uint8_t* name_bytes  = buf_token_next(buf, ": ");
-        uint8_t* value_bytes = buf_token_next(buf, HTTP_NEWLINE);
+        CString name = S_CONST(buf_token_next_str(buf, CS(": ")));
+        CString value = S_CONST(buf_token_next_str(buf, HTTP_NEWLINE));
 
-        TRYB(bytes_are_string(name_bytes));
-        TRYB(bytes_are_string(value_bytes));
-
-        char* name  = (char*)name_bytes;
-        char* value = (char*)value_bytes;
+        // RFC7230 § 5.4: Invalid field-value -> 400.
+        if (!name.ptr || !value.ptr)
+            RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE), 2, -1);
 
         // TODO: Handle general headers.
-        if (strcasecmp(name, "Connection") == 0)
-            this->keep_alive = strcasecmp(value, "Keep-Alive") == 0;
-        else if (strcasecmp(name, "Host") == 0) {
-            // RFC7230 § 5.4: >1 Host header -> 400.
-            if (this->host)
+        if (string_cmpi(name, CS("Connection")) == 0)
+            this->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
+        else if (string_cmpi(name, CS("Host")) == 0) {
+            // ibid. >1 Host header -> 400.
+            if (this->host.ptr)
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
                         2, -1)
 
-            this->host = strndup(value, HTTP_REQUEST_HOST_MAX_LENGTH);
-
-            // ibid. Invalid field-value -> 400.
-            for (const char* sp = this->host; sp && *sp; sp++)
-                if (!isgraph(*sp))
-                    RET_MAP(http_response_error_submit(conn, uring,
-                                                       HTTP_STATUS_BAD_REQUEST,
-                                                       HTTP_RESPONSE_CLOSE),
-                            2, -1);
-        } else if (strcasecmp(name, "Transfer-Encoding") == 0) {
+            this->host = S_CONST(string_clone(value));
+        } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
             this->transfer_encodings |= http_transfer_encoding_parse(value);
             if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
                         2, -1);
-        } else if (strcasecmp(name, "Content-Length") == 0) {
+        } else if (string_cmpi(name, CS("Content-Length")) == 0) {
             char*   endptr     = NULL;
-            ssize_t new_length = strtol(value, &endptr, 10);
+            ssize_t new_length = strtol(value.ptr, &endptr, 10);
 
             // RFC 7230 § 3.3.3, step 4: Invalid or conflicting Content-Length
             // -> 400.
@@ -335,7 +328,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
     }
 
     // RFC7230 § 5.4: HTTP/1.1 messages must have a Host header.
-    if (this->version == HTTP_VERSION_11 && !this->host)
+    if (this->version == HTTP_VERSION_11 && !this->host.ptr)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 2, -1);

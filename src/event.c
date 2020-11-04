@@ -7,14 +7,16 @@
 #include <sys/utsname.h>
 
 #include "config.h"
+#include "ptr.h"
+#include "ptr_util.h"
 #include "util.h"
 
-const char* event_type_name(enum EventType ty) {
-#define _EVENT_TYPE(E) { E, #E },
+CString event_type_name(enum EventType ty) {
+#define _EVENT_TYPE(E) { E, CS(#E) },
     static const struct {
         enum EventType ty;
-        const char*    name;
-    } EVENT_NAMES[] = { EVENT_TYPE_ENUM{ 0, NULL } };
+        CString    name;
+    } EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
     for (size_t i = 0; i < sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0]); i++) {
@@ -22,7 +24,7 @@ const char* event_type_name(enum EventType ty) {
             return EVENT_NAMES[i].name;
     }
 
-    return "INVALID";
+    return CS("INVALID");
 }
 
 #define REQUIRE_OP(P, OP)                                                      \
@@ -96,10 +98,10 @@ bool event_accept_submit(struct Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(struct Event* this, struct io_uring* uring, fd socket,
-                       const void* buf, size_t len, int flags) {
+                       CByteString data, int flags) {
     assert(this);
     assert(uring);
-    assert(buf);
+    assert(data.ptr);
 
     struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
     TRYB(sqe);
@@ -111,24 +113,24 @@ bool event_send_submit(struct Event* this, struct io_uring* uring, fd socket,
         this_ptr |= EVENT_PTR_IGNORE;
     }
 
-    io_uring_prep_send(sqe, socket, buf, len, flags);
+    io_uring_prep_send(sqe, socket, data.ptr, data.len, flags);
     io_uring_sqe_set_data(sqe, (void*)this_ptr);
 
     return io_uring_submit(uring);
 }
 
 bool event_recv_submit(struct Event* this, struct io_uring* uring, fd socket,
-                       void* out_buf, size_t buf_len) {
+                       ByteString data) {
     assert(this);
     assert(uring);
-    assert(out_buf);
+    assert(data.ptr);
 
     struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
     if (!sqe)
         return false;
     this->type = RECV;
 
-    io_uring_prep_recv(sqe, socket, out_buf, buf_len, 0);
+    io_uring_prep_recv(sqe, socket, data.ptr, data.len, 0);
     io_uring_sqe_set_data(sqe, this);
 
     return io_uring_submit(uring);
