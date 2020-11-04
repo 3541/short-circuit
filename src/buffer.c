@@ -226,10 +226,11 @@ uint8_t* buf_token_next(struct Buffer* this, const char* delim) {
 }
 
 uint8_t* buf_token_next_copy(struct Buffer* this, const char* delim) {
+    size_t blen = buf_len(this);
     uint8_t* ret_orig = buf_token_next(this, delim);
-    size_t   len      = strnlen((const char*)ret_orig, buf_len(this));
+    size_t   len      = strnlen((const char*)ret_orig, blen);
 
-    uint8_t* ret = calloc(len, sizeof(uint8_t));
+    uint8_t* ret = calloc(len + 1, sizeof(uint8_t));
     memcpy(ret, ret_orig, len + 1);
     return ret;
 }

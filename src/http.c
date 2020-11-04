@@ -231,6 +231,7 @@ static bool http_response_prep_body(struct Connection* conn, const char* body) {
 static const char* http_response_error_make_body(struct Connection* conn,
                                                  enum HttpStatus    status) {
     assert(conn);
+    (void)conn;
     assert(status != HTTP_STATUS_INVALID);
 
     static char body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
