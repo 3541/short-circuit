@@ -103,6 +103,7 @@ static void uri_collapse_dot_segments(ByteString str) {
                 }
             } else {
                 // Create a segment.
+                wi = ri++;
                 segment_indices[segment_index++] = wi++;
             }
         } else {
