@@ -12,6 +12,7 @@
 #include "http_parse.h"
 #include "ptr.h"
 #include "ptr_util.h"
+#include "src/http_types.h"
 #include "uri.h"
 #include "util.h"
 
@@ -41,9 +42,37 @@ void http_request_reset(HttpRequest* this) {
     memset(this, 0, sizeof(HttpRequest));
 }
 
+static HttpRequestStateResult http_request_get_handle(Connection*      conn,
+                                                      struct io_uring* uring) {
+    assert(conn);
+    assert(uring);
+
+    PANIC("TODO: Handle GET.");
+}
+
 // Do whatever is appropriate for the parsed method.
-// static HttpRequestStateResult http_request_method_handle(Connection* conn,
-// struct io_uring* uring);
+static HttpRequestStateResult
+http_request_method_handle(Connection* conn, struct io_uring* uring) {
+    assert(conn);
+    assert(uring);
+
+    struct HttpRequest* this = &conn->request;
+
+    switch (this->method) {
+    case HTTP_METHOD_GET:
+        return http_request_get_handle(conn, uring);
+    case HTTP_METHOD_BREW:
+        this->version = HTCPCP_VERSION_10;
+        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_IM_A_TEAPOT,
+                                           HTTP_RESPONSE_ALLOW),
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+    case HTTP_METHOD_INVALID:
+    case HTTP_METHOD_UNKNOWN:
+        UNREACHABLE();
+    }
+
+    UNREACHABLE();
+}
 
 // Try to parse as much of the HTTP request as possible.
 HttpRequestResult http_request_handle(Connection*      conn,
@@ -68,8 +97,10 @@ HttpRequestResult http_request_handle(Connection*      conn,
             return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_HEADERS:
-        PANIC("TODO: Handle REQUEST_PARSED_HEADERS.");
-        break;
+        if ((rc = http_request_method_handle(conn, uring) !=
+                  HTTP_REQUEST_STATE_DONE))
+            return (HttpRequestResult)rc;
+        // fallthrough
     case REQUEST_RESPONDING:
         PANIC("TODO: Handle REQUEST_RESPONDING.");
         break;
@@ -243,11 +274,11 @@ static CString http_response_error_make_body(Connection* conn,
                  "<title>Error: %d</title>\n"
                  "</head>\n"
                  "<body>\n"
-                 "<h1>HTTP Error %d</h1>\n"
+                 "<h1>%s Error %d</h1>\n"
                  "<p>%s.</p>\n"
                  "</body>\n"
                  "</html>\n",
-                 status, status,
+                 status, http_version_string(conn->request.version).ptr, status,
                  http_status_reason(status).ptr) > HTTP_ERROR_BODY_MAX_LENGTH)
         return CS_NULL;
 

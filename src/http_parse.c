@@ -160,12 +160,8 @@ HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-    case HTTP_METHOD_BREW:
-        log_msg(TRACE, "I'm a teapot.");
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_IM_A_TEAPOT,
-                                           HTTP_RESPONSE_ALLOW),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
+        // Valid methods.
         break;
     }
 
@@ -196,7 +192,9 @@ HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
     this->version =
         http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
     if (this->version == HTTP_VERSION_INVALID ||
-        this->version == HTTP_VERSION_UNKNOWN) {
+        this->version == HTTP_VERSION_UNKNOWN ||
+        (this->version == HTCPCP_VERSION_10 &&
+         this->method != HTTP_METHOD_BREW)) {
         log_msg(TRACE, "Got a bad HTTP version.");
         this->version = HTTP_VERSION_11;
         RET_MAP(

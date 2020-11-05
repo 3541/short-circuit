@@ -18,6 +18,7 @@ typedef enum HttpMethod {
     _VERSION(HTTP_VERSION_INVALID, "")                                         \
     _VERSION(HTTP_VERSION_10, "HTTP/1.0")                                      \
     _VERSION(HTTP_VERSION_11, "HTTP/1.1")                                      \
+    _VERSION(HTCPCP_VERSION_10, "HTCPCP/1.0")                                  \
     _VERSION(HTTP_VERSION_UNKNOWN, "")
 
 typedef enum HttpVersion {

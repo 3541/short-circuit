@@ -21,6 +21,8 @@
 
 #define PANIC(msg) PANIC_FMT("%s", (msg))
 
+#define UNREACHABLE() PANIC("UNREACHABLE")
+
 // "unwrap" a return value which is falsy on error, and assign to T on success.
 // This is useful for fatal errors (e.g., allocation failures).
 #define UNWRAPN(T, X)                                                          \
