@@ -43,9 +43,23 @@ CByteString buf_read_ptr(const Buffer*);
 ByteString  buf_read_ptr_mut(Buffer*);
 void        buf_read(Buffer*, size_t);
 ByteString  buf_memmem(Buffer*, CString needle);
-ByteString  buf_token_next(Buffer*, CString delim);
-ByteString  buf_token_next_copy(Buffer*, CString delim);
-String      buf_token_next_str(Buffer*, CString delim);
 bool        buf_consume(Buffer*, CString needle);
+
+// A hack for pseudo-optional arguments.
+typedef struct _buf_token_next_args {
+    Buffer* this;
+    CString delim;
+    bool    preserve_end;
+} _buf_token_next_args;
+
+ByteString buf_token_next_impl(_buf_token_next_args);
+
+#define buf_token_next(BUF, DELIM, ...)                                        \
+    buf_token_next_impl((_buf_token_next_args){                                \
+        .this = (BUF), .delim = (DELIM), .preserve_end = false, __VA_ARGS__ })
+#define buf_token_next_copy(BUF, DELIM, ...)                                   \
+    bstring_clone(BS_CONST(buf_token_next((BUF), (DELIM), __VA_ARGS__)))
+#define buf_token_next_str(BUF, DELIM, ...)                                    \
+    bstring_as_string(buf_token_next((BUF), (DELIM), __VA_ARGS__))
 
 void buf_free(Buffer*);

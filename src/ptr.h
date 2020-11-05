@@ -6,8 +6,8 @@
 #include "util.h"
 
 // Fat pointers for strings and byte strings, to avoid null-termination
-// shenanigans. In most cases, utility functions dealing with these types should
-// make a best effort to _also_ null-terminate their data.
+// shenanigans. Care should be taken not to assume that these are
+// null-terminated.
 
 typedef struct ByteString {
     uint8_t* ptr;

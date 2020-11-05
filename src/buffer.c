@@ -207,7 +207,10 @@ ByteString buf_memmem(Buffer* this, CString needle) {
 // Get a token from the buffer. NOTE: This updates the head of the buffer, so
 // care should be taken not to write into the buffer as long as the returned
 // pointer is needed.
-ByteString buf_token_next(Buffer* this, CString delim) {
+ByteString buf_token_next_impl(_buf_token_next_args args) {
+    struct Buffer* this  = args.this;
+    CString delim        = args.delim;
+    bool    preserve_end = args.preserve_end;
     assert(buf_initialized(this));
 
     // <head>[delim][token][delim]...<tail>
@@ -227,21 +230,15 @@ ByteString buf_token_next(Buffer* this, CString delim) {
 
     // Zero out all delimiters.
     size_t last = end;
-    for (; last < this->tail && strchr(delim.ptr, this->data.ptr[last]); last++)
-        this->data.ptr[last] = '\0';
+    if (!preserve_end)
+        for (; last < this->tail && strchr(delim.ptr, this->data.ptr[last]);
+             last++)
+            this->data.ptr[last] = '\0';
 
     ByteString ret = { .ptr = &this->data.ptr[this->head],
                        .len = end - this->head };
     this->head     = last;
     return ret;
-}
-
-ByteString buf_token_next_copy(Buffer* this, CString delim) {
-    return bstring_clone(BS_CONST(buf_token_next(this, delim)));
-}
-
-String buf_token_next_str(Buffer* this, CString delim) {
-    return bstring_as_string(buf_token_next(this, delim));
 }
 
 bool buf_consume(Buffer* this, CString needle) {
@@ -251,7 +248,7 @@ bool buf_consume(Buffer* this, CString needle) {
     ByteString pos = buf_memmem(this, needle);
     TRYB(pos.ptr);
 
-    if (pos.ptr - this->data.ptr != (ssize_t)this->head)
+    if ((size_t)(pos.ptr - this->data.ptr) != this->head)
         return false;
 
     buf_read(this, needle.len);

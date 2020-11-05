@@ -12,6 +12,7 @@ project(
 )
 
 add_project_arguments('-D_GNU_SOURCE', language: 'c')
+add_project_arguments('-Wno-override-init', language: 'c')
 
 liburing = dependency('liburing')
 

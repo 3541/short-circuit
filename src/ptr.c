@@ -35,10 +35,14 @@ String string_alloc(size_t len) {
 }
 
 CString cstring_from(const char* str) {
+    if (!str)
+        return CS_NULL;
     return (CString){ .ptr = str, .len = strlen(str) };
 }
 
 String string_from(char* str) {
+    if (!str)
+        return S_NULL;
     return (String){ .ptr = str, .len = strlen(str) };
 }
 

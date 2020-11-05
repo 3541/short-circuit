@@ -238,7 +238,8 @@ HttpRequestStateResult http_request_headers_parse(Connection*      conn,
             return HTTP_REQUEST_STATE_NEED_DATA;
 
         CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
-        CString value = S_CONST(buf_token_next_str(buf, HTTP_NEWLINE));
+        CString value = S_CONST(
+            buf_token_next_str(buf, HTTP_NEWLINE, .preserve_end = true));
 
         // RFC7230 § 5.4: Invalid field-value -> 400.
         if (!name.ptr || !value.ptr)
@@ -300,7 +301,7 @@ HttpRequestStateResult http_request_headers_parse(Connection*      conn,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    // ibid.
+    // ibid. Transfer-Encoding overrides Content-Length.
     if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
         this->content_length >= 0)
         this->content_length = -1;
