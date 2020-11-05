@@ -13,6 +13,13 @@
 
 CString WEB_ROOT;
 
+static bool cont = true;
+
+static void sigint_handle(int no) {
+    (void)no;
+    cont = false;
+}
+
 int main(void) {
     int port = DEFAULT_LISTEN_PORT;
 
@@ -27,12 +34,17 @@ int main(void) {
     UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
     assert(io_uring_submit(&uring));
 
+    UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
+
     log_msg(TRACE, "Entering event loop.");
 
-    bool cont = true;
     while (cont) {
         struct io_uring_cqe* cqe;
-        UNWRAPSD(io_uring_wait_cqe(&uring, &cqe));
+        int rc;
+        if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0) {
+            log_error(-rc, "Breaking event loop.");
+            break;
+        }
 
         uintptr_t event_ptr = cqe->user_data;
         if (event_ptr & EVENT_PTR_IGNORE)
@@ -57,6 +69,8 @@ int main(void) {
         int ev = io_uring_submit(&uring);
         log_fmt(TRACE, "Submitted %d events.", ev);
     }
+
+    connection_freelist_clear();
 
     return EXIT_SUCCESS;
 }

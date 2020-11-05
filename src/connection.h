@@ -45,6 +45,7 @@ typedef struct Connection {
     Connection* next;
 } Connection;
 
+void connection_freelist_clear();
 void connection_reset(Connection*);
 
 Connection* connection_accept_submit(struct io_uring*, ConnectionTransport,

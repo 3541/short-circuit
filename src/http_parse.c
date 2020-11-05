@@ -191,7 +191,9 @@ HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     this->version =
-        http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
+        http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
+    // Need to only eat one "\r\n".
+    TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
     if (this->version == HTTP_VERSION_INVALID ||
         this->version == HTTP_VERSION_UNKNOWN ||
         (this->version == HTCPCP_VERSION_10 &&
@@ -233,65 +235,68 @@ HttpRequestStateResult http_request_headers_parse(Connection*      conn,
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
-    while (buf->data.ptr[buf->head] != '\r' && buf->head != buf->tail) {
-        if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
-            return HTTP_REQUEST_STATE_NEED_DATA;
+    if (!buf_consume(buf, HTTP_NEWLINE)) {
+        while (buf->data.ptr[buf->head] != '\r' && buf->head != buf->tail) {
+            if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
+                return HTTP_REQUEST_STATE_NEED_DATA;
 
-        CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
-        CString value = S_CONST(
-            buf_token_next_str(buf, HTTP_NEWLINE, .preserve_end = true));
+            CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
+            CString value = S_CONST(
+                buf_token_next_str(buf, HTTP_NEWLINE, .preserve_end = true));
+            TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
 
-        // RFC7230 § 5.4: Invalid field-value -> 400.
-        if (!name.ptr || !value.ptr)
-            RET_MAP(http_response_error_submit(conn, uring,
-                                               HTTP_STATUS_BAD_REQUEST,
-                                               HTTP_RESPONSE_CLOSE),
-                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-        // TODO: Handle general headers.
-        if (string_cmpi(name, CS("Connection")) == 0)
-            this->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
-        else if (string_cmpi(name, CS("Host")) == 0) {
-            // ibid. >1 Host header -> 400.
-            if (this->host.ptr)
+            // RFC7230 § 5.4: Invalid field-value -> 400.
+            if (!name.ptr || !value.ptr)
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
                         HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-            this->host = S_CONST(string_clone(value));
-        } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
-            this->transfer_encodings |= http_transfer_encoding_parse(value);
-            if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
-                RET_MAP(http_response_error_submit(conn, uring,
-                                                   HTTP_STATUS_BAD_REQUEST,
-                                                   HTTP_RESPONSE_CLOSE),
-                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-        } else if (string_cmpi(name, CS("Content-Length")) == 0) {
-            char*   endptr     = NULL;
-            ssize_t new_length = strtol(value.ptr, &endptr, 10);
+            // TODO: Handle general headers.
+            if (string_cmpi(name, CS("Connection")) == 0)
+                this->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
+            else if (string_cmpi(name, CS("Host")) == 0) {
+                // ibid. >1 Host header -> 400.
+                if (this->host.ptr)
+                    RET_MAP(http_response_error_submit(conn, uring,
+                                                       HTTP_STATUS_BAD_REQUEST,
+                                                       HTTP_RESPONSE_CLOSE),
+                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-            // RFC 7230 § 3.3.3, step 4: Invalid or conflicting Content-Length
-            // -> 400.
-            if (*endptr != '\0' || (this->content_length != -1 &&
-                                    this->content_length != new_length))
-                RET_MAP(http_response_error_submit(conn, uring,
-                                                   HTTP_STATUS_BAD_REQUEST,
-                                                   HTTP_RESPONSE_CLOSE),
-                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                this->host = S_CONST(string_clone(value));
+            } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
+                this->transfer_encodings |= http_transfer_encoding_parse(value);
+                if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
+                    RET_MAP(http_response_error_submit(conn, uring,
+                                                       HTTP_STATUS_BAD_REQUEST,
+                                                       HTTP_RESPONSE_CLOSE),
+                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+            } else if (string_cmpi(name, CS("Content-Length")) == 0) {
+                char*   endptr     = NULL;
+                ssize_t new_length = strtol(value.ptr, &endptr, 10);
 
-            if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
-                RET_MAP(http_response_error_submit(
-                            conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
-                            HTTP_RESPONSE_CLOSE),
-                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                // RFC 7230 § 3.3.3, step 4: Invalid or conflicting Content-Length
+                // -> 400.
+                if (*endptr != '\0' || (this->content_length != -1 &&
+                                        this->content_length != new_length))
+                    RET_MAP(http_response_error_submit(conn, uring,
+                                                       HTTP_STATUS_BAD_REQUEST,
+                                                       HTTP_RESPONSE_CLOSE),
+                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-            this->content_length = new_length;
+                if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
+                    RET_MAP(http_response_error_submit(
+                                conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                                HTTP_RESPONSE_CLOSE),
+                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+
+                this->content_length = new_length;
+            }
         }
-    }
 
-    if (!buf_consume(buf, HTTP_NEWLINE))
-        return HTTP_REQUEST_STATE_NEED_DATA;
+        if (!buf_consume(buf, HTTP_NEWLINE))
+            return HTTP_REQUEST_STATE_NEED_DATA;
+    }
 
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
     // a request, and the server MUST respond with a 400.

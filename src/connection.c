@@ -31,6 +31,7 @@ static Connection* connection_new() {
         memset(ret, 0, sizeof(Connection));
     } else if (connections_allocated < CONNECTION_MAX_ALLOCATED) {
         ret = calloc(1, sizeof(Connection));
+        connections_allocated++;
     } else {
         ERR("Too many connections allocated.");
     }
@@ -66,6 +67,14 @@ static void connection_free(Connection* this, struct io_uring* uring) {
 
     this->next          = connection_freelist;
     connection_freelist = this;
+}
+
+void connection_freelist_clear() {
+    for (Connection* conn = connection_freelist; conn; ) {
+        Connection* next = conn->next;
+        free(conn);
+        conn = next;
+    }
 }
 
 void connection_reset(Connection* this) {
@@ -165,7 +174,8 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
             this->last_event.type = CLOSE;
         return false;
     } else if (cqe->res == 0) {
-        PANIC("TODO: EOF");
+        // EOF
+        return connection_close_submit(this, uring);
     }
 
     // Update buffer pointers.
