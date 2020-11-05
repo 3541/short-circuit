@@ -34,8 +34,12 @@ String string_alloc(size_t len) {
     return (String){ .ptr = calloc(len, sizeof(char)), .len = len };
 }
 
-CString string_from(const char* str) {
+CString cstring_from(const char* str) {
     return (CString){ .ptr = str, .len = strlen(str) };
+}
+
+String string_from(char* str) {
+    return (String){ .ptr = str, .len = strlen(str) };
 }
 
 void string_free(String this) {

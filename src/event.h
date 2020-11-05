@@ -39,4 +39,6 @@ bool event_send_submit(Event*, struct io_uring*, fd socket, CByteString data,
                        unsigned sqe_flags);
 bool event_recv_submit(Event*, struct io_uring*, fd socket,
                        ByteString out_data);
+bool event_read_submit(Event*, struct io_uring*, fd file, ByteString out_data,
+                       size_t nbytes, off_t offset, unsigned sqe_flags);
 bool event_close_submit(Event*, struct io_uring*, fd socket);

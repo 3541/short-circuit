@@ -177,7 +177,7 @@ UriParseResult uri_parse(Uri* ret, ByteString str) {
     return URI_PARSE_SUCCESS;
 }
 
-bool uri_path_is_contained(Uri* this, CString real_root) {
+String uri_path_if_contained(Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
@@ -185,25 +185,17 @@ bool uri_path_is_contained(Uri* this, CString real_root) {
     bstring_concat(buf, 4, cstring_as_cbstring(real_root), CBS("/"), this->path,
                    CBS("\0"));
 
-    bool rc = true;
-
     char* real_target = realpath((char*)buf.ptr, NULL);
-    if (!real_target) {
-        rc = false;
+    if (!real_target)
         goto done;
-    }
 
-    for (size_t i = 0; i < real_root.len; i++) {
-        if (real_root.ptr[i] != real_target[i]) {
-            rc = false;
+    for (size_t i = 0; i < real_root.len; i++)
+        if (real_root.ptr[i] != real_target[i])
             break;
-        }
-    }
 
-    free(real_target);
 done:
     bstring_free(buf);
-    return rc;
+    return string_from(real_target);
 }
 
 bool uri_is_initialized(Uri* this) {

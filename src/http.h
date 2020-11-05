@@ -25,6 +25,7 @@ typedef struct HttpRequest {
     HttpVersion version;
     HttpMethod  method;
     Uri         target;
+    String      target_path;
 
     bool                 keep_alive;
     CString              host;

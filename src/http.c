@@ -1,22 +1,25 @@
 #include "http.h"
 
 #include <assert.h>
+#include <fcntl.h>
 #include <liburing.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #include "buffer.h"
 #include "config.h"
 #include "connection.h"
 #include "http_parse.h"
+#include "http_types.h"
 #include "ptr.h"
 #include "ptr_util.h"
-#include "src/http_types.h"
 #include "uri.h"
 #include "util.h"
 
 static bool http_response_close_submit(Connection*, struct io_uring*);
+static bool http_response_file_submit(Connection*, struct io_uring*, fd);
 
 static void http_request_init(HttpRequest* this) {
     assert(this);
@@ -36,18 +39,33 @@ void http_request_reset(HttpRequest* this) {
     if (this->host.ptr)
         string_free(CS_MUT(this->host));
 
+    if (this->target_path.ptr)
+        string_free(this->target_path);
+
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
 
     memset(this, 0, sizeof(HttpRequest));
 }
 
+// TODO: Perhaps handle things other than static files.
 static HttpRequestStateResult http_request_get_handle(Connection*      conn,
                                                       struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    PANIC("TODO: Handle GET.");
+    struct HttpRequest* this = &conn->request;
+
+    // TODO: GET things other than static files.
+    fd file;
+    if ((file = open(this->target_path.ptr, O_RDONLY)) < 0)
+        RET_MAP(http_response_error_submit(
+                    conn, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_CLOSE),
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+
+    log_fmt(TRACE, "Sending file %s.", this->target_path.ptr);
+    RET_MAP(http_response_file_submit(conn, uring, file),
+            HTTP_REQUEST_STATE_DONE, HTTP_REQUEST_STATE_ERROR);
 }
 
 // Do whatever is appropriate for the parsed method.
@@ -87,25 +105,23 @@ HttpRequestResult http_request_handle(Connection*      conn,
     switch (this->state) {
     case REQUEST_INIT:
         http_request_init(this);
-        if ((rc = http_request_first_line_parse(conn, uring) !=
-                  HTTP_REQUEST_STATE_DONE))
+        if ((rc = http_request_first_line_parse(conn, uring)) !=
+            HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_FIRST_LINE:
-        if ((rc = http_request_headers_parse(conn, uring) !=
-                  HTTP_REQUEST_STATE_DONE))
+        if ((rc = http_request_headers_parse(conn, uring)) !=
+            HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_HEADERS:
-        if ((rc = http_request_method_handle(conn, uring) !=
-                  HTTP_REQUEST_STATE_DONE))
+        if ((rc = http_request_method_handle(conn, uring)) !=
+            HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_RESPONDING:
-        PANIC("TODO: Handle REQUEST_RESPONDING.");
-        break;
     case REQUEST_CLOSING:
-        return 1;
+        return HTTP_REQUEST_COMPLETE;
     }
 
     log_fmt(TRACE, "State: %d", this->state);
@@ -307,6 +323,10 @@ bool http_response_error_submit(Connection* conn, struct io_uring* uring,
 
     HttpRequest* this = &conn->request;
 
+    // Clear any previously written data.
+    if (buf_initialized(&conn->send_buf))
+        buf_reset(&conn->send_buf);
+
     this->state                 = REQUEST_RESPONDING;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
 
@@ -320,6 +340,55 @@ bool http_response_error_submit(Connection* conn, struct io_uring* uring,
 
     TRYB(conn->send_submit(conn, uring, close ? IOSQE_IO_LINK : 0));
     if (close)
+        return http_response_close_submit(conn, uring);
+
+    return true;
+}
+
+bool http_response_file_submit(Connection* conn, struct io_uring* uring,
+                               fd file) {
+    assert(conn);
+    assert(uring);
+    assert(file >= 0);
+
+    struct HttpRequest* this = &conn->request;
+    this->state              = REQUEST_RESPONDING;
+
+    struct stat res;
+    TRYB(fstat(file, &res) == 0);
+
+    // TODO: Directory listings.
+    if (!S_ISREG(res.st_mode))
+        return http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
+                                          HTTP_RESPONSE_ALLOW);
+
+    // TODO: Guess the content type.
+
+    this->response_content_type = HTTP_CONTENT_TYPE_TEXT_PLAIN;
+
+    TRYB(http_response_prep_headers(conn, HTTP_STATUS_OK, res.st_size,
+                                    HTTP_RESPONSE_ALLOW));
+    TRYB(http_response_prep_headers_done(conn));
+
+    // TODO: Handle files larger than SEND_BUF_MAX_CAPACITY, use registered
+    // buffers, etc...
+    // This should probably:
+    // - Grow the buffer to MIN(buf->max_cap, res.st_size)
+    // - Queue a chain of linked read/send events in units of buf->cap, using
+    // appropriate read offsets.
+    Buffer* buf    = &conn->send_buf;
+    size_t  buflen = buf_len(buf);
+    if ((size_t)res.st_size > buflen &&
+        !buf_ensure_cap(buf, (size_t)res.st_size - buflen)) {
+        return http_response_error_submit(
+            conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE, HTTP_RESPONSE_ALLOW);
+    }
+
+    TRYB(event_read_submit(&conn->last_event, uring, file, buf_write_ptr(buf),
+                           (size_t)res.st_size, 0, IOSQE_IO_LINK));
+    buf_wrote(buf, res.st_size);
+    TRYB(conn->send_submit(conn, uring, this->keep_alive ? 0 : IOSQE_IO_LINK));
+    if (!this->keep_alive)
         return http_response_close_submit(conn, uring);
 
     return true;

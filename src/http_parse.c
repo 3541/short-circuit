@@ -184,7 +184,8 @@ HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
         break;
     }
 
-    if (!uri_path_is_contained(&this->target, WEB_ROOT))
+    this->target_path = uri_path_if_contained(&this->target, WEB_ROOT);
+    if (!this->target_path.ptr)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
@@ -289,9 +290,7 @@ HttpRequestStateResult http_request_headers_parse(Connection*      conn,
     }
 
     if (!buf_consume(buf, HTTP_NEWLINE))
-        RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        return HTTP_REQUEST_STATE_NEED_DATA;
 
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
     // a request, and the server MUST respond with a 400.

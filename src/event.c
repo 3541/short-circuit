@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <liburing.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/utsname.h>
 
 #include "config.h"
@@ -94,7 +96,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
                          inout_addr_len, 0);
     io_uring_sqe_set_data(sqe, this);
 
-    return io_uring_submit(uring);
+    return true;
 }
 
 bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
@@ -108,16 +110,14 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
     this->type = SEND;
 
     uintptr_t this_ptr = (uintptr_t)this;
-
-    if (sqe_flags & IOSQE_IO_LINK) {
+    if (sqe_flags & IOSQE_IO_LINK)
         this_ptr |= EVENT_PTR_IGNORE;
-    }
 
     io_uring_prep_send(sqe, socket, data.ptr, data.len, 0);
     io_uring_sqe_set_flags(sqe, sqe_flags);
     io_uring_sqe_set_data(sqe, (void*)this_ptr);
 
-    return io_uring_submit(uring);
+    return true;
 }
 
 bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
@@ -127,14 +127,36 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
     assert(data.ptr);
 
     struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
-    if (!sqe)
-        return false;
+    TRYB(sqe);
     this->type = RECV;
 
     io_uring_prep_recv(sqe, socket, data.ptr, data.len, 0);
     io_uring_sqe_set_data(sqe, this);
 
-    return io_uring_submit(uring);
+    return true;
+}
+
+bool event_read_submit(Event* this, struct io_uring* uring, fd file,
+                       ByteString out_data, size_t nbytes, off_t offset,
+                       unsigned sqe_flags) {
+    assert(this);
+    assert(uring);
+    assert(file >= 0);
+    assert(out_data.ptr);
+
+    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    TRYB(sqe);
+
+    uintptr_t this_ptr = (uintptr_t)this;
+    if (sqe_flags & IOSQE_IO_LINK)
+        this_ptr |= EVENT_PTR_IGNORE;
+
+    io_uring_prep_read(sqe, file, out_data.ptr, MIN(out_data.len, nbytes),
+                       offset);
+    io_uring_sqe_set_flags(sqe, sqe_flags);
+    io_uring_sqe_set_data(sqe, (void*)this_ptr);
+
+    return true;
 }
 
 bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
@@ -149,5 +171,5 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
     io_uring_prep_close(sqe, socket);
     io_uring_sqe_set_data(sqe, this);
 
-    return io_uring_submit(uring);
+    return true;
 }

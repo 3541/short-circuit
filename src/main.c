@@ -16,7 +16,7 @@ CString WEB_ROOT;
 int main(void) {
     int port = DEFAULT_LISTEN_PORT;
 
-    WEB_ROOT = string_from(realpath(DEFAULT_WEB_ROOT, NULL));
+    WEB_ROOT = cstring_from(realpath(DEFAULT_WEB_ROOT, NULL));
 
     log_init(stdout);
 
@@ -25,6 +25,7 @@ int main(void) {
 
     Connection* current;
     UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
+    assert(io_uring_submit(&uring));
 
     log_msg(TRACE, "Entering event loop.");
 
@@ -53,6 +54,8 @@ int main(void) {
 
     next:
         io_uring_cqe_seen(&uring, cqe);
+        int ev = io_uring_submit(&uring);
+        log_fmt(TRACE, "Submitted %d events.", ev);
     }
 
     return EXIT_SUCCESS;

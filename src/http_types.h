@@ -29,7 +29,8 @@ typedef enum HttpVersion {
 
 #define HTTP_CONTENT_TYPE_ENUM                                                 \
     _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                      \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")                           \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")
 
 typedef enum HttpContentType {
 #define _CTYPE(T, S) T,
@@ -39,6 +40,7 @@ typedef enum HttpContentType {
 
 #define HTTP_STATUS_ENUM                                                       \
     _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                           \
+    _STATUS(200, HTTP_STATUS_OK, "OK")                                         \
     _STATUS(400, HTTP_STATUS_BAD_REQUEST, "Bad Request")                       \
     _STATUS(404, HTTP_STATUS_NOT_FOUND, "Not Found")                           \
     _STATUS(413, HTTP_STATUS_PAYLOAD_TOO_LARGE, "Payload Too Large")           \
@@ -46,6 +48,7 @@ typedef enum HttpContentType {
     _STATUS(418, HTTP_STATUS_IM_A_TEAPOT, "I'm a teapot")                      \
     _STATUS(431, HTTP_STATUS_HEADER_TOO_LARGE,                                 \
             "Request Header Fields Too Large")                                 \
+    _STATUS(500, HTTP_STATUS_SERVER_ERROR, "Internal Server Error")            \
     _STATUS(501, HTTP_STATUS_NOT_IMPLEMENTED, "Not Implemented")               \
     _STATUS(505, HTTP_STATUS_VERSION_NOT_SUPPORTED,                            \
             "HTTP Version Not Supported")
@@ -83,6 +86,7 @@ typedef enum HttpRequestResult {
 typedef enum HttpRequestStateResult {
     HTTP_REQUEST_STATE_ERROR     = HTTP_REQUEST_ERROR,
     HTTP_REQUEST_STATE_NEED_DATA = HTTP_REQUEST_NEED_DATA,
-    HTTP_REQUEST_STATE_DONE,
-    HTTP_REQUEST_STATE_BAIL = HTTP_REQUEST_COMPLETE
+    HTTP_REQUEST_STATE_SENDING   = HTTP_REQUEST_SENDING,
+    HTTP_REQUEST_STATE_BAIL      = HTTP_REQUEST_COMPLETE,
+    HTTP_REQUEST_STATE_DONE
 } HttpRequestStateResult;

@@ -35,6 +35,6 @@ typedef enum UriParseResult {
 } UriParseResult;
 
 UriParseResult uri_parse(Uri*, ByteString);
-bool           uri_path_is_contained(Uri*, CString real_root);
+String         uri_path_if_contained(Uri*, CString real_root);
 bool           uri_is_initialized(Uri*);
 void           uri_free(Uri*);

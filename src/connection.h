@@ -10,7 +10,8 @@
 #include "socket.h"
 
 // Callback types to submit events.
-typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*, unsigned sqe_flags);
+typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*,
+                                 unsigned sqe_flags);
 typedef bool (*ConnectionHandle)(Connection*, struct io_uring_cqe*,
                                  struct io_uring*);
 
@@ -48,8 +49,8 @@ void connection_reset(Connection*);
 
 Connection* connection_accept_submit(struct io_uring*, ConnectionTransport,
                                      fd listen_socket);
-bool        connection_send_submit(Connection*, struct io_uring*, unsigned sqe_flags);
-bool        connection_close_submit(Connection*, struct io_uring*);
+bool connection_send_submit(Connection*, struct io_uring*, unsigned sqe_flags);
+bool connection_close_submit(Connection*, struct io_uring*);
 
 bool connection_send_buf_init(Connection*);
 
