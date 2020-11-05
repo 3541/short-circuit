@@ -125,7 +125,7 @@ static bool uri_normalize_path(ByteString str) {
     return true;
 }
 
-int8_t uri_parse(struct Uri* ret, ByteString str) {
+enum UriParseResult uri_parse(struct Uri* ret, ByteString str) {
     assert(ret);
     assert(str.ptr);
 

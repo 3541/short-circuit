@@ -36,7 +36,8 @@ struct HttpRequest {
 };
 
 void   http_request_reset(struct HttpRequest*);
-int8_t http_request_handle(struct Connection*, struct io_uring*);
+
+enum HttpRequestResult http_request_handle(struct Connection*, struct io_uring*);
 
 bool http_response_handle(struct Connection*, struct io_uring*);
 

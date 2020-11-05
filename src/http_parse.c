@@ -128,14 +128,8 @@ static HttpTransferEncoding http_transfer_encoding_parse(CString value) {
 }
 
 // Try to parse the first line of the HTTP request.
-// Returns:
-//   -1 on error.
-//    0 for more data.
-//    1 on completion.
-//    2 to bail successfully (for HTTP errors, which are "successful" from the
-//    perspective of a connection).
-int8_t http_request_first_line_parse(struct Connection* conn,
-                                     struct io_uring*   uring) {
+enum HttpRequestStateResult
+http_request_first_line_parse(struct Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
@@ -149,7 +143,7 @@ int8_t http_request_first_line_parse(struct Connection* conn,
             return 0;
         RET_MAP(http_response_error_submit(
                     conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
     this->method =
@@ -165,12 +159,12 @@ int8_t http_request_first_line_parse(struct Connection* conn,
         RET_MAP(http_response_error_submit(conn, uring,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_ALLOW),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_BREW:
         log_msg(TRACE, "I'm a teapot.");
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_IM_A_TEAPOT,
                                            HTTP_RESPONSE_ALLOW),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
         break;
     }
@@ -179,16 +173,17 @@ int8_t http_request_first_line_parse(struct Connection* conn,
     if (!target_str.ptr)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     switch (uri_parse(&this->target, target_str)) {
+    case URI_PARSE_ERROR:
     case URI_PARSE_BAD_URI:
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_ALLOW),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case URI_PARSE_TOO_LONG:
         RET_MAP(http_response_error_submit(
                     conn, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
         break;
     }
@@ -196,7 +191,7 @@ int8_t http_request_first_line_parse(struct Connection* conn,
     if (!uri_path_is_contained(&this->target, WEB_ROOT))
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
                                            HTTP_RESPONSE_ALLOW),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     this->version =
         http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE)));
@@ -210,7 +205,7 @@ int8_t http_request_first_line_parse(struct Connection* conn,
                                            ? HTTP_STATUS_BAD_REQUEST
                                            : HTTP_STATUS_VERSION_NOT_SUPPORTED,
                                        HTTP_RESPONSE_CLOSE),
-            2, -1);
+            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     } else if (this->version == HTTP_VERSION_10) {
         // HTTP/1.0 is 'Connection: Close' by default.
         this->keep_alive = false;
@@ -218,18 +213,12 @@ int8_t http_request_first_line_parse(struct Connection* conn,
 
     this->state = REQUEST_PARSED_FIRST_LINE;
 
-    return 1;
+    return HTTP_REQUEST_STATE_DONE;
 }
 
 // Try to parse the first line of the HTTP request.
-// Returns:
-//   -1 on error.
-//    0 for more data.
-//    1 on completion.
-//    2 to bail successfully (for HTTP errors, which are "successful" from the
-//    perspective of a connection).
-int8_t http_request_headers_parse(struct Connection* conn,
-                                  struct io_uring*   uring) {
+enum HttpRequestStateResult http_request_headers_parse(struct Connection* conn,
+                                                       struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
@@ -238,16 +227,16 @@ int8_t http_request_headers_parse(struct Connection* conn,
 
     if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
-            return 0;
+            return HTTP_REQUEST_STATE_NEED_DATA;
         RET_MAP(http_response_error_submit(conn, uring,
                                            HTTP_STATUS_HEADER_TOO_LARGE,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
     while (buf->data.ptr[buf->head] != '\r' && buf->head != buf->tail) {
         if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
-            return 0;
+            return HTTP_REQUEST_STATE_NEED_DATA;
 
         CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
         CString value = S_CONST(buf_token_next_str(buf, HTTP_NEWLINE));
@@ -257,7 +246,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
             RET_MAP(http_response_error_submit(conn, uring,
                                                HTTP_STATUS_BAD_REQUEST,
                                                HTTP_RESPONSE_CLOSE),
-                    2, -1);
+                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
         // TODO: Handle general headers.
         if (string_cmpi(name, CS("Connection")) == 0)
@@ -268,7 +257,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
-                        2, -1)
+                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
             this->host = S_CONST(string_clone(value));
         } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
@@ -277,7 +266,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
-                        2, -1);
+                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
         } else if (string_cmpi(name, CS("Content-Length")) == 0) {
             char*   endptr     = NULL;
             ssize_t new_length = strtol(value.ptr, &endptr, 10);
@@ -289,13 +278,13 @@ int8_t http_request_headers_parse(struct Connection* conn,
                 RET_MAP(http_response_error_submit(conn, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
-                        2, -1);
+                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
             if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
                 RET_MAP(http_response_error_submit(
                             conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
                             HTTP_RESPONSE_CLOSE),
-                        2, -1);
+                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
             this->content_length = new_length;
         }
@@ -304,7 +293,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
     if (!buf_consume(buf, HTTP_NEWLINE))
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
     // a request, and the server MUST respond with a 400.
@@ -312,7 +301,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
         (this->transfer_encodings & HTTP_TRANSFER_ENCODING_CHUNKED) == 0)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // ibid.
     if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
@@ -324,7 +313,7 @@ int8_t http_request_headers_parse(struct Connection* conn,
         RET_MAP(http_response_error_submit(conn, uring,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // RFC7230 § 3.3.3, step 6: default to Content-Length of 0.
     if (this->content_length == -1 &&
@@ -336,9 +325,9 @@ int8_t http_request_headers_parse(struct Connection* conn,
     if (this->version == HTTP_VERSION_11 && !this->host.ptr)
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     this->state = REQUEST_PARSED_HEADERS;
 
-    return 1;
+    return HTTP_REQUEST_STATE_DONE;
 }

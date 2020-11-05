@@ -41,34 +41,27 @@ void http_request_reset(struct HttpRequest* this) {
     memset(this, 0, sizeof(struct HttpRequest));
 }
 
+// Do whatever is appropriate for the parsed method.
+//static enum HttpRequestStateResult http_request_method_handle(struct Connection* conn, struct io_uring* uring);
+
 // Try to parse as much of the HTTP request as possible.
-// Returns:
-//   -1 on error.
-//    0 for more data.
-//    1 on completion.
-int8_t http_request_handle(struct Connection* conn, struct io_uring* uring) {
+enum HttpRequestResult http_request_handle(struct Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
     struct HttpRequest* this = &conn->request;
-    int8_t rc                = -1;
+    enum HttpRequestStateResult rc                = HTTP_REQUEST_STATE_ERROR;
 
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case REQUEST_INIT:
         http_request_init(this);
-        rc = http_request_first_line_parse(conn, uring);
-        if (rc == 2)
-            return 1;
-        else if (rc != 1)
-            return rc;
+        if ((rc = http_request_first_line_parse(conn, uring) != HTTP_REQUEST_STATE_DONE))
+            return (enum HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_FIRST_LINE:
-        rc = http_request_headers_parse(conn, uring);
-        if (rc == 2)
-            return 1;
-        else if (rc != 1)
-            return rc;
+        if ((rc = http_request_headers_parse(conn, uring) != HTTP_REQUEST_STATE_DONE))
+            return (enum HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_HEADERS:
         PANIC("TODO: Handle REQUEST_PARSED_HEADERS.");

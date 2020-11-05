@@ -27,12 +27,14 @@ struct Uri {
     ByteString     fragment;
 };
 
-#define URI_PARSE_ERROR    -2
-#define URI_PARSE_BAD_URI  -1
-#define URI_PARSE_TOO_LONG 0
-#define URI_PARSE_SUCCESS  1
+enum UriParseResult {
+    URI_PARSE_ERROR,
+    URI_PARSE_BAD_URI,
+    URI_PARSE_TOO_LONG,
+    URI_PARSE_SUCCESS
+};
 
-int8_t uri_parse(struct Uri*, ByteString);
+enum UriParseResult uri_parse(struct Uri*, ByteString);
 bool   uri_path_is_contained(struct Uri*, CString real_root);
 bool   uri_is_initialized(struct Uri*);
 void   uri_free(struct Uri*);

@@ -16,6 +16,7 @@
 #include "http.h"
 #include "log.h"
 #include "socket.h"
+#include "src/http_types.h"
 #include "util.h"
 
 static struct Connection* connection_freelist                   = NULL;
@@ -173,10 +174,10 @@ static bool connection_recv_handle(struct Connection* this,
     // Update buffer pointers.
     buf_wrote(&this->recv_buf, cqe->res);
 
-    int8_t rc = http_request_handle(this, uring);
-    if (rc < 0) {
+    HttpRequestResult rc = http_request_handle(this, uring);
+    if (rc == HTTP_REQUEST_ERROR) {
         return false;
-    } else if (rc == 0) {
+    } else if (rc == HTTP_REQUEST_NEED_DATA) {
         // Need more data.
         return this->recv_submit(this, uring, 0);
     }
