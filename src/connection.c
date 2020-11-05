@@ -19,18 +19,18 @@
 #include "src/http_types.h"
 #include "util.h"
 
-static struct Connection* connection_freelist                   = NULL;
-static size_t             connections_allocated                 = 0;
-static bool               connection_accept_queued[NTRANSPORTS] = { false };
+static Connection* connection_freelist                   = NULL;
+static size_t      connections_allocated                 = 0;
+static bool        connection_accept_queued[NTRANSPORTS] = { false };
 
-static struct Connection* connection_new() {
-    struct Connection* ret = NULL;
+static Connection* connection_new() {
+    Connection* ret = NULL;
     if (connection_freelist) {
         ret                 = connection_freelist;
         connection_freelist = ret->next;
-        memset(ret, 0, sizeof(struct Connection));
+        memset(ret, 0, sizeof(Connection));
     } else if (connections_allocated < CONNECTION_MAX_ALLOCATED) {
-        ret = calloc(1, sizeof(struct Connection));
+        ret = calloc(1, sizeof(Connection));
     } else {
         ERR("Too many connections allocated.");
     }
@@ -38,7 +38,7 @@ static struct Connection* connection_new() {
     return ret;
 }
 
-static void connection_free(struct Connection* this, struct io_uring* uring) {
+static void connection_free(Connection* this, struct io_uring* uring) {
     assert(this);
 
     // If the socket hasn't been closed, arrange it. The close handle event will
@@ -68,7 +68,7 @@ static void connection_free(struct Connection* this, struct io_uring* uring) {
     connection_freelist = this;
 }
 
-void connection_reset(struct Connection* this) {
+void connection_reset(Connection* this) {
     assert(this);
 
     buf_reset(&this->recv_buf);
@@ -77,19 +77,18 @@ void connection_reset(struct Connection* this) {
     http_request_reset(&this->request);
 }
 
-bool connection_send_submit(struct Connection* this, struct io_uring* uring,
+bool connection_send_submit(Connection* this, struct io_uring* uring,
                             int flags) {
     assert(this);
     assert(uring);
 
-    struct Buffer* buf = &this->send_buf;
+    Buffer* buf = &this->send_buf;
     return event_send_submit(&this->last_event, uring, this->socket,
                              buf_read_ptr(buf), flags);
 }
 
-static bool connection_send_handle(struct Connection* this,
-                                   struct io_uring_cqe* cqe,
-                                   struct io_uring*     uring) {
+static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
+                                   struct io_uring* uring) {
     assert(this);
     assert(uring);
     assert(cqe);
@@ -104,16 +103,15 @@ static bool connection_send_handle(struct Connection* this,
     return http_response_handle(this, uring);
 }
 
-bool connection_close_submit(struct Connection* this, struct io_uring* uring) {
+bool connection_close_submit(Connection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
     return event_close_submit(&this->last_event, uring, this->socket);
 }
 
-static void connection_close_handle(struct Connection* this,
-                                    struct io_uring_cqe* cqe,
-                                    struct io_uring*     uring) {
+static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
+                                    struct io_uring* uring) {
     assert(this);
     assert(this->last_event.type == CLOSE);
     assert(cqe);
@@ -125,14 +123,14 @@ static void connection_close_handle(struct Connection* this,
     connection_free(this, uring);
 }
 
-static bool connection_recv_buf_init(struct Connection* this) {
+static bool connection_recv_buf_init(Connection* this) {
     assert(this);
 
     return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
                     RECV_BUF_MAX_CAPACITY);
 }
 
-bool connection_send_buf_init(struct Connection* this) {
+bool connection_send_buf_init(Connection* this) {
     assert(this);
 
     return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
@@ -140,8 +138,8 @@ bool connection_send_buf_init(struct Connection* this) {
 }
 
 // Submit a request to receive as much data as the buffer can handle.
-static bool connection_recv_submit(struct Connection* this,
-                                   struct io_uring* uring, int flags) {
+static bool connection_recv_submit(Connection* this, struct io_uring* uring,
+                                   int flags) {
     assert(this);
     assert(uring);
     (void)flags;
@@ -153,9 +151,8 @@ static bool connection_recv_submit(struct Connection* this,
                              buf_write_ptr(&this->recv_buf));
 }
 
-static bool connection_recv_handle(struct Connection* this,
-                                   struct io_uring_cqe* cqe,
-                                   struct io_uring*     uring) {
+static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
+                                   struct io_uring* uring) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -186,12 +183,12 @@ static bool connection_recv_handle(struct Connection* this,
 }
 
 // Submit an ACCEPT on the uring.
-struct Connection* connection_accept_submit(struct io_uring*         uring,
-                                            enum ConnectionTransport transport,
-                                            fd listen_socket) {
+Connection* connection_accept_submit(struct io_uring*    uring,
+                                     ConnectionTransport transport,
+                                     fd                  listen_socket) {
     assert(uring);
 
-    struct Connection* ret = connection_new();
+    Connection* ret = connection_new();
     if (!ret)
         return NULL;
 
@@ -222,8 +219,7 @@ struct Connection* connection_accept_submit(struct io_uring*         uring,
 }
 
 // Handle the completion of an ACCEPT event.
-static bool connection_accept_handle(struct Connection* this,
-                                     struct io_uring_cqe* cqe,
+static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
                                      struct io_uring* uring, fd listen_socket) {
     assert(this);
     assert(cqe);
@@ -248,9 +244,8 @@ static bool connection_accept_handle(struct Connection* this,
 }
 
 // Dispatch an event pertaining to a connection. Returns false to die.
-bool connection_event_dispatch(struct Connection* this,
-                               struct io_uring_cqe* cqe, struct io_uring* uring,
-                               fd listen_socket) {
+bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
+                               struct io_uring* uring, fd listen_socket) {
     assert(this);
     assert(cqe);
     assert(uring);

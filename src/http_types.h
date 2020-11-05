@@ -8,11 +8,11 @@
     _METHOD(HTTP_METHOD_BREW, "BREW")                                          \
     _METHOD(HTTP_METHOD_UNKNOWN, "__UNKNOWN")
 
-enum HttpMethod {
+typedef enum HttpMethod {
 #define _METHOD(M, N) M,
     HTTP_METHOD_ENUM
 #undef _METHOD
-};
+} HttpMethod;
 
 #define HTTP_VERSION_ENUM                                                      \
     _VERSION(HTTP_VERSION_INVALID, "")                                         \
@@ -20,21 +20,21 @@ enum HttpMethod {
     _VERSION(HTTP_VERSION_11, "HTTP/1.1")                                      \
     _VERSION(HTTP_VERSION_UNKNOWN, "")
 
-enum HttpVersion {
+typedef enum HttpVersion {
 #define _VERSION(V, S) V,
     HTTP_VERSION_ENUM
 #undef _VERSION
-};
+} HttpVersion;
 
 #define HTTP_CONTENT_TYPE_ENUM                                                 \
     _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                      \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")
 
-enum HttpContentType {
+typedef enum HttpContentType {
 #define _CTYPE(T, S) T,
     HTTP_CONTENT_TYPE_ENUM
 #undef _CTYPE
-};
+} HttpContentType;
 
 #define HTTP_STATUS_ENUM                                                       \
     _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                           \
@@ -49,11 +49,11 @@ enum HttpContentType {
     _STATUS(505, HTTP_STATUS_VERSION_NOT_SUPPORTED,                            \
             "HTTP Version Not Supported")
 
-enum HttpStatus {
+typedef enum HttpStatus {
 #define _STATUS(CODE, TYPE, REASON) TYPE = CODE,
     HTTP_STATUS_ENUM
 #undef _STATUS
-};
+} HttpStatus;
 
 #define HTTP_TRANSFER_ENCODING_ENUM                                            \
     _TENCODING(TRANSFER_ENCODING_IDENTITY, "identity")                         \
@@ -72,16 +72,16 @@ HTTP_TRANSFER_ENCODING_ENUM
 #undef _TENCODING
 static const HttpTransferEncoding HTTP_TRANSFER_ENCODING_INVALID = 0;
 
-enum HttpRequestResult {
+typedef enum HttpRequestResult {
     HTTP_REQUEST_ERROR,
     HTTP_REQUEST_NEED_DATA,
     HTTP_REQUEST_SENDING,
     HTTP_REQUEST_COMPLETE
-};
+} HttpRequestResult;
 
-enum HttpRequestStateResult {
-    HTTP_REQUEST_STATE_ERROR = HTTP_REQUEST_ERROR,
+typedef enum HttpRequestStateResult {
+    HTTP_REQUEST_STATE_ERROR     = HTTP_REQUEST_ERROR,
     HTTP_REQUEST_STATE_NEED_DATA = HTTP_REQUEST_NEED_DATA,
     HTTP_REQUEST_STATE_DONE,
     HTTP_REQUEST_STATE_BAIL = HTTP_REQUEST_COMPLETE
-};
+} HttpRequestStateResult;

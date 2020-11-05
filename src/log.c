@@ -11,7 +11,7 @@ static FILE* log_out = NULL;
 
 void log_init(FILE* out) { log_out = out; }
 
-void log_fmt(enum LogLevel level, const char* fmt, ...) {
+void log_fmt(LogLevel level, const char* fmt, ...) {
     if (level < LOG_LEVEL)
         return;
 
@@ -22,9 +22,7 @@ void log_fmt(enum LogLevel level, const char* fmt, ...) {
     va_end(args);
 }
 
-void log_msg(enum LogLevel level, const char* msg) {
-    log_fmt(level, "%s", msg);
-}
+void log_msg(LogLevel level, const char* msg) { log_fmt(level, "%s", msg); }
 
 void log_error(int error, const char* msg) {
     log_fmt(ERROR, "Error: %s (%s).", strerror(error), msg);

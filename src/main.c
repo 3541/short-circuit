@@ -23,7 +23,7 @@ int main(void) {
     fd              listen_socket = socket_listen(port);
     struct io_uring uring         = event_init();
 
-    struct Connection* current;
+    Connection* current;
     UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
 
     log_msg(TRACE, "Entering event loop.");
@@ -36,7 +36,7 @@ int main(void) {
         uintptr_t event_ptr = cqe->user_data;
         if (event_ptr & EVENT_PTR_IGNORE)
             goto next;
-        struct Event* event = (struct Event*)event_ptr;
+        Event* event = (Event*)event_ptr;
 
         if (cqe->res < 0) {
             log_error(-cqe->res, event_type_name(event->type).ptr);
@@ -48,7 +48,7 @@ int main(void) {
             goto next;
         }
 
-        cont = connection_event_dispatch((struct Connection*)event, cqe, &uring,
+        cont = connection_event_dispatch((Connection*)event, cqe, &uring,
                                          listen_socket);
 
     next:

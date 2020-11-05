@@ -16,7 +16,7 @@
 // overlaid on existing memory by passing it to buf_init with a non-null data
 // field. In such cases, care should be taken not to trigger an unintended
 // resize (and thus copy).
-bool buf_init(struct Buffer* this, size_t cap, size_t max_cap) {
+bool buf_init(Buffer* this, size_t cap, size_t max_cap) {
     if (!this->data.ptr)
         this->data = bstring_alloc(cap);
     TRYB(this->data.ptr);
@@ -25,21 +25,21 @@ bool buf_init(struct Buffer* this, size_t cap, size_t max_cap) {
     return true;
 }
 
-bool buf_initialized(const struct Buffer* this) {
+bool buf_initialized(const Buffer* this) {
     assert(this);
     assert(this->head <= this->tail);
 
     return this->data.ptr;
 }
 
-void buf_reset(struct Buffer* this) {
+void buf_reset(Buffer* this) {
     assert(buf_initialized(this));
 
     this->head = 0;
     this->tail = 0;
 }
 
-bool buf_reset_if_empty(struct Buffer* this) {
+bool buf_reset_if_empty(Buffer* this) {
     assert(buf_initialized(this));
 
     if (this->head != this->tail)
@@ -50,19 +50,19 @@ bool buf_reset_if_empty(struct Buffer* this) {
 }
 
 // Length of the contents of the buffer.
-size_t buf_len(const struct Buffer* this) {
+size_t buf_len(const Buffer* this) {
     assert(buf_initialized(this));
     return this->tail - this->head;
 }
 
 // Total available capacity for writing.
-size_t buf_cap(const struct Buffer* this) {
+size_t buf_cap(const Buffer* this) {
     assert(buf_initialized(this));
     return this->data.len - buf_len(this);
 }
 
 // Available space for a single write (i.e., continguous space).
-size_t buf_space(struct Buffer* this) {
+size_t buf_space(Buffer* this) {
     assert(buf_initialized(this));
 
     buf_reset_if_empty(this);
@@ -70,7 +70,7 @@ size_t buf_space(struct Buffer* this) {
 }
 
 // Compact the contents to the start of the buffer.
-static bool buf_compact(struct Buffer* this) {
+static bool buf_compact(Buffer* this) {
     assert(buf_initialized(this));
     assert(this->head != 0);
 
@@ -78,7 +78,7 @@ static bool buf_compact(struct Buffer* this) {
 }
 
 // Attempt to grow the buffer to fit at least min_extra_cap more bytes.
-bool buf_ensure_cap(struct Buffer* this, size_t min_extra_cap) {
+bool buf_ensure_cap(Buffer* this, size_t min_extra_cap) {
     assert(buf_initialized(this));
 
     if (buf_space(this) >= min_extra_cap)
@@ -99,7 +99,7 @@ bool buf_ensure_cap(struct Buffer* this, size_t min_extra_cap) {
 }
 
 // Pointer for writing into the buffer.
-ByteString buf_write_ptr(struct Buffer* this) {
+ByteString buf_write_ptr(Buffer* this) {
     assert(this);
 
     buf_reset_if_empty(this);
@@ -108,20 +108,20 @@ ByteString buf_write_ptr(struct Buffer* this) {
 }
 
 // Pointer for writing as a string into the buffer.
-String buf_write_ptr_string(struct Buffer* this) {
+String buf_write_ptr_string(Buffer* this) {
     ByteString ret_bytes = buf_write_ptr(this);
     return (String){ .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
 }
 
 // Bytes have been written into the buffer.
-void buf_wrote(struct Buffer* this, size_t len) {
+void buf_wrote(Buffer* this, size_t len) {
     assert(buf_initialized(this));
     assert(this->tail + len < this->data.len);
 
     this->tail += len;
 }
 
-bool buf_write_byte(struct Buffer* this, uint8_t byte) {
+bool buf_write_byte(Buffer* this, uint8_t byte) {
     assert(buf_initialized(this));
 
     TRYB(buf_ensure_cap(this, 1));
@@ -131,7 +131,7 @@ bool buf_write_byte(struct Buffer* this, uint8_t byte) {
     return true;
 }
 
-bool buf_write_str(struct Buffer* this, CString str) {
+bool buf_write_str(Buffer* this, CString str) {
     assert(buf_initialized(this));
 
     if (str.len + buf_len(this) > this->max_cap)
@@ -143,12 +143,12 @@ bool buf_write_str(struct Buffer* this, CString str) {
     return true;
 }
 
-bool buf_write_line(struct Buffer* this, CString str) {
+bool buf_write_line(Buffer* this, CString str) {
     TRYB(buf_write_str(this, str));
     return buf_write_byte(this, '\n');
 }
 
-bool buf_write_fmt(struct Buffer* this, const char* fmt, ...) {
+bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
     assert(buf_initialized(this));
 
     ByteString write_ptr = buf_write_ptr(this);
@@ -165,17 +165,17 @@ bool buf_write_fmt(struct Buffer* this, const char* fmt, ...) {
     return true;
 }
 
-bool buf_write_num(struct Buffer* this, ssize_t num) {
+bool buf_write_num(Buffer* this, ssize_t num) {
     return buf_write_fmt(this, "%zd", num);
 }
 
 // Pointer for reading from the buffer.
-CByteString buf_read_ptr(const struct Buffer* this) {
-    return BS_CONST(buf_read_ptr_mut((struct Buffer*)this));
+CByteString buf_read_ptr(const Buffer* this) {
+    return BS_CONST(buf_read_ptr_mut((Buffer*)this));
 }
 
 // Mutable pointer for reading from the buffer.
-ByteString buf_read_ptr_mut(struct Buffer* this) {
+ByteString buf_read_ptr_mut(Buffer* this) {
     assert(buf_initialized(this));
 
     return (ByteString){ .ptr = this->data.ptr + this->head,
@@ -183,7 +183,7 @@ ByteString buf_read_ptr_mut(struct Buffer* this) {
 }
 
 // Bytes have been consumed from the buffer.
-void buf_read(struct Buffer* this, size_t len) {
+void buf_read(Buffer* this, size_t len) {
     assert(buf_initialized(this));
     assert(this->head + len <= this->data.len);
 
@@ -191,7 +191,7 @@ void buf_read(struct Buffer* this, size_t len) {
     buf_reset_if_empty(this);
 }
 
-ByteString buf_memmem(struct Buffer* this, CString needle) {
+ByteString buf_memmem(Buffer* this, CString needle) {
     assert(buf_initialized(this));
     assert(needle.ptr);
     assert(needle.len > 0);
@@ -207,7 +207,7 @@ ByteString buf_memmem(struct Buffer* this, CString needle) {
 // Get a token from the buffer. NOTE: This updates the head of the buffer, so
 // care should be taken not to write into the buffer as long as the returned
 // pointer is needed.
-ByteString buf_token_next(struct Buffer* this, CString delim) {
+ByteString buf_token_next(Buffer* this, CString delim) {
     assert(buf_initialized(this));
 
     // <head>[delim][token][delim]...<tail>
@@ -236,15 +236,15 @@ ByteString buf_token_next(struct Buffer* this, CString delim) {
     return ret;
 }
 
-ByteString buf_token_next_copy(struct Buffer* this, CString delim) {
+ByteString buf_token_next_copy(Buffer* this, CString delim) {
     return bstring_clone(BS_CONST(buf_token_next(this, delim)));
 }
 
-String buf_token_next_str(struct Buffer* this, CString delim) {
+String buf_token_next_str(Buffer* this, CString delim) {
     return bstring_as_string(buf_token_next(this, delim));
 }
 
-bool buf_consume(struct Buffer* this, CString needle) {
+bool buf_consume(Buffer* this, CString needle) {
     assert(this);
     assert(needle.ptr);
 
@@ -258,9 +258,9 @@ bool buf_consume(struct Buffer* this, CString needle) {
     return true;
 }
 
-void buf_free(struct Buffer* this) {
+void buf_free(Buffer* this) {
     assert(buf_initialized(this));
 
     bstring_free(this->data);
-    memset(this, 0, sizeof(struct Buffer));
+    memset(this, 0, sizeof(Buffer));
 }

@@ -12,40 +12,40 @@
 // head: Index from which to read.
 // When head == tail, the buffer is empty. In such a condition,
 // buf_reset_if_empty will reset both indices to 0.
-struct Buffer {
+typedef struct Buffer {
     ByteString data;
     size_t     tail;
     size_t     head;
     size_t     max_cap;
-};
+} Buffer;
 
-bool buf_init(struct Buffer*, size_t cap, size_t max_cap);
-bool buf_initialized(const struct Buffer*);
-void buf_reset(struct Buffer*);
-bool buf_reset_if_empty(struct Buffer*);
+bool buf_init(Buffer*, size_t cap, size_t max_cap);
+bool buf_initialized(const Buffer*);
+void buf_reset(Buffer*);
+bool buf_reset_if_empty(Buffer*);
 
-size_t buf_len(const struct Buffer*);
-size_t buf_cap(const struct Buffer*);
-size_t buf_space(struct Buffer*);
+size_t buf_len(const Buffer*);
+size_t buf_cap(const Buffer*);
+size_t buf_space(Buffer*);
 
-bool buf_ensure_cap(struct Buffer*, size_t extra_cap);
+bool buf_ensure_cap(Buffer*, size_t extra_cap);
 
-ByteString buf_write_ptr(struct Buffer*);
-String     buf_write_ptr_string(struct Buffer*);
-void       buf_wrote(struct Buffer*, size_t);
-bool       buf_write_byte(struct Buffer*, uint8_t);
-bool       buf_write_str(struct Buffer*, CString);
-bool       buf_write_line(struct Buffer*, CString);
-bool       buf_write_fmt(struct Buffer*, const char* fmt, ...);
-bool       buf_write_num(struct Buffer*, ssize_t);
+ByteString buf_write_ptr(Buffer*);
+String     buf_write_ptr_string(Buffer*);
+void       buf_wrote(Buffer*, size_t);
+bool       buf_write_byte(Buffer*, uint8_t);
+bool       buf_write_str(Buffer*, CString);
+bool       buf_write_line(Buffer*, CString);
+bool       buf_write_fmt(Buffer*, const char* fmt, ...);
+bool       buf_write_num(Buffer*, ssize_t);
 
-CByteString buf_read_ptr(const struct Buffer*);
-ByteString  buf_read_ptr_mut(struct Buffer*);
-void        buf_read(struct Buffer*, size_t);
-ByteString  buf_memmem(struct Buffer*, CString needle);
-ByteString  buf_token_next(struct Buffer*, CString delim);
-ByteString  buf_token_next_copy(struct Buffer*, CString delim);
-String      buf_token_next_str(struct Buffer*, CString delim);
-bool        buf_consume(struct Buffer*, CString needle);
+CByteString buf_read_ptr(const Buffer*);
+ByteString  buf_read_ptr_mut(Buffer*);
+void        buf_read(Buffer*, size_t);
+ByteString  buf_memmem(Buffer*, CString needle);
+ByteString  buf_token_next(Buffer*, CString delim);
+ByteString  buf_token_next_copy(Buffer*, CString delim);
+String      buf_token_next_str(Buffer*, CString delim);
+bool        buf_consume(Buffer*, CString needle);
 
-void buf_free(struct Buffer*);
+void buf_free(Buffer*);

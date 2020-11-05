@@ -10,11 +10,11 @@
 #include "ptr_util.h"
 #include "util.h"
 
-enum UriScheme uri_scheme_parse(CByteString name) {
+UriScheme uri_scheme_parse(CByteString name) {
 #define _SCHEME(SCHEME, S) { SCHEME, CS(S) },
     static const struct {
-        enum UriScheme scheme;
-        CString        name;
+        UriScheme scheme;
+        CString   name;
     } URI_SCHEMES[] = { URI_SCHEME_ENUM };
 #undef _SCHEME
     assert(name.ptr && *name.ptr);
@@ -125,16 +125,16 @@ static bool uri_normalize_path(ByteString str) {
     return true;
 }
 
-enum UriParseResult uri_parse(struct Uri* ret, ByteString str) {
+UriParseResult uri_parse(Uri* ret, ByteString str) {
     assert(ret);
     assert(str.ptr);
 
-    struct Buffer buf_ = {
+    Buffer buf_ = {
         .data = str, .tail = str.len, .head = 0, .max_cap = str.len
     };
-    struct Buffer* buf = &buf_;
+    Buffer* buf = &buf_;
 
-    memset(ret, 0, sizeof(struct Uri));
+    memset(ret, 0, sizeof(Uri));
     ret->scheme = URI_SCHEME_UNSPECIFIED;
 
     // [scheme]://[authority]<path>[query][fragment]
@@ -177,7 +177,7 @@ enum UriParseResult uri_parse(struct Uri* ret, ByteString str) {
     return URI_PARSE_SUCCESS;
 }
 
-bool uri_path_is_contained(struct Uri* this, CString real_root) {
+bool uri_path_is_contained(Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
@@ -206,13 +206,13 @@ done:
     return rc;
 }
 
-bool uri_is_initialized(struct Uri* this) {
+bool uri_is_initialized(Uri* this) {
     assert(this);
 
     return this->path.ptr;
 }
 
-void uri_free(struct Uri* this) {
+void uri_free(Uri* this) {
     assert(uri_is_initialized(this));
 
     if (this->authority.ptr)

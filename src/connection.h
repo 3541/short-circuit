@@ -10,18 +10,21 @@
 #include "socket.h"
 
 // Callback types to submit events.
-typedef bool (*ConnectionSubmit)(struct Connection*, struct io_uring*,
-                                 int flags);
-typedef bool (*ConnectionHandle)(struct Connection*, struct io_uring_cqe*,
+typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*, int flags);
+typedef bool (*ConnectionHandle)(Connection*, struct io_uring_cqe*,
                                  struct io_uring*);
 
-enum ConnectionTransport { PLAIN, TLS, NTRANSPORTS };
+typedef enum ConnectionTransport {
+    PLAIN,
+    TLS,
+    NTRANSPORTS
+} ConnectionTransport;
 
-struct Connection {
+typedef struct Connection {
     // Has to be first so this can be cast to/from an Event.
-    struct Event last_event;
+    Event last_event;
 
-    enum ConnectionTransport transport;
+    ConnectionTransport transport;
 
     fd                 socket;
     struct sockaddr_in client_addr;
@@ -32,24 +35,23 @@ struct Connection {
 
     ConnectionSubmit send_submit;
 
-    struct Buffer recv_buf;
-    struct Buffer send_buf;
+    Buffer recv_buf;
+    Buffer send_buf;
 
-    struct HttpRequest request;
+    HttpRequest request;
 
     // For the freelist.
-    struct Connection* next;
-};
+    Connection* next;
+} Connection;
 
-void connection_reset(struct Connection*);
+void connection_reset(Connection*);
 
-struct Connection* connection_accept_submit(struct io_uring*,
-                                            enum ConnectionTransport,
-                                            fd listen_socket);
-bool connection_send_submit(struct Connection*, struct io_uring*, int flags);
-bool connection_close_submit(struct Connection*, struct io_uring*);
+Connection* connection_accept_submit(struct io_uring*, ConnectionTransport,
+                                     fd listen_socket);
+bool        connection_send_submit(Connection*, struct io_uring*, int flags);
+bool        connection_close_submit(Connection*, struct io_uring*);
 
-bool connection_send_buf_init(struct Connection*);
+bool connection_send_buf_init(Connection*);
 
-bool connection_event_dispatch(struct Connection*, struct io_uring_cqe*,
+bool connection_event_dispatch(Connection*, struct io_uring_cqe*,
                                struct io_uring*, fd listen_socket);

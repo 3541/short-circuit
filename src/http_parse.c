@@ -17,12 +17,12 @@
 
 #define _METHOD(M, N) { M, CS(N) },
 static const struct {
-    enum HttpMethod method;
-    CString         name;
+    HttpMethod method;
+    CString    name;
 } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
-static enum HttpMethod http_request_method_parse(CByteString str) {
+static HttpMethod http_request_method_parse(CByteString str) {
     assert(str.ptr && *str.ptr);
 
     CString method_str = cbstring_as_cstring(str);
@@ -39,12 +39,12 @@ static enum HttpMethod http_request_method_parse(CByteString str) {
 
 #define _VERSION(V, S) { V, CS(S) },
 static const struct {
-    enum HttpVersion version;
-    CString          str;
+    HttpVersion version;
+    CString     str;
 } HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
-CString http_version_string(enum HttpVersion version) {
+CString http_version_string(HttpVersion version) {
     for (size_t i = 0;
          i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
          i++) {
@@ -55,7 +55,7 @@ CString http_version_string(enum HttpVersion version) {
     return CS_NULL;
 }
 
-static enum HttpVersion http_version_parse(CByteString str) {
+static HttpVersion http_version_parse(CByteString str) {
     assert(str.ptr && *str.ptr);
 
     CString version_str = cbstring_as_cstring(str);
@@ -71,11 +71,11 @@ static enum HttpVersion http_version_parse(CByteString str) {
     return HTTP_VERSION_UNKNOWN;
 }
 
-CString http_status_reason(enum HttpStatus status) {
+CString http_status_reason(HttpStatus status) {
 #define _STATUS(CODE, TYPE, REASON) { CODE, CS(REASON) },
     static const struct {
-        enum HttpStatus status;
-        CString         reason;
+        HttpStatus status;
+        CString    reason;
     } HTTP_STATUS_REASONS[] = { HTTP_STATUS_ENUM };
 #undef STATUS
 
@@ -91,12 +91,12 @@ CString http_status_reason(enum HttpStatus status) {
 
 #define _CTYPE(T, S) { T, CS(S) },
 static const struct {
-    enum HttpContentType type;
-    CString              str;
+    HttpContentType type;
+    CString         str;
 } HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 
-CString http_content_type_name(enum HttpContentType type) {
+CString http_content_type_name(HttpContentType type) {
     for (size_t i = 0; i < sizeof(HTTP_CONTENT_TYPE_NAMES) /
                                sizeof(HTTP_CONTENT_TYPE_NAMES[0]);
          i++) {
@@ -128,13 +128,13 @@ static HttpTransferEncoding http_transfer_encoding_parse(CString value) {
 }
 
 // Try to parse the first line of the HTTP request.
-enum HttpRequestStateResult
-http_request_first_line_parse(struct Connection* conn, struct io_uring* uring) {
+HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
+                                                     struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    struct HttpRequest* this = &conn->request;
-    struct Buffer* buf       = &conn->recv_buf;
+    HttpRequest* this = &conn->request;
+    Buffer* buf       = &conn->recv_buf;
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
@@ -217,13 +217,13 @@ http_request_first_line_parse(struct Connection* conn, struct io_uring* uring) {
 }
 
 // Try to parse the first line of the HTTP request.
-enum HttpRequestStateResult http_request_headers_parse(struct Connection* conn,
-                                                       struct io_uring* uring) {
+HttpRequestStateResult http_request_headers_parse(Connection*      conn,
+                                                  struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    struct HttpRequest* this = &conn->request;
-    struct Buffer* buf       = &conn->recv_buf;
+    HttpRequest* this = &conn->request;
+    Buffer* buf       = &conn->recv_buf;
 
     if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)

@@ -11,11 +11,11 @@
 #include "ptr_util.h"
 #include "util.h"
 
-CString event_type_name(enum EventType ty) {
+CString event_type_name(EventType ty) {
 #define _EVENT_TYPE(E) { E, CS(#E) },
     static const struct {
-        enum EventType ty;
-        CString        name;
+        EventType ty;
+        CString   name;
     } EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
@@ -78,7 +78,7 @@ struct io_uring event_init() {
     return ret;
 }
 
-bool event_accept_submit(struct Event* this, struct io_uring* uring, fd socket,
+bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len) {
     assert(this);
@@ -97,7 +97,7 @@ bool event_accept_submit(struct Event* this, struct io_uring* uring, fd socket,
     return io_uring_submit(uring);
 }
 
-bool event_send_submit(struct Event* this, struct io_uring* uring, fd socket,
+bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
                        CByteString data, int flags) {
     assert(this);
     assert(uring);
@@ -119,7 +119,7 @@ bool event_send_submit(struct Event* this, struct io_uring* uring, fd socket,
     return io_uring_submit(uring);
 }
 
-bool event_recv_submit(struct Event* this, struct io_uring* uring, fd socket,
+bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
                        ByteString data) {
     assert(this);
     assert(uring);
@@ -136,7 +136,7 @@ bool event_recv_submit(struct Event* this, struct io_uring* uring, fd socket,
     return io_uring_submit(uring);
 }
 
-bool event_close_submit(struct Event* this, struct io_uring* uring, fd socket) {
+bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
     assert(this);
     assert(uring);
 

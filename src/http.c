@@ -15,9 +15,9 @@
 #include "uri.h"
 #include "util.h"
 
-static bool http_response_close_submit(struct Connection*, struct io_uring*);
+static bool http_response_close_submit(Connection*, struct io_uring*);
 
-static void http_request_init(struct HttpRequest* this) {
+static void http_request_init(HttpRequest* this) {
     assert(this);
 
     this->state                       = REQUEST_INIT;
@@ -29,7 +29,7 @@ static void http_request_init(struct HttpRequest* this) {
     this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
 }
 
-void http_request_reset(struct HttpRequest* this) {
+void http_request_reset(HttpRequest* this) {
     assert(this);
 
     if (this->host.ptr)
@@ -38,30 +38,34 @@ void http_request_reset(struct HttpRequest* this) {
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
 
-    memset(this, 0, sizeof(struct HttpRequest));
+    memset(this, 0, sizeof(HttpRequest));
 }
 
 // Do whatever is appropriate for the parsed method.
-//static enum HttpRequestStateResult http_request_method_handle(struct Connection* conn, struct io_uring* uring);
+// static HttpRequestStateResult http_request_method_handle(Connection* conn,
+// struct io_uring* uring);
 
 // Try to parse as much of the HTTP request as possible.
-enum HttpRequestResult http_request_handle(struct Connection* conn, struct io_uring* uring) {
+HttpRequestResult http_request_handle(Connection*      conn,
+                                      struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    struct HttpRequest* this = &conn->request;
-    enum HttpRequestStateResult rc                = HTTP_REQUEST_STATE_ERROR;
+    HttpRequest* this         = &conn->request;
+    HttpRequestStateResult rc = HTTP_REQUEST_STATE_ERROR;
 
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case REQUEST_INIT:
         http_request_init(this);
-        if ((rc = http_request_first_line_parse(conn, uring) != HTTP_REQUEST_STATE_DONE))
-            return (enum HttpRequestResult)rc;
+        if ((rc = http_request_first_line_parse(conn, uring) !=
+                  HTTP_REQUEST_STATE_DONE))
+            return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_FIRST_LINE:
-        if ((rc = http_request_headers_parse(conn, uring) != HTTP_REQUEST_STATE_DONE))
-            return (enum HttpRequestResult)rc;
+        if ((rc = http_request_headers_parse(conn, uring) !=
+                  HTTP_REQUEST_STATE_DONE))
+            return (HttpRequestResult)rc;
         // fallthrough
     case REQUEST_PARSED_HEADERS:
         PANIC("TODO: Handle REQUEST_PARSED_HEADERS.");
@@ -78,11 +82,11 @@ enum HttpRequestResult http_request_handle(struct Connection* conn, struct io_ur
 }
 
 // Respond to a completed send event.
-bool http_response_handle(struct Connection* conn, struct io_uring* uring) {
+bool http_response_handle(Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    struct HttpRequest* this = &conn->request;
+    HttpRequest* this = &conn->request;
 
     // Send isn't done.
     if (buf_len(&conn->send_buf) > 0)
@@ -105,13 +109,13 @@ bool http_response_handle(struct Connection* conn, struct io_uring* uring) {
 }
 
 // Write the status line to the send buffer.
-static bool http_response_prep_status_line(struct Connection* conn,
-                                           enum HttpStatus    status) {
+static bool http_response_prep_status_line(Connection* conn,
+                                           HttpStatus  status) {
     assert(conn);
     assert(status != HTTP_STATUS_INVALID);
 
-    struct HttpRequest* req = &conn->request;
-    struct Buffer*      buf = &conn->send_buf;
+    HttpRequest* req = &conn->request;
+    Buffer*      buf = &conn->send_buf;
 
     if (!buf_initialized(buf) && !connection_send_buf_init(conn)) {
         log_msg(WARN, "Failed to initialize send buffer.");
@@ -134,13 +138,13 @@ static bool http_response_prep_status_line(struct Connection* conn,
     return true;
 }
 
-static bool http_response_prep_header(struct Connection* conn, CString name,
+static bool http_response_prep_header(Connection* conn, CString name,
                                       CString value) {
     assert(conn);
     assert(name.ptr);
     assert(value.ptr);
 
-    struct Buffer* buf = &conn->send_buf;
+    Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, name));
     TRYB(buf_write_str(buf, CS(": ")));
@@ -149,12 +153,12 @@ static bool http_response_prep_header(struct Connection* conn, CString name,
     return true;
 }
 
-static bool http_response_prep_header_num(struct Connection* conn, CString name,
+static bool http_response_prep_header_num(Connection* conn, CString name,
                                           ssize_t value) {
     assert(conn);
     assert(name.ptr);
 
-    struct Buffer* buf = &conn->send_buf;
+    Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, name));
     TRYB(buf_write_str(buf, CS(": ")));
@@ -163,10 +167,10 @@ static bool http_response_prep_header_num(struct Connection* conn, CString name,
     return true;
 }
 
-static bool http_response_prep_date_header(struct Connection* conn) {
+static bool http_response_prep_date_header(Connection* conn) {
     assert(conn);
 
-    struct Buffer* buf = &conn->send_buf;
+    Buffer* buf = &conn->send_buf;
 
     TRYB(buf_write_str(buf, CS("Date: ")));
 
@@ -184,12 +188,11 @@ static bool http_response_prep_date_header(struct Connection* conn) {
 }
 
 // Write the default status line and headers to the send buffer.
-static bool http_response_prep_headers(struct Connection* conn,
-                                       enum HttpStatus    status,
+static bool http_response_prep_headers(Connection* conn, HttpStatus status,
                                        ssize_t content_length, bool close) {
     assert(conn);
 
-    struct HttpRequest* this = &conn->request;
+    HttpRequest* this = &conn->request;
 
     TRYB(http_response_prep_status_line(conn, status));
     TRYB(http_response_prep_date_header(conn));
@@ -211,21 +214,21 @@ static bool http_response_prep_headers(struct Connection* conn,
 }
 
 // Done writing headers.
-static bool http_response_prep_headers_done(struct Connection* conn) {
+static bool http_response_prep_headers_done(Connection* conn) {
     assert(conn);
 
     return buf_write_str(&conn->send_buf, HTTP_NEWLINE);
 }
 
 // Write out a response body to the send buffer.
-static bool http_response_prep_body(struct Connection* conn, CString body) {
+static bool http_response_prep_body(Connection* conn, CString body) {
     assert(conn);
 
     return buf_write_str(&conn->send_buf, body);
 }
 
-static CString http_response_error_make_body(struct Connection* conn,
-                                             enum HttpStatus    status) {
+static CString http_response_error_make_body(Connection* conn,
+                                             HttpStatus  status) {
     assert(conn);
     (void)conn;
     assert(status != HTTP_STATUS_INVALID);
@@ -252,8 +255,8 @@ static CString http_response_error_make_body(struct Connection* conn,
                       .len = strnlen(body, HTTP_ERROR_BODY_MAX_LENGTH) };
 }
 
-static bool http_response_close_submit(struct Connection* conn,
-                                       struct io_uring*   uring) {
+static bool http_response_close_submit(Connection*      conn,
+                                       struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
@@ -262,8 +265,8 @@ static bool http_response_close_submit(struct Connection* conn,
 }
 
 // Submit a write event for an HTTP error response.
-bool http_response_error_submit(struct Connection* conn, struct io_uring* uring,
-                                enum HttpStatus status, bool close) {
+bool http_response_error_submit(Connection* conn, struct io_uring* uring,
+                                HttpStatus status, bool close) {
     assert(conn);
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
@@ -271,7 +274,7 @@ bool http_response_error_submit(struct Connection* conn, struct io_uring* uring,
     log_fmt(DEBUG, "HTTP error %d. %s", status,
             close ? "Closing connection." : "");
 
-    struct HttpRequest* this = &conn->request;
+    HttpRequest* this = &conn->request;
 
     this->state                 = REQUEST_RESPONDING;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;

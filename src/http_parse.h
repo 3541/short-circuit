@@ -6,9 +6,11 @@
 #include "http_types.h"
 #include "ptr.h"
 
-CString http_version_string(enum HttpVersion);
-CString http_status_reason(enum HttpStatus);
-CString http_content_type_name(enum HttpContentType);
+CString http_version_string(HttpVersion);
+CString http_status_reason(HttpStatus);
+CString http_content_type_name(HttpContentType);
 
-enum HttpRequestStateResult http_request_first_line_parse(struct Connection*, struct io_uring*);
-enum HttpRequestStateResult http_request_headers_parse(struct Connection*, struct io_uring*);
+HttpRequestStateResult http_request_first_line_parse(Connection*,
+                                                     struct io_uring*);
+HttpRequestStateResult http_request_headers_parse(Connection*,
+                                                  struct io_uring*);
