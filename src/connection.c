@@ -78,13 +78,13 @@ void connection_reset(Connection* this) {
 }
 
 bool connection_send_submit(Connection* this, struct io_uring* uring,
-                            int flags) {
+                            unsigned sqe_flags) {
     assert(this);
     assert(uring);
 
     Buffer* buf = &this->send_buf;
     return event_send_submit(&this->last_event, uring, this->socket,
-                             buf_read_ptr(buf), flags);
+                             buf_read_ptr(buf), sqe_flags);
 }
 
 static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
@@ -139,10 +139,10 @@ bool connection_send_buf_init(Connection* this) {
 
 // Submit a request to receive as much data as the buffer can handle.
 static bool connection_recv_submit(Connection* this, struct io_uring* uring,
-                                   int flags) {
+                                   unsigned sqe_flags) {
     assert(this);
     assert(uring);
-    (void)flags;
+    (void)sqe_flags;
 
     if (!buf_initialized(&this->recv_buf) && !connection_recv_buf_init(this))
         return false;

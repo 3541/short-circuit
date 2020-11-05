@@ -36,7 +36,7 @@ bool event_accept_submit(Event*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len);
 bool event_send_submit(Event*, struct io_uring*, fd socket, CByteString data,
-                       int flags);
+                       unsigned sqe_flags);
 bool event_recv_submit(Event*, struct io_uring*, fd socket,
                        ByteString out_data);
 bool event_close_submit(Event*, struct io_uring*, fd socket);

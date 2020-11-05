@@ -98,7 +98,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
-                       CByteString data, int flags) {
+                       CByteString data, unsigned sqe_flags) {
     assert(this);
     assert(uring);
     assert(data.ptr);
@@ -109,11 +109,12 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
 
     uintptr_t this_ptr = (uintptr_t)this;
 
-    if (flags & IOSQE_IO_LINK) {
+    if (sqe_flags & IOSQE_IO_LINK) {
         this_ptr |= EVENT_PTR_IGNORE;
     }
 
-    io_uring_prep_send(sqe, socket, data.ptr, data.len, flags);
+    io_uring_prep_send(sqe, socket, data.ptr, data.len, 0);
+    io_uring_sqe_set_flags(sqe, sqe_flags);
     io_uring_sqe_set_data(sqe, (void*)this_ptr);
 
     return io_uring_submit(uring);
