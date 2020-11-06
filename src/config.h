@@ -12,7 +12,7 @@
 #define DEFAULT_WEB_ROOT    "."
 #define LISTEN_BACKLOG      1024
 
-#define URING_ENTRIES 256
+#define URING_ENTRIES 512
 
 #ifdef DEBUG_BUILD
 #define LOG_LEVEL DEBUG

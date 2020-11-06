@@ -263,7 +263,8 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
     assert(uring);
 
     if (cqe->res < 0) {
-        log_error(-cqe->res, "Event error. Closing connection.");
+        if (-cqe->res != ECONNRESET)
+            log_error(-cqe->res, "Event error. Closing connection.");
         connection_free(this, uring);
         return true;
     }

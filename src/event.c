@@ -29,14 +29,6 @@ CString event_type_name(EventType ty) {
     return CS("INVALID");
 }
 
-#define REQUIRE_OP(P, OP)                                                      \
-    do {                                                                       \
-        if (!io_uring_opcode_supported(P, OP))                                 \
-            PANIC_FMT(                                                         \
-                "Required io_uring op %s is not supported by the kernel.",     \
-                #OP);                                                          \
-    } while (0)
-
 // Check that the kernel is recent enough to support io_uring and
 // io_uring_probe.
 static void event_check_kver() {
@@ -58,9 +50,17 @@ static void event_check_kver() {
     free(release);
 }
 
+#define REQUIRE_OP(P, OP)                                                      \
+    do {                                                                       \
+        if (!io_uring_opcode_supported(P, OP))                                 \
+            PANIC_FMT(                                                         \
+                "Required io_uring op %s is not supported by the kernel.",     \
+                #OP);                                                          \
+    } while (0)
+
 // All ops used should be checked here.
-static void event_check_ops() {
-    struct io_uring_probe* probe = io_uring_get_probe();
+static void event_check_ops(struct io_uring* uring) {
+    struct io_uring_probe* probe = io_uring_get_probe_ring(uring);
 
     REQUIRE_OP(probe, IORING_OP_ACCEPT);
     REQUIRE_OP(probe, IORING_OP_RECV);
@@ -75,7 +75,7 @@ struct io_uring event_init() {
     struct io_uring ret;
     UNWRAPSD(io_uring_queue_init(URING_ENTRIES, &ret, 0));
 
-    event_check_ops();
+    event_check_ops(&ret);
 
     return ret;
 }
