@@ -26,6 +26,7 @@ typedef struct HttpRequest {
     HttpMethod  method;
     Uri         target;
     String      target_path;
+    fd          target_file;
 
     bool                 keep_alive;
     CString              host;

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "buffer.h"
 #include "config.h"
@@ -19,7 +20,7 @@
 #include "util.h"
 
 static bool http_response_close_submit(Connection*, struct io_uring*);
-static bool http_response_file_submit(Connection*, struct io_uring*, fd);
+static bool http_response_file_submit(Connection*, struct io_uring*);
 
 static void http_request_init(HttpRequest* this) {
     assert(this);
@@ -29,6 +30,7 @@ static void http_request_init(HttpRequest* this) {
     this->keep_alive                  = true;
     this->content_length              = -1;
     this->transfer_encodings          = HTTP_TRANSFER_ENCODING_IDENTITY;
+    this->target_file                 = -1;
     this->response_transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
     this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
 }
@@ -45,6 +47,9 @@ void http_request_reset(HttpRequest* this) {
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
 
+    if (this->target_file >= 0)
+        close(this->target_file);
+
     memset(this, 0, sizeof(HttpRequest));
 }
 
@@ -57,15 +62,14 @@ static HttpRequestStateResult http_request_get_handle(Connection*      conn,
     struct HttpRequest* this = &conn->request;
 
     // TODO: GET things other than static files.
-    fd file;
-    if ((file = open(this->target_path.ptr, O_RDONLY)) < 0)
+    if ((this->target_file = open(this->target_path.ptr, O_RDONLY)) < 0)
         RET_MAP(http_response_error_submit(
                     conn, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     log_fmt(TRACE, "Sending file %s.", this->target_path.ptr);
-    RET_MAP(http_response_file_submit(conn, uring, file),
-            HTTP_REQUEST_STATE_DONE, HTTP_REQUEST_STATE_ERROR);
+    RET_MAP(http_response_file_submit(conn, uring), HTTP_REQUEST_STATE_DONE,
+            HTTP_REQUEST_STATE_ERROR);
 }
 
 // Do whatever is appropriate for the parsed method.
@@ -345,14 +349,16 @@ bool http_response_error_submit(Connection* conn, struct io_uring* uring,
     return true;
 }
 
-bool http_response_file_submit(Connection* conn, struct io_uring* uring,
-                               fd file) {
+static bool http_response_file_submit(Connection*      conn,
+                                      struct io_uring* uring) {
     assert(conn);
     assert(uring);
-    assert(file >= 0);
 
     struct HttpRequest* this = &conn->request;
     this->state              = REQUEST_RESPONDING;
+
+    assert(this->target_file >= 0);
+    fd file = this->target_file;
 
     struct stat res;
     TRYB(fstat(file, &res) == 0);
