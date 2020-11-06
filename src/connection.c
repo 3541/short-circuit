@@ -16,7 +16,6 @@
 #include "http.h"
 #include "log.h"
 #include "socket.h"
-#include "src/http_types.h"
 #include "util.h"
 
 static Connection* connection_freelist                   = NULL;
@@ -263,7 +262,8 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
     assert(uring);
 
     if (cqe->res < 0) {
-        if (-cqe->res != ECONNRESET)
+        // EOF conditions.
+        if (-cqe->res != ECONNRESET && -cqe->res != EBADF)
             log_error(-cqe->res, "Event error. Closing connection.");
         connection_free(this, uring);
         return true;

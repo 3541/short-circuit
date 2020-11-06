@@ -46,16 +46,18 @@ int main(void) {
             break;
         }
 
-        uintptr_t event_ptr = cqe->user_data;
-        if (event_ptr & EVENT_PTR_IGNORE)
-            goto next;
-        Event* event = (Event*)event_ptr;
+        for (; cqe; io_uring_peek_cqe(&uring, &cqe)) {
+            uintptr_t event_ptr = cqe->user_data;
+            if (event_ptr & EVENT_PTR_IGNORE)
+                goto next;
+            Event* event = (Event*)event_ptr;
 
-        cont = connection_event_dispatch((Connection*)event, cqe, &uring,
-                                         listen_socket);
+            cont = connection_event_dispatch((Connection*)event, cqe, &uring,
+                                             listen_socket);
+        next:
+            io_uring_cqe_seen(&uring, cqe);
+        }
 
-    next:
-        io_uring_cqe_seen(&uring, cqe);
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
             log_fmt(TRACE, "Submitted %d events.", ev);
