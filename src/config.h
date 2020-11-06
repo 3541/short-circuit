@@ -14,7 +14,11 @@
 
 #define URING_ENTRIES 256
 
-#define LOG_LEVEL TRACE
+#ifdef DEBUG_BUILD
+#define LOG_LEVEL DEBUG
+#else
+#define LOG_LEVEL WARN
+#endif
 
 #define CONNECTION_MAX_ALLOCATED 4096
 

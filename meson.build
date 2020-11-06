@@ -14,6 +14,10 @@ project(
 add_project_arguments('-D_GNU_SOURCE', language: 'c')
 add_project_arguments('-Wno-override-init', language: 'c')
 
+if get_option('debug')
+  add_project_arguments('-DDEBUG_BUILD', language: 'c')
+endif
+
 liburing = dependency('liburing')
 
 src = files([

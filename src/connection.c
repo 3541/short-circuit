@@ -80,8 +80,10 @@ void connection_freelist_clear() {
 void connection_reset(Connection* this) {
     assert(this);
 
-    buf_reset(&this->recv_buf);
-    buf_reset(&this->send_buf);
+    if (buf_initialized(&this->recv_buf))
+        buf_reset(&this->recv_buf);
+    if (buf_initialized(&this->send_buf))
+        buf_reset(&this->send_buf);
 
     http_request_reset(&this->request);
 }
@@ -259,6 +261,12 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
     assert(this);
     assert(cqe);
     assert(uring);
+
+    if (cqe->res < 0) {
+        log_error(-cqe->res, "Event error. Closing connection.");
+        connection_free(this, uring);
+        return true;
+    }
 
     bool rc = true;
 
