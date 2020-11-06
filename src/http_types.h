@@ -4,8 +4,9 @@
 
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
-    _METHOD(HTTP_METHOD_GET, "GET")                                            \
     _METHOD(HTTP_METHOD_BREW, "BREW")                                          \
+    _METHOD(HTTP_METHOD_GET, "GET")                                            \
+    _METHOD(HTTP_METHOD_HEAD, "HEAD")                                          \
     _METHOD(HTTP_METHOD_UNKNOWN, "__UNKNOWN")
 
 typedef enum HttpMethod {

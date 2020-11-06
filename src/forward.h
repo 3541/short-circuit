@@ -18,3 +18,6 @@ typedef struct Connection Connection;
 // event.h
 struct Event;
 typedef struct Event Event;
+
+// socket.h
+typedef int fd;

@@ -70,7 +70,7 @@ static void connection_free(Connection* this, struct io_uring* uring) {
 }
 
 void connection_freelist_clear() {
-    for (Connection* conn = connection_freelist; conn; ) {
+    for (Connection* conn = connection_freelist; conn;) {
         Connection* next = conn->next;
         free(conn);
         conn = next;

@@ -190,8 +190,8 @@ HttpRequestStateResult http_request_first_line_parse(Connection*      conn,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    this->version =
-        http_version_parse(BS_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
+    this->version = http_version_parse(
+        BS_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
     // Need to only eat one "\r\n".
     TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
     if (this->version == HTTP_VERSION_INVALID ||
@@ -275,7 +275,8 @@ HttpRequestStateResult http_request_headers_parse(Connection*      conn,
                 char*   endptr     = NULL;
                 ssize_t new_length = strtol(value.ptr, &endptr, 10);
 
-                // RFC 7230 § 3.3.3, step 4: Invalid or conflicting Content-Length
+                // RFC 7230 § 3.3.3, step 4: Invalid or conflicting
+                // Content-Length
                 // -> 400.
                 if (*endptr != '\0' || (this->content_length != -1 &&
                                         this->content_length != new_length))

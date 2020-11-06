@@ -92,7 +92,8 @@ bool buf_ensure_cap(Buffer* this, size_t min_extra_cap) {
         return buf_compact(this);
 
     size_t new_cap = this->data.len;
-    for (; new_cap < this->data.len + min_extra_cap; new_cap *= 2);
+    for (; new_cap < this->data.len + min_extra_cap; new_cap *= 2)
+        ;
     ByteString new_data =
         bstring_realloc(this->data, MIN(new_cap, this->max_cap));
     TRYB(new_data.ptr);

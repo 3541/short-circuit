@@ -54,8 +54,8 @@ void http_request_reset(HttpRequest* this) {
 }
 
 // TODO: Perhaps handle things other than static files.
-static HttpRequestStateResult http_request_get_handle(Connection*      conn,
-                                                      struct io_uring* uring) {
+static HttpRequestStateResult
+http_request_get_head_handle(Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
@@ -81,8 +81,9 @@ http_request_method_handle(Connection* conn, struct io_uring* uring) {
     struct HttpRequest* this = &conn->request;
 
     switch (this->method) {
+    case HTTP_METHOD_HEAD:
     case HTTP_METHOD_GET:
-        return http_request_get_handle(conn, uring);
+        return http_request_get_head_handle(conn, uring);
     case HTTP_METHOD_BREW:
         this->version = HTCPCP_VERSION_10;
         RET_MAP(http_response_error_submit(conn, uring, HTTP_STATUS_IM_A_TEAPOT,
@@ -340,7 +341,8 @@ bool http_response_error_submit(Connection* conn, struct io_uring* uring,
     TRYB(http_response_prep_headers(conn, status, body.len, close));
     TRYB(http_response_prep_headers_done(conn));
 
-    TRYB(http_response_prep_body(conn, body));
+    if (this->method != HTTP_METHOD_HEAD)
+        TRYB(http_response_prep_body(conn, body));
 
     TRYB(conn->send_submit(conn, uring, close ? IOSQE_IO_LINK : 0));
     if (close)
@@ -376,23 +378,28 @@ static bool http_response_file_submit(Connection*      conn,
                                     HTTP_RESPONSE_ALLOW));
     TRYB(http_response_prep_headers_done(conn));
 
-    // TODO: Handle files larger than SEND_BUF_MAX_CAPACITY, use registered
-    // buffers, etc...
-    // This should probably:
-    // - Grow the buffer to MIN(buf->max_cap, res.st_size)
-    // - Queue a chain of linked read/send events in units of buf->cap, using
-    // appropriate read offsets.
-    Buffer* buf    = &conn->send_buf;
-    size_t  buflen = buf_len(buf);
-    if ((size_t)res.st_size > buflen &&
-        !buf_ensure_cap(buf, (size_t)res.st_size - buflen)) {
-        return http_response_error_submit(
-            conn, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE, HTTP_RESPONSE_ALLOW);
+    if (this->method != HTTP_METHOD_HEAD) {
+        // TODO: Handle files larger than SEND_BUF_MAX_CAPACITY, use registered
+        // buffers, etc...
+        // This should probably:
+        // - Grow the buffer to MIN(buf->max_cap, res.st_size)
+        // - Queue a chain of linked read/send events in units of buf->cap,
+        // using appropriate read offsets.
+        Buffer* buf    = &conn->send_buf;
+        size_t  buflen = buf_len(buf);
+        if ((size_t)res.st_size > buflen &&
+            !buf_ensure_cap(buf, (size_t)res.st_size - buflen)) {
+            return http_response_error_submit(conn, uring,
+                                              HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                                              HTTP_RESPONSE_ALLOW);
+        }
+
+        TRYB(event_read_submit(&conn->last_event, uring, file,
+                               buf_write_ptr(buf), (size_t)res.st_size, 0,
+                               IOSQE_IO_LINK));
+        buf_wrote(buf, res.st_size);
     }
 
-    TRYB(event_read_submit(&conn->last_event, uring, file, buf_write_ptr(buf),
-                           (size_t)res.st_size, 0, IOSQE_IO_LINK));
-    buf_wrote(buf, res.st_size);
     TRYB(conn->send_submit(conn, uring, this->keep_alive ? 0 : IOSQE_IO_LINK));
     if (!this->keep_alive)
         return http_response_close_submit(conn, uring);

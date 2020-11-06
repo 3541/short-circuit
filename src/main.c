@@ -40,7 +40,7 @@ int main(void) {
 
     while (cont) {
         struct io_uring_cqe* cqe;
-        int rc;
+        int                  rc;
         if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0) {
             log_error(-rc, "Breaking event loop.");
             break;
