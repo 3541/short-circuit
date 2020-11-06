@@ -32,7 +32,7 @@ int main(void) {
 
     Connection* current;
     UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
-    assert(io_uring_submit(&uring));
+    UNWRAPND(io_uring_submit(&uring));
 
     UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
 

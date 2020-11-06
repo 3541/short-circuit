@@ -88,8 +88,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
     assert(out_client_addr);
 
     struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
-    if (!sqe)
-        return false;
+    TRYB(sqe);
     this->type = ACCEPT;
 
     io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr,
