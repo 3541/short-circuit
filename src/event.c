@@ -80,6 +80,13 @@ struct io_uring event_init() {
     return ret;
 }
 
+static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
+    struct io_uring_sqe* ret = io_uring_get_sqe(uring);
+    if (!ret)
+        log_msg(WARN, "SQ full.");
+    return ret;
+}
+
 bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len) {
@@ -87,7 +94,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
     assert(uring);
     assert(out_client_addr);
 
-    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
     this->type = ACCEPT;
 
@@ -104,7 +111,7 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
     assert(uring);
     assert(data.ptr);
 
-    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
     this->type = SEND;
 
@@ -125,7 +132,7 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
     assert(uring);
     assert(data.ptr);
 
-    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
     this->type = RECV;
 
@@ -143,7 +150,7 @@ bool event_read_submit(Event* this, struct io_uring* uring, fd file,
     assert(file >= 0);
     assert(out_data.ptr);
 
-    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
 
     uintptr_t this_ptr = (uintptr_t)this;
@@ -162,7 +169,7 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
     assert(this);
     assert(uring);
 
-    struct io_uring_sqe* sqe = io_uring_get_sqe(uring);
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
     if (!sqe)
         return false;
     this->type = CLOSE;
