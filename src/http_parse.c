@@ -124,6 +124,7 @@ HttpContentType http_content_type_from_path(CString path) {
         { CS("webp"), HTTP_CONTENT_TYPE_IMAGE_WEBP },
         { CS("css"), HTTP_CONTENT_TYPE_TEXT_CSS },
         { CS("js"), HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT },
+        { CS("txt"), HTTP_CONTENT_TYPE_TEXT_PLAIN },
         { CS("html"), HTTP_CONTENT_TYPE_TEXT_HTML },
     };
 
