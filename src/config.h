@@ -9,8 +9,9 @@
 #define MIN_KERNEL_VERSION_MINOR 6
 
 #define DEFAULT_LISTEN_PORT 8000
-#define DEFAULT_WEB_ROOT    "."
 #define LISTEN_BACKLOG      1024
+#define DEFAULT_WEB_ROOT    "/var/www/localhost/htdocs"
+#define INDEX_FILENAME      "index.html"
 
 #define URING_ENTRIES              512
 #define URING_SUBMISSION_THRESHOLD 500

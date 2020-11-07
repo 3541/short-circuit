@@ -360,18 +360,34 @@ static bool http_response_file_submit(Connection*      conn,
     this->state              = REQUEST_RESPONDING;
 
     assert(this->target_file >= 0);
-    fd file = this->target_file;
 
     struct stat res;
-    TRYB(fstat(file, &res) == 0);
+    TRYB(fstat(this->target_file, &res) == 0);
+
+    bool index = false;
 
     // TODO: Directory listings.
+    if (S_ISDIR(res.st_mode)) {
+        index    = true;
+        fd dirfd = this->target_file;
+        TRYB(fstatat(dirfd, INDEX_FILENAME, &res, 0) == 0);
+        fd new_file = -1;
+        if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
+            return http_response_error_submit(
+                conn, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
+        close(dirfd);
+        this->target_file = new_file;
+    }
+
     if (!S_ISREG(res.st_mode))
         return http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
                                           HTTP_RESPONSE_ALLOW);
 
-    this->response_content_type =
-        http_content_type_from_path(S_CONST(this->target_path));
+    if (index)
+        this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
+    else
+        this->response_content_type =
+            http_content_type_from_path(S_CONST(this->target_path));
 
     TRYB(http_response_prep_headers(conn, HTTP_STATUS_OK, res.st_size,
                                     HTTP_RESPONSE_ALLOW));
@@ -393,7 +409,7 @@ static bool http_response_file_submit(Connection*      conn,
                                               HTTP_RESPONSE_ALLOW);
         }
 
-        TRYB(event_read_submit(&conn->last_event, uring, file,
+        TRYB(event_read_submit(&conn->last_event, uring, this->target_file,
                                buf_write_ptr(buf), (size_t)res.st_size, 0,
                                IOSQE_IO_LINK));
         buf_wrote(buf, res.st_size);
