@@ -393,29 +393,37 @@ static bool http_response_file_submit(Connection*      conn,
                                     HTTP_RESPONSE_ALLOW));
     TRYB(http_response_prep_headers_done(conn));
 
-    if (this->method != HTTP_METHOD_HEAD) {
-        // TODO: Handle files larger than SEND_BUF_MAX_CAPACITY, use registered
-        // buffers, etc...
-        // This should probably:
-        // - Grow the buffer to MIN(buf->max_cap, res.st_size)
-        // - Queue a chain of linked read/send events in units of buf->cap,
-        // using appropriate read offsets.
-        Buffer* buf    = &conn->send_buf;
-        size_t  buflen = buf_len(buf);
-        if ((size_t)res.st_size > buflen &&
-            !buf_ensure_cap(buf, (size_t)res.st_size - buflen)) {
-            return http_response_error_submit(conn, uring,
-                                              HTTP_STATUS_PAYLOAD_TOO_LARGE,
-                                              HTTP_RESPONSE_ALLOW);
-        }
+    Buffer* buf     = &conn->send_buf;
+    if (this->method == HTTP_METHOD_HEAD) {
+        TRYB(conn->send_submit(conn, uring,
+                               !this->keep_alive ? IOSQE_IO_LINK : 0));
+    } else {
+        size_t file_size = (size_t)res.st_size;
+        size_t header_size = buf_len(buf);
+        size_t total_size = file_size + header_size;
+        if (file_size > buf_space(buf) && !buf_ensure_cap(buf, total_size))
+            buf_ensure_max_cap(buf);
 
-        TRYB(event_read_submit(&conn->last_event, uring, this->target_file,
-                               buf_write_ptr(buf), (size_t)res.st_size, 0,
-                               IOSQE_IO_LINK));
-        buf_wrote(buf, res.st_size);
+        size_t sent = 0;
+        size_t file_sent = 0;
+        while (total_size > 0) {
+            ByteString write_ptr = buf_write_ptr(buf);
+            size_t try_read_size = MIN(file_size, write_ptr.len);
+            TRYB(event_read_submit(&conn->last_event, uring, this->target_file,
+                                   write_ptr, try_read_size, file_sent, IOSQE_IO_LINK));
+            buf_wrote(buf, try_read_size);
+            file_size -= try_read_size;
+            file_sent += try_read_size;
+            TRYB(conn->send_submit(
+                conn, uring,
+                (total_size - buf_len(buf) > 0 || !this->keep_alive) ? IOSQE_IO_LINK : 0));
+            total_size -= buf_len(buf);
+            sent += buf_len(buf);
+            buf_reset(buf);
+        }
+        buf_wrote(buf, MIN(sent, buf_space(buf)));
     }
 
-    TRYB(conn->send_submit(conn, uring, this->keep_alive ? 0 : IOSQE_IO_LINK));
     if (!this->keep_alive)
         return http_response_close_submit(conn, uring);
 

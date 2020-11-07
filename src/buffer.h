@@ -29,6 +29,7 @@ size_t buf_cap(const Buffer*);
 size_t buf_space(Buffer*);
 
 bool buf_ensure_cap(Buffer*, size_t extra_cap);
+bool buf_ensure_max_cap(Buffer*);
 
 ByteString buf_write_ptr(Buffer*);
 String     buf_write_ptr_string(Buffer*);

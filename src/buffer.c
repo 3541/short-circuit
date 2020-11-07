@@ -102,6 +102,16 @@ bool buf_ensure_cap(Buffer* this, size_t min_extra_cap) {
     return true;
 }
 
+// Attempt to grow the buffer to its maximum capacity.
+bool buf_ensure_max_cap(Buffer* this) {
+    assert(buf_initialized(this));
+
+    if (this->data.len >= this->max_cap)
+        return true;
+
+    return buf_ensure_cap(this, this->max_cap - this->data.len);
+}
+
 // Pointer for writing into the buffer.
 ByteString buf_write_ptr(Buffer* this) {
     assert(this);
@@ -120,7 +130,7 @@ String buf_write_ptr_string(Buffer* this) {
 // Bytes have been written into the buffer.
 void buf_wrote(Buffer* this, size_t len) {
     assert(buf_initialized(this));
-    assert(this->tail + len < this->data.len);
+    assert(this->tail + len <= this->data.len);
 
     this->tail += len;
 }
