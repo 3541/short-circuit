@@ -86,4 +86,16 @@ INLINE int string_cmpi(CString s1, CString s2) {
     return strncasecmp(s1.ptr, s2.ptr, s1.len);
 }
 
+INLINE CString cstring_rchr(CString str, char c) {
+    for (size_t i = str.len - 1;; i--) {
+        if (str.ptr[i] == c)
+            return (CString){ .ptr = &str.ptr[i], .len = str.len - i };
+
+        if (i == 0)
+            break;
+    }
+
+    return CS_NULL;
+}
+
 void bstring_concat(ByteString str, size_t count, ...);

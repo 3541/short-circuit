@@ -107,6 +107,43 @@ CString http_content_type_name(HttpContentType type) {
     return CS_NULL;
 }
 
+HttpContentType http_content_type_from_path(CString path) {
+    assert(path.ptr);
+
+    static struct {
+        CString         ext;
+        HttpContentType ctype;
+    } EXTENSIONS[] = {
+        { CS("bmp"), HTTP_CONTENT_TYPE_IMAGE_BMP },
+        { CS("gif"), HTTP_CONTENT_TYPE_IMAGE_GIF },
+        { CS("ico"), HTTP_CONTENT_TYPE_IMAGE_ICO },
+        { CS("jpg"), HTTP_CONTENT_TYPE_IMAGE_JPEG },
+        { CS("jpeg"), HTTP_CONTENT_TYPE_IMAGE_JPEG },
+        { CS("png"), HTTP_CONTENT_TYPE_IMAGE_PNG },
+        { CS("svg"), HTTP_CONTENT_TYPE_IMAGE_SVG },
+        { CS("webp"), HTTP_CONTENT_TYPE_IMAGE_WEBP },
+        { CS("css"), HTTP_CONTENT_TYPE_TEXT_CSS },
+        { CS("js"), HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT },
+        { CS("html"), HTTP_CONTENT_TYPE_TEXT_HTML },
+    };
+
+    CString last_dot = cstring_rchr(path, '.');
+    if (!last_dot.ptr || last_dot.len < 2)
+        return HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM;
+
+    CString last_slash = cstring_rchr(path, '/');
+    if (last_slash.ptr && last_slash.ptr > last_dot.ptr)
+        return HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM;
+
+    CString ext = { .ptr = last_dot.ptr + 1, .len = last_dot.len - 1 };
+    for (size_t i = 0; i < sizeof(EXTENSIONS) / sizeof(EXTENSIONS[0]); i++) {
+        if (string_cmpi(ext, EXTENSIONS[i].ext) == 0)
+            return EXTENSIONS[i].ctype;
+    }
+
+    return HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM;
+}
+
 #define _TENCODING(E, S) { HTTP_##E, CS(S) },
 static const struct {
     HttpTransferEncoding encoding;

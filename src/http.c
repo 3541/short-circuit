@@ -370,9 +370,8 @@ static bool http_response_file_submit(Connection*      conn,
         return http_response_error_submit(conn, uring, HTTP_STATUS_NOT_FOUND,
                                           HTTP_RESPONSE_ALLOW);
 
-    // TODO: Guess the content type.
-
-    this->response_content_type = HTTP_CONTENT_TYPE_TEXT_PLAIN;
+    this->response_content_type =
+        http_content_type_from_path(S_CONST(this->target_path));
 
     TRYB(http_response_prep_headers(conn, HTTP_STATUS_OK, res.st_size,
                                     HTTP_RESPONSE_ALLOW));

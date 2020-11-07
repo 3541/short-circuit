@@ -30,8 +30,19 @@ typedef enum HttpVersion {
 
 #define HTTP_CONTENT_TYPE_ENUM                                                 \
     _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                      \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")                           \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM,                         \
+           "application/octet-stream")                                         \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_BMP, "image/bmp")                           \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_GIF, "image/gif")                           \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_ICO, "image/x-icon")                        \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_JPEG, "image/jpeg")                         \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_PNG, "image/png")                           \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_SVG, "image/svg+xml")                       \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_WEBP, "image/webp")                         \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_CSS, "text/css")                             \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT, "text/javascript")               \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")                         \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")
 
 typedef enum HttpContentType {
 #define _CTYPE(T, S) T,
