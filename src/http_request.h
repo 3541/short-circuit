@@ -40,10 +40,3 @@ typedef struct HttpRequest {
 void http_request_reset(HttpRequest*);
 
 HttpRequestResult http_request_handle(Connection*, struct io_uring*);
-
-bool http_response_handle(Connection*, struct io_uring*);
-
-#define HTTP_RESPONSE_CLOSE true
-#define HTTP_RESPONSE_ALLOW false
-bool http_response_error_submit(Connection*, struct io_uring*, HttpStatus,
-                                bool close);

@@ -6,7 +6,7 @@
 #include "buffer.h"
 #include "event.h"
 #include "forward.h"
-#include "http.h"
+#include "http_request.h"
 #include "socket.h"
 
 // Callback types to submit events.

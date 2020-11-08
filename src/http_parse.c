@@ -8,7 +8,7 @@
 #include "config.h"
 #include "connection.h"
 #include "global.h"
-#include "http.h"
+#include "http_response.h"
 #include "http_types.h"
 #include "ptr.h"
 #include "ptr_util.h"
