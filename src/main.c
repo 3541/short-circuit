@@ -7,6 +7,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
+#include "http_connection.h"
 #include "log.h"
 #include "socket.h"
 #include "util.h"
@@ -65,7 +66,7 @@ int main(void) {
         }
     }
 
-    connection_freelist_clear();
+    http_connection_freelist_clear();
 
     return EXIT_SUCCESS;
 }

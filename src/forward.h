@@ -19,5 +19,9 @@ typedef struct Connection Connection;
 struct Event;
 typedef struct Event Event;
 
+// http_connection.h
+struct HttpConnection;
+typedef struct HttpConnection HttpConnection;
+
 // socket.h
 typedef int fd;

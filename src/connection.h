@@ -6,7 +6,6 @@
 #include "buffer.h"
 #include "event.h"
 #include "forward.h"
-#include "http_request.h"
 #include "socket.h"
 
 // Callback types to submit events.
@@ -39,13 +38,10 @@ typedef struct Connection {
     Buffer recv_buf;
     Buffer send_buf;
 
-    HttpRequest request;
-
     // For the freelist.
     Connection* next;
 } Connection;
 
-void connection_freelist_clear();
 void connection_reset(Connection*);
 
 Connection* connection_accept_submit(struct io_uring*, ConnectionTransport,

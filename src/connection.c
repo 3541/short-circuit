@@ -13,69 +13,14 @@
 #include "buffer.h"
 #include "config.h"
 #include "event.h"
+#include "http_connection.h"
 #include "http_request.h"
 #include "http_response.h"
 #include "log.h"
 #include "socket.h"
 #include "util.h"
 
-static Connection* connection_freelist                   = NULL;
-static size_t      connections_allocated                 = 0;
-static bool        connection_accept_queued[NTRANSPORTS] = { false };
-
-static Connection* connection_new() {
-    Connection* ret = NULL;
-    if (connection_freelist) {
-        ret                 = connection_freelist;
-        connection_freelist = ret->next;
-        memset(ret, 0, sizeof(Connection));
-    } else if (connections_allocated < CONNECTION_MAX_ALLOCATED) {
-        ret = calloc(1, sizeof(Connection));
-        connections_allocated++;
-    } else {
-        ERR("Too many connections allocated.");
-    }
-
-    return ret;
-}
-
-static void connection_free(Connection* this, struct io_uring* uring) {
-    assert(this);
-
-    // If the socket hasn't been closed, arrange it. The close handle event will
-    // call free when it's done.
-    if (this->last_event.type != INVALID_EVENT &&
-        this->last_event.type != CLOSE) {
-        // If the submission was successful, we're done.
-        if (connection_close_submit(this, uring))
-            return;
-
-        // Make a last-ditch attempt to close, but do not block. Theoretically
-        // this could cause a leak of sockets, but if both the close request and
-        // the actual close here fail, there are probably larger issues at play.
-        int flags = fcntl(this->socket, F_GETFL);
-        if (fcntl(this->socket, F_SETFL, flags | O_NONBLOCK) != 0 ||
-            close(this->socket) != 0)
-            log_error(errno, "Failed to close socket.");
-    }
-
-    connection_reset(this);
-
-    buf_free(&this->recv_buf);
-    if (buf_initialized(&this->send_buf))
-        buf_free(&this->send_buf);
-
-    this->next          = connection_freelist;
-    connection_freelist = this;
-}
-
-void connection_freelist_clear() {
-    for (Connection* conn = connection_freelist; conn;) {
-        Connection* next = conn->next;
-        free(conn);
-        conn = next;
-    }
-}
+static bool connection_accept_queued[NTRANSPORTS] = { false };
 
 void connection_reset(Connection* this) {
     assert(this);
@@ -84,8 +29,6 @@ void connection_reset(Connection* this) {
         buf_reset(&this->recv_buf);
     if (buf_initialized(&this->send_buf))
         buf_reset(&this->send_buf);
-
-    http_request_reset(&this->request);
 }
 
 bool connection_send_submit(Connection* this, struct io_uring* uring,
@@ -111,7 +54,7 @@ static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
 
     buf_read(&this->send_buf, cqe->res);
 
-    return http_response_handle(this, uring);
+    return http_response_handle((HttpConnection*)this, uring);
 }
 
 bool connection_close_submit(Connection* this, struct io_uring* uring) {
@@ -131,7 +74,7 @@ static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
     if (cqe->res < 0)
         log_error(-cqe->res, "CLOSE");
 
-    connection_free(this, uring);
+    http_connection_free((HttpConnection*)this, uring);
 }
 
 static bool connection_recv_buf_init(Connection* this) {
@@ -183,7 +126,7 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
     // Update buffer pointers.
     buf_wrote(&this->recv_buf, cqe->res);
 
-    HttpRequestResult rc = http_request_handle(this, uring);
+    HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
     if (rc == HTTP_REQUEST_ERROR) {
         return false;
     } else if (rc == HTTP_REQUEST_NEED_DATA) {
@@ -200,7 +143,7 @@ Connection* connection_accept_submit(struct io_uring*    uring,
                                      fd                  listen_socket) {
     assert(uring);
 
-    Connection* ret = connection_new();
+    Connection* ret = (Connection*)http_connection_new();
     if (!ret)
         return NULL;
 
@@ -266,7 +209,7 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
         // EOF conditions.
         if (-cqe->res != ECONNRESET && -cqe->res != EBADF)
             log_error(-cqe->res, "Event error. Closing connection.");
-        connection_free(this, uring);
+        http_connection_free((HttpConnection*)this, uring);
         return true;
     }
 
@@ -297,7 +240,7 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
     // Unrecoverable connection error. Clean this one up.
     if (!rc) {
         ERR("Connection error. Dropping.");
-        connection_free(this, uring);
+        http_connection_free((HttpConnection*)this, uring);
     }
 
     return true;
