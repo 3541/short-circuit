@@ -46,8 +46,7 @@ typedef struct Connection {
 
 void connection_reset(Connection*);
 
-Connection* connection_accept_submit(Listener*, struct io_uring*,
-                                     ConnectionTransport);
+Connection* connection_accept_submit(Listener*, struct io_uring*);
 bool connection_send_submit(Connection*, struct io_uring*, unsigned sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 

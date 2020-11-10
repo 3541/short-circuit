@@ -137,8 +137,8 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
 }
 
 // Submit an ACCEPT on the uring.
-Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
-                                     ConnectionTransport transport) {
+Connection* connection_accept_submit(Listener*        listener,
+                                     struct io_uring* uring) {
     assert(listener);
     assert(uring);
 
@@ -148,8 +148,8 @@ Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
 
     ret->listener = listener;
 
-    ret->transport = transport;
-    switch (transport) {
+    ret->transport = listener->transport;
+    switch (ret->transport) {
     case PLAIN:
         ret->recv_submit = connection_recv_submit;
         ret->recv_handle = connection_recv_handle;
