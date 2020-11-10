@@ -1,6 +1,7 @@
 #include "socket.h"
 
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <string.h>
 
 #include "config.h"
@@ -13,6 +14,8 @@ fd socket_listen(in_port_t port) {
     const int enable = 1;
     UNWRAPSD(
         setsockopt(ret, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
+    UNWRAPSD(
+        setsockopt(ret, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)));
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
