@@ -102,17 +102,22 @@ static bool http_response_prep_header_num(HttpConnection* this, CString name,
 static bool http_response_prep_date_header(HttpConnection* this) {
     assert(this);
 
+    static char DATE[30] = { '\0' };
+    static size_t DATE_LEN = 0;
+    static time_t LAST_TIME = 0;
+
+    time_t current_time = time(NULL);
+
+    if (current_time != LAST_TIME) {
+        UNWRAPN(DATE_LEN, strftime(DATE, sizeof(DATE) / sizeof(DATE[0]), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time)));
+        LAST_TIME = current_time;
+    }
+
     Buffer* buf = &this->conn.send_buf;
 
     TRYB(buf_write_str(buf, CS("Date: ")));
 
-    time_t current_time = time(NULL);
-    String write_ptr    = buf_write_ptr_string(buf);
-    size_t written =
-        strftime(write_ptr.ptr, write_ptr.len, "%a, %d %b %Y %H:%M:%S GMT",
-                 gmtime(&current_time));
-    TRYB(written);
-    buf_wrote(buf, written);
+    buf_write_str(buf, cstring_from(DATE));
 
     TRYB(buf_write_str(buf, HTTP_NEWLINE));
 
