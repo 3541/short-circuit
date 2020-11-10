@@ -30,6 +30,7 @@ src = files([
              'src/http_request.c',
              'src/http_response.c',
              'src/http_parse.c',
+             'src/listen.c',
              'src/log.c',
              'src/ptr.c',
              'src/socket.c',

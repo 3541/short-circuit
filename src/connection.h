@@ -24,6 +24,8 @@ typedef struct Connection {
     // Has to be first so this can be cast to/from an Event.
     Event last_event;
 
+    Listener* listener;
+
     ConnectionTransport transport;
 
     fd                 socket;
@@ -44,12 +46,12 @@ typedef struct Connection {
 
 void connection_reset(Connection*);
 
-Connection* connection_accept_submit(struct io_uring*, ConnectionTransport,
-                                     fd listen_socket);
+Connection* connection_accept_submit(Listener*, struct io_uring*,
+                                     ConnectionTransport, fd listen_socket);
 bool connection_send_submit(Connection*, struct io_uring*, unsigned sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 
 bool connection_send_buf_init(Connection*);
 
 bool connection_event_dispatch(Connection*, struct io_uring_cqe*,
-                               struct io_uring*, fd listen_socket);
+                               struct io_uring*);

@@ -243,7 +243,10 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     if (S_ISDIR(res.st_mode)) {
         index    = true;
         fd dirfd = this->target_file;
-        TRYB(fstatat(dirfd, INDEX_FILENAME, &res, 0) == 0);
+        // TODO: Directory listings.
+        if (fstatat(dirfd, INDEX_FILENAME, &res, 0) != 0)
+            return http_response_error_submit(
+                this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
         fd new_file = -1;
         if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
             return http_response_error_submit(
@@ -290,7 +293,9 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             file_sent += try_read_size;
             TRYB(this->conn.send_submit(
                 &this->conn, uring,
-                (total_size - buf_len(buf) > 0 || !this->keep_alive) ? IOSQE_IO_LINK : 0));
+                (total_size - buf_len(buf) > 0 || !this->keep_alive)
+                    ? IOSQE_IO_LINK
+                    : 0));
             total_size -= buf_len(buf);
             sent += buf_len(buf);
             buf_reset(buf);

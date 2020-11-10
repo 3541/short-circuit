@@ -23,5 +23,9 @@ typedef struct Event Event;
 struct HttpConnection;
 typedef struct HttpConnection HttpConnection;
 
+// listen.h
+struct Listener;
+typedef struct Listener Listener;
+
 // socket.h
 typedef int fd;

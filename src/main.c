@@ -8,6 +8,7 @@
 #include "connection.h"
 #include "event.h"
 #include "http_connection.h"
+#include "listen.h"
 #include "log.h"
 #include "socket.h"
 #include "util.h"
@@ -30,19 +31,26 @@ static void check_webroot_exists(const char* root) {
         PANIC_FMT("Web root %s is not a directory.", root);
 }
 
-int main(void) {
-    int port = DEFAULT_LISTEN_PORT;
+int main(int argc, char** argv) {
+    (void)argv;
 
     log_init(stdout);
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
     WEB_ROOT = cstring_from(realpath(DEFAULT_WEB_ROOT, NULL));
 
-    fd              listen_socket = socket_listen(port);
-    struct io_uring uring         = event_init();
+    struct io_uring uring = event_init();
 
-    Connection* current;
-    UNWRAPN(current, connection_accept_submit(&uring, PLAIN, listen_socket));
+    Listener* listeners   = NULL;
+    size_t    n_listeners = 0;
+    if (argc < 2) {
+        n_listeners = 1;
+        UNWRAPN(listeners, calloc(1, sizeof(Listener)));
+        listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
+    }
+
+    listener_accept_all(listeners, n_listeners, &uring);
+
     UNWRAPND(io_uring_submit(&uring));
 
     UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
@@ -64,11 +72,12 @@ int main(void) {
                 goto next;
             Event* event = (Event*)event_ptr;
 
-            cont = connection_event_dispatch((Connection*)event, cqe, &uring,
-                                             listen_socket);
+            cont = connection_event_dispatch((Connection*)event, cqe, &uring);
         next:
             io_uring_cqe_seen(&uring, cqe);
         }
+
+        listener_accept_all(listeners, n_listeners, &uring);
 
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
@@ -77,6 +86,7 @@ int main(void) {
     }
 
     http_connection_freelist_clear();
+    free(listeners);
 
     return EXIT_SUCCESS;
 }

@@ -16,11 +16,10 @@
 #include "http_connection.h"
 #include "http_request.h"
 #include "http_response.h"
+#include "listen.h"
 #include "log.h"
 #include "socket.h"
 #include "util.h"
-
-static bool connection_accept_queued[NTRANSPORTS] = { false };
 
 void connection_reset(Connection* this) {
     assert(this);
@@ -138,14 +137,17 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
 }
 
 // Submit an ACCEPT on the uring.
-Connection* connection_accept_submit(struct io_uring*    uring,
+Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
                                      ConnectionTransport transport,
                                      fd                  listen_socket) {
+    assert(listener);
     assert(uring);
 
     Connection* ret = (Connection*)http_connection_new();
     if (!ret)
         return NULL;
+
+    ret->listener = listener;
 
     ret->transport = transport;
     switch (transport) {
@@ -165,33 +167,26 @@ Connection* connection_accept_submit(struct io_uring*    uring,
 
     if (!event_accept_submit(&ret->last_event, uring, listen_socket,
                              &ret->client_addr, &ret->addr_len)) {
-        free(ret);
+        http_connection_free((HttpConnection*)ret, uring);
         return NULL;
     }
 
-    connection_accept_queued[transport] = true;
     return ret;
 }
 
 // Handle the completion of an ACCEPT event.
 static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
-                                     struct io_uring* uring, fd listen_socket) {
+                                     struct io_uring* uring) {
     assert(this);
     assert(cqe);
     assert(uring);
+
+    this->listener->accept_queued = false;
 
     if (cqe->res < 0)
         return false;
 
     log_msg(TRACE, "Accept connection.");
-
-    connection_accept_queued[this->transport] = false;
-
-    // First, renew the accept request. Failing to renew is not a fatal error,
-    // and every event will try again to enqueue a new accept request if this
-    // happens.
-    if (connection_accept_submit(uring, this->transport, listen_socket))
-        connection_accept_queued[this->transport] = true;
 
     this->socket = cqe->res;
 
@@ -200,7 +195,7 @@ static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
 
 // Dispatch an event pertaining to a connection. Returns false to die.
 bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
-                               struct io_uring* uring, fd listen_socket) {
+                               struct io_uring* uring) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -217,7 +212,7 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
 
     switch (this->last_event.type) {
     case ACCEPT:
-        rc = connection_accept_handle(this, cqe, uring, listen_socket);
+        rc = connection_accept_handle(this, cqe, uring);
         break;
     case SEND:
         rc = connection_send_handle(this, cqe, uring);
@@ -232,10 +227,6 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
         fprintf(stderr, "Got event with state INVALID.\n");
         return false;
     }
-
-    // If there isn't an accept request in flight, try to make a new one.
-    if (!connection_accept_queued[this->transport])
-        connection_accept_submit(uring, this->transport, listen_socket);
 
     // Unrecoverable connection error. Clean this one up.
     if (!rc) {
