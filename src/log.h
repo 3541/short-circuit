@@ -5,9 +5,10 @@
 typedef enum LogLevel { TRACE, DEBUG, INFO, WARN, ERROR } LogLevel;
 
 void log_init(FILE*);
-void log_fmt(LogLevel, const char*, ...);
 void log_msg(LogLevel, const char*);
 void log_error(int error, const char* msg);
+
+void log_fmt(LogLevel, const char*, ...);
 
 #define ERR_FMT(fmt, ...)                                                      \
     do {                                                                       \

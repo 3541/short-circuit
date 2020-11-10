@@ -85,3 +85,5 @@ INLINE bool bytes_are_string(const uint8_t* bytes) {
 
     return true;
 }
+
+#define FORMAT_FN(FMT_INDEX, VARG_INDEX) __attribute__((__format__ (__printf__, FMT_INDEX, VARG_INDEX)))

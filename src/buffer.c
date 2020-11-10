@@ -162,6 +162,7 @@ bool buf_write_line(Buffer* this, CString str) {
     return buf_write_byte(this, '\n');
 }
 
+FORMAT_FN(2, 3)
 bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
     assert(buf_initialized(this));
 

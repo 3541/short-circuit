@@ -4,6 +4,9 @@ set -e
 rm -rf build
 
 meson build/debug --buildtype=debug $@
+if command -v clang &> /dev/null; then
+   CC=clang meson build/debug_clang --buildtype=debug $@
+fi
 meson build/san --buildtype=debug -Db_sanitize=address,undefined $@
 meson build/debugopt --buildtype=debugoptimized -Db_lto=true -Db_pie=true $@
 meson build/profile --buildtype=debugoptimized -Dprofile=true $@
