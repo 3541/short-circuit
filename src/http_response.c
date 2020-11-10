@@ -282,6 +282,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
 
         size_t sent      = 0;
         size_t file_sent = 0;
+        size_t last_sent = 0;
         while (total_size > 0) {
             ByteString write_ptr     = buf_write_ptr(buf);
             size_t     try_read_size = MIN(file_size, write_ptr.len);
@@ -291,16 +292,17 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             buf_wrote(buf, try_read_size);
             file_size -= try_read_size;
             file_sent += try_read_size;
+            last_sent = buf_len(buf);
             TRYB(this->conn.send_submit(
                 &this->conn, uring,
-                (total_size - buf_len(buf) > 0 || !this->keep_alive)
+                (total_size - last_sent > 0 || !this->keep_alive)
                     ? IOSQE_IO_LINK
                     : 0));
-            total_size -= buf_len(buf);
-            sent += buf_len(buf);
+            total_size -= last_sent;
+            sent += last_sent;
             buf_reset(buf);
         }
-        buf_wrote(buf, MIN(sent, buf_space(buf)));
+        buf_wrote(buf, last_sent);
     }
 
     if (!this->keep_alive)
