@@ -181,9 +181,9 @@ bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
 }
 
 bool buf_write_num(Buffer* this, size_t num) {
-    static char _BUF[20] = { '\0' };
-    static String BUF = { .ptr = _BUF, .len = sizeof(_BUF) / sizeof(char) };
-    String num_str = string_itoa(BUF, num);
+    static char   _BUF[20] = { '\0' };
+    static String BUF     = { .ptr = _BUF, .len = sizeof(_BUF) / sizeof(char) };
+    String        num_str = string_itoa(BUF, num);
     return buf_write_str(this, S_CONST(num_str));
 }
 

@@ -102,14 +102,16 @@ static bool http_response_prep_header_num(HttpConnection* this, CString name,
 static bool http_response_prep_date_header(HttpConnection* this) {
     assert(this);
 
-    static char DATE[30] = { '\0' };
-    static size_t DATE_LEN = 0;
+    static char   DATE[30]  = { '\0' };
+    static size_t DATE_LEN  = 0;
     static time_t LAST_TIME = 0;
 
     time_t current_time = time(NULL);
 
     if (current_time != LAST_TIME) {
-        UNWRAPN(DATE_LEN, strftime(DATE, sizeof(DATE) / sizeof(DATE[0]), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time)));
+        UNWRAPN(DATE_LEN,
+                strftime(DATE, sizeof(DATE) / sizeof(DATE[0]),
+                         "%a, %d %b %Y %H:%M:%S GMT", gmtime(&current_time)));
         LAST_TIME = current_time;
     }
 

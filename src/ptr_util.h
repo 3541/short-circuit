@@ -60,7 +60,7 @@ INLINE CByteString cstring_as_cbstring(CString string) {
 }
 
 INLINE ByteString string_as_bstring(String string) {
-    return (ByteString) { .ptr = (uint8_t*)string.ptr, .len = string.len };
+    return (ByteString){ .ptr = (uint8_t*)string.ptr, .len = string.len };
 }
 
 INLINE void bstring_copy(ByteString dest, CByteString src) {
@@ -81,8 +81,8 @@ INLINE ByteString bstring_clone(CByteString other) {
 
 INLINE void bstring_reverse(ByteString str) {
     for (size_t i = 0; i <= str.len / 2; i++) {
-        uint8_t tmp = str.ptr[i];
-        str.ptr[i] = str.ptr[str.len - 1 - i];
+        uint8_t tmp              = str.ptr[i];
+        str.ptr[i]               = str.ptr[str.len - 1 - i];
         str.ptr[str.len - 1 - i] = tmp;
     }
 }
@@ -95,7 +95,6 @@ INLINE String string_itoa(String str, size_t v) {
     bstring_reverse(string_as_bstring(ret));
     return ret;
 }
-
 
 INLINE String string_clone(CString other) {
     ByteString ret_bytes = bstring_clone(cstring_as_cbstring(other));
