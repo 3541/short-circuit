@@ -66,8 +66,11 @@ int main(int argc, char** argv) {
         int                  rc;
 #ifdef PROFILE
         struct __kernel_timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
-        if ((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 || time(NULL) > init_time + 20) {
-            log_msg(INFO, "Breaking event loop.");
+        if (((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 &&
+             rc != -ETIME) ||
+            time(NULL) > init_time + 20) {
+            if (rc < 0)
+                log_error(-rc, "Breaking event loop.");
             break;
         }
 #else
