@@ -25,9 +25,11 @@ void bstring_concat(ByteString str, size_t count, ...) {
     }
 }
 
-void bstring_free(ByteString this) {
-    assert(this.ptr);
-    free(this.ptr);
+void bstring_free(ByteString* this) {
+    assert(this->ptr);
+    free(this->ptr);
+    this->ptr = NULL;
+    this->len = 0;
 }
 
 String string_alloc(size_t len) {
@@ -46,7 +48,9 @@ String string_from(char* str) {
     return (String){ .ptr = str, .len = strlen(str) };
 }
 
-void string_free(String this) {
-    assert(this.ptr);
-    free(this.ptr);
+void string_free(String* this) {
+    assert(this->ptr);
+    free(this->ptr);
+    this->ptr = NULL;
+    this->len = 0;
 }

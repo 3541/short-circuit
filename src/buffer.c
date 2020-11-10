@@ -272,6 +272,6 @@ bool buf_consume(Buffer* this, CString needle) {
 void buf_free(Buffer* this) {
     assert(buf_initialized(this));
 
-    bstring_free(this->data);
+    bstring_free(&this->data);
     memset(this, 0, sizeof(Buffer));
 }

@@ -194,7 +194,7 @@ String uri_path_if_contained(Uri* this, CString real_root) {
             break;
 
 done:
-    bstring_free(buf);
+    bstring_free(&buf);
     return string_from(real_target);
 }
 
@@ -208,11 +208,11 @@ void uri_free(Uri* this) {
     assert(uri_is_initialized(this));
 
     if (this->authority.ptr)
-        string_free(this->authority);
+        string_free(&this->authority);
     if (this->path.ptr)
-        bstring_free(this->path);
+        bstring_free(&this->path);
     if (this->query.ptr)
-        bstring_free(this->query);
+        bstring_free(&this->query);
     if (this->fragment.ptr)
-        bstring_free(this->fragment);
+        bstring_free(&this->fragment);
 }

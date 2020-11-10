@@ -26,7 +26,7 @@ typedef struct HttpConnection {
     fd          target_file;
 
     bool                 keep_alive;
-    CString              host;
+    String              host;
     HttpTransferEncoding transfer_encodings;
     ssize_t              content_length;
 

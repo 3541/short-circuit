@@ -83,10 +83,10 @@ void http_connection_reset(HttpConnection* this) {
     assert(this);
 
     if (this->host.ptr)
-        string_free(CS_MUT(this->host));
+        string_free(&this->host);
 
     if (this->target_path.ptr)
-        string_free(this->target_path);
+        string_free(&this->target_path);
 
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);

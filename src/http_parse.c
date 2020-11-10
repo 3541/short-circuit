@@ -300,7 +300,7 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
                                                        HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-                this->host = S_CONST(string_clone(value));
+                this->host = string_clone(value);
             } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
                 this->transfer_encodings |= http_transfer_encoding_parse(value);
                 if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
