@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 
 ByteString bstring_alloc(size_t len) {

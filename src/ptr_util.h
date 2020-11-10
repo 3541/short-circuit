@@ -5,6 +5,7 @@
 #include <sys/param.h>
 
 #include "ptr.h"
+#include "util.h"
 
 #define CS(S)                                                                  \
     (CString) { .ptr = S, .len = (sizeof(S) - 1) / sizeof(char) }

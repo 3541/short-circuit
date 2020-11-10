@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <netinet/in.h>
 
+#include "connection.h"
+#include "forward.h"
+#include "socket.h"
+
 void listener_init(Listener* this, in_port_t port,
                    ConnectionTransport transport) {
     assert(this);

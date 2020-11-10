@@ -2,17 +2,28 @@
 
 #include <assert.h>
 #include <fcntl.h>
-#include <liburing.h>
+#include <liburing/io_uring.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/param.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
+#include "buffer.h"
 #include "config.h"
 #include "connection.h"
+#include "event.h"
+#include "forward.h"
 #include "http_connection.h"
 #include "http_parse.h"
+#include "http_types.h"
+#include "log.h"
 #include "ptr.h"
 #include "ptr_util.h"
+#include "socket.h"
+#include "util.h"
 
 static bool http_response_close_submit(HttpConnection*, struct io_uring*);
 

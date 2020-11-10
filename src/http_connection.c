@@ -1,11 +1,20 @@
 #include "http_connection.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 
+#include "buffer.h"
 #include "config.h"
-#include "ptr_util.h"
+#include "connection.h"
+#include "event.h"
+#include "forward.h"
+#include "http_types.h"
+#include "log.h"
+#include "ptr.h"
+#include "uri.h"
 
 static HttpConnection* http_conn_freelist  = NULL;
 static size_t          http_conn_allocated = 0;

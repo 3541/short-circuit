@@ -1,13 +1,13 @@
 #include "buffer.h"
 
 #include <assert.h>
-#include <math.h>
 #include <stdarg.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
 
+#include "ptr.h"
 #include "ptr_util.h"
 #include "util.h"
 

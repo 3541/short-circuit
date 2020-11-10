@@ -3,8 +3,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "util.h"
-
 // Fat pointers for strings and byte strings, to avoid null-termination
 // shenanigans. Care should be taken not to assume that these are
 // null-terminated.

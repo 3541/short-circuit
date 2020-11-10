@@ -2,6 +2,7 @@
 
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <sys/socket.h>
 
 #include "buffer.h"
 #include "event.h"

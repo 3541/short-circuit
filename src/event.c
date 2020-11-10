@@ -2,15 +2,19 @@
 
 #include <assert.h>
 #include <liburing.h>
+#include <liburing/io_uring.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
 #include <sys/utsname.h>
 
 #include "config.h"
+#include "log.h"
 #include "ptr.h"
 #include "ptr_util.h"
+#include "socket.h"
 #include "util.h"
 
 CString event_type_name(EventType ty) {

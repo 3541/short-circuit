@@ -1,10 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 
-#include "forward.h"
 #include "ptr.h"
 
 #define URI_SCHEME_ENUM                                                        \

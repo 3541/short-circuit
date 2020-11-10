@@ -2,10 +2,11 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "buffer.h"
-#include "config.h"
 #include "ptr.h"
 #include "ptr_util.h"
 #include "util.h"

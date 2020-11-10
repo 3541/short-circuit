@@ -1,8 +1,10 @@
 #include "http_parse.h"
 
 #include <assert.h>
-#include <ctype.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/types.h>
 
 #include "buffer.h"
 #include "config.h"
@@ -11,6 +13,7 @@
 #include "http_connection.h"
 #include "http_response.h"
 #include "http_types.h"
+#include "log.h"
 #include "ptr.h"
 #include "ptr_util.h"
 #include "uri.h"

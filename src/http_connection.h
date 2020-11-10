@@ -1,7 +1,11 @@
 #pragma once
 
+#include <stdbool.h>
+#include <sys/types.h>
+
 #include "connection.h"
 #include "http_types.h"
+#include "ptr.h"
 #include "uri.h"
 
 #define HTTP_NEWLINE CS("\r\n")

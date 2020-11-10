@@ -1,24 +1,22 @@
 #include "connection.h"
 
+#include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <liburing.h>
+#include <liburing/io_uring.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "buffer.h"
 #include "config.h"
 #include "event.h"
+#include "forward.h"
 #include "http_connection.h"
 #include "http_request.h"
 #include "http_response.h"
+#include "http_types.h"
 #include "listen.h"
 #include "log.h"
-#include "socket.h"
 #include "util.h"
 
 void connection_reset(Connection* this) {

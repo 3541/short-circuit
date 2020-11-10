@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stdint.h>
-
 #include "forward.h"
 #include "http_types.h"
 #include "ptr.h"
