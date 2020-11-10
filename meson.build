@@ -12,10 +12,41 @@ project(
 )
 
 add_project_arguments('-D_GNU_SOURCE', language: 'c')
+# Required by buffer initializers.
 add_project_arguments('-Wno-override-init', language: 'c')
+
+# Extra useful warnings.
+extra_warnings = [
+  'bad-function-cast',
+  'disabled-optimization',
+  'duplicated-branches',
+  'duplicated-cond',
+  'float-equal',
+  'format-nonliteral',
+  'format-security',
+  'format=2',
+  'implicit',
+  'inline',
+  'logical-op',
+  'missing-declarations',
+  'missing-prototypes',
+  'nested-externs',
+  'null-dereference',
+  'shadow',
+  'strict-prototypes',
+  'undef'
+]
+
+foreach warning : extra_warnings
+  add_project_arguments('-W' + warning, language: 'c')
+endforeach
 
 if get_option('debug')
   add_project_arguments('-DDEBUG_BUILD', language: 'c')
+endif
+
+if get_option('profile')
+  add_project_arguments('-DPROFILE', language: 'c')
 endif
 
 liburing = dependency('liburing')

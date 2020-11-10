@@ -31,7 +31,7 @@ CString event_type_name(EventType ty) {
 
 // Check that the kernel is recent enough to support io_uring and
 // io_uring_probe.
-static void event_check_kver() {
+static void event_check_kver(void) {
     struct utsname info;
     UNWRAPSD(uname(&info));
 

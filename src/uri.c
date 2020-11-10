@@ -10,7 +10,7 @@
 #include "ptr_util.h"
 #include "util.h"
 
-UriScheme uri_scheme_parse(CByteString name) {
+static UriScheme uri_scheme_parse(CByteString name) {
 #define _SCHEME(SCHEME, S) { SCHEME, CS(S) },
     static const struct {
         UriScheme scheme;

@@ -30,7 +30,7 @@ typedef struct Event {
     EventType type;
 } Event;
 
-struct io_uring event_init();
+struct io_uring event_init(void);
 
 bool event_accept_submit(Event*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,

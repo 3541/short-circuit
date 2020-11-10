@@ -34,9 +34,9 @@ typedef struct HttpConnection {
     HttpTransferEncoding response_transfer_encodings;
 } HttpConnection;
 
-HttpConnection* http_connection_new();
+HttpConnection* http_connection_new(void);
 void            http_connection_free(HttpConnection*, struct io_uring*);
-void            http_connection_freelist_clear();
+void            http_connection_freelist_clear(void);
 
 void http_connection_init(HttpConnection*);
 void http_connection_reset(HttpConnection*);

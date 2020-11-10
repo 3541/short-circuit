@@ -57,13 +57,25 @@ int main(int argc, char** argv) {
 
     log_msg(TRACE, "Entering event loop.");
 
+#ifdef PROFILE
+    time_t init_time = time(NULL);
+#endif
+
     while (cont) {
         struct io_uring_cqe* cqe;
         int                  rc;
+#ifdef PROFILE
+        struct __kernel_timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
+        if ((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 || time(NULL) > init_time + 20) {
+            log_msg(INFO, "Breaking event loop.");
+            break;
+        }
+#else
         if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0) {
             log_error(-rc, "Breaking event loop.");
             break;
         }
+#endif
 
         for (; cqe && io_uring_sq_ready(&uring) <= URING_SUBMISSION_THRESHOLD;
              io_uring_peek_cqe(&uring, &cqe)) {

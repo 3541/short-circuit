@@ -13,6 +13,8 @@
 #define DEFAULT_WEB_ROOT    "."
 #define INDEX_FILENAME      "index.html"
 
+#define PROFILE_DURATION 20
+
 #define URING_ENTRIES              512
 #define URING_SUBMISSION_THRESHOLD 500
 
