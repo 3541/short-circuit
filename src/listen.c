@@ -17,8 +17,7 @@ Connection* listener_accept_submit(Listener* this, struct io_uring* uring) {
     assert(!this->accept_queued);
     assert(uring);
 
-    Connection* ret =
-        connection_accept_submit(this, uring, this->transport, this->socket);
+    Connection* ret = connection_accept_submit(this, uring, this->transport);
     if (ret)
         this->accept_queued = true;
 

@@ -138,8 +138,7 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
 
 // Submit an ACCEPT on the uring.
 Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
-                                     ConnectionTransport transport,
-                                     fd                  listen_socket) {
+                                     ConnectionTransport transport) {
     assert(listener);
     assert(uring);
 
@@ -165,7 +164,7 @@ Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
 
     ret->addr_len = sizeof(ret->client_addr);
 
-    if (!event_accept_submit(&ret->last_event, uring, listen_socket,
+    if (!event_accept_submit(&ret->last_event, uring, listener->socket,
                              &ret->client_addr, &ret->addr_len)) {
         http_connection_free((HttpConnection*)ret, uring);
         return NULL;
