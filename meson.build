@@ -47,6 +47,7 @@ endif
 
 if get_option('profile')
   add_project_arguments('-DPROFILE', language: 'c')
+  add_project_arguments('-DNDEBUG', language: 'c')
 endif
 
 liburing = dependency('liburing')
