@@ -116,9 +116,7 @@ static bool http_response_prep_date_header(HttpConnection* this) {
     Buffer* buf = &this->conn.send_buf;
 
     TRYB(buf_write_str(buf, CS("Date: ")));
-
-    buf_write_str(buf, cstring_from(DATE));
-
+    buf_write_str(buf, CS(DATE));
     TRYB(buf_write_str(buf, HTTP_NEWLINE));
 
     return true;

@@ -180,8 +180,11 @@ bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
     return true;
 }
 
-bool buf_write_num(Buffer* this, ssize_t num) {
-    return buf_write_fmt(this, "%zd", num);
+bool buf_write_num(Buffer* this, size_t num) {
+    static char _BUF[20] = { '\0' };
+    static String BUF = { .ptr = _BUF, .len = sizeof(_BUF) / sizeof(char) };
+    String num_str = string_itoa(BUF, num);
+    return buf_write_str(this, S_CONST(num_str));
 }
 
 // Pointer for reading from the buffer.

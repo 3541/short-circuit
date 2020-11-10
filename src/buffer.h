@@ -38,7 +38,7 @@ bool       buf_write_byte(Buffer*, uint8_t);
 bool       buf_write_str(Buffer*, CString);
 bool       buf_write_line(Buffer*, CString);
 bool       buf_write_fmt(Buffer*, const char* fmt, ...);
-bool       buf_write_num(Buffer*, ssize_t);
+bool       buf_write_num(Buffer*, size_t);
 
 CByteString buf_read_ptr(const Buffer*);
 ByteString  buf_read_ptr_mut(Buffer*);
