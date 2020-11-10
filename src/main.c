@@ -21,12 +21,22 @@ static void sigint_handle(int no) {
     cont = false;
 }
 
+static void check_webroot_exists(const char* root) {
+    struct stat s;
+
+    if (stat(root, &s) < 0)
+        PANIC_FMT("Web root %s is inaccessible.", root);
+    if (!S_ISDIR(s.st_mode))
+        PANIC_FMT("Web root %s is not a directory.", root);
+}
+
 int main(void) {
     int port = DEFAULT_LISTEN_PORT;
 
-    WEB_ROOT = cstring_from(realpath(DEFAULT_WEB_ROOT, NULL));
-
     log_init(stdout);
+
+    check_webroot_exists(DEFAULT_WEB_ROOT);
+    WEB_ROOT = cstring_from(realpath(DEFAULT_WEB_ROOT, NULL));
 
     fd              listen_socket = socket_listen(port);
     struct io_uring uring         = event_init();

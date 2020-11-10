@@ -10,7 +10,7 @@
 
 #define DEFAULT_LISTEN_PORT 8000
 #define LISTEN_BACKLOG      1024
-#define DEFAULT_WEB_ROOT    "/var/www/localhost/htdocs"
+#define DEFAULT_WEB_ROOT    "."
 #define INDEX_FILENAME      "index.html"
 
 #define URING_ENTRIES              512
