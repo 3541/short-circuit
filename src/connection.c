@@ -44,11 +44,6 @@ static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(uring);
     assert(cqe);
 
-    if (cqe->res < 0) {
-        log_error(-cqe->res, "SEND");
-        return false;
-    }
-
     buf_read(&this->send_buf, cqe->res);
 
     return http_response_handle((HttpConnection*)this, uring);
@@ -67,9 +62,6 @@ static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(this->last_event.type == CLOSE);
     assert(cqe);
     assert(uring);
-
-    if (cqe->res < 0)
-        log_error(-cqe->res, "CLOSE");
 
     http_connection_free((HttpConnection*)this, uring);
 }
@@ -108,19 +100,6 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(cqe);
     assert(uring);
 
-    // In the event of an error, kill this connection.
-    if (cqe->res < 0) {
-        // If there was something wrong with the socket, pretend it was closed.
-        if (cqe->res == -ENOTCONN || cqe->res == -EBADF ||
-            cqe->res == -ENOTSOCK)
-            this->last_event.type = CLOSE;
-        return false;
-    } else if (cqe->res == 0) {
-        // EOF
-        return connection_close_submit(this, uring);
-    }
-
-    // Update buffer pointers.
     buf_wrote(&this->recv_buf, cqe->res);
 
     HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
@@ -179,9 +158,6 @@ static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(uring);
 
     this->listener->accept_queued = false;
-
-    if (cqe->res < 0)
-        return false;
 
     log_msg(TRACE, "Accept connection.");
 
