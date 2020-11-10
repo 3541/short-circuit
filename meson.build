@@ -11,6 +11,8 @@ project(
   ]
 )
 
+c_compiler = meson.get_compiler('c')
+
 add_project_arguments('-D_GNU_SOURCE', language: 'c')
 # Required by buffer initializers.
 add_project_arguments('-Wno-override-init', language: 'c')
@@ -38,7 +40,10 @@ extra_warnings = [
 ]
 
 foreach warning : extra_warnings
-  add_project_arguments('-W' + warning, language: 'c')
+  warning = '-W' + warning
+  if c_compiler.has_argument(warning)
+    add_project_arguments(warning, language: 'c')
+  endif
 endforeach
 
 if get_option('debug')
