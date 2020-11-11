@@ -81,7 +81,7 @@ INLINE ByteString bstring_clone(CByteString other) {
 }
 
 INLINE void bstring_reverse(ByteString str) {
-    for (size_t i = 0; i <= str.len / 2; i++) {
+    for (size_t i = 0; i < str.len / 2; i++) {
         uint8_t tmp              = str.ptr[i];
         str.ptr[i]               = str.ptr[str.len - 1 - i];
         str.ptr[str.len - 1 - i] = tmp;
