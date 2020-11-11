@@ -100,6 +100,9 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(cqe);
     assert(uring);
 
+    if (cqe->res == 0)
+        return connection_close_submit(this, uring);
+
     buf_wrote(&this->recv_buf, cqe->res);
 
     HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
