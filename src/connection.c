@@ -19,13 +19,18 @@
 #include "log.h"
 #include "util.h"
 
+bool connection_init(Connection* this) {
+    assert(this);
+
+    TRYB(buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY, RECV_BUF_MAX_CAPACITY));
+    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY, SEND_BUF_MAX_CAPACITY);
+}
+
 void connection_reset(Connection* this) {
     assert(this);
 
-    if (buf_initialized(&this->recv_buf))
-        buf_reset(&this->recv_buf);
-    if (buf_initialized(&this->send_buf))
-        buf_reset(&this->send_buf);
+    buf_reset(&this->recv_buf);
+    buf_reset(&this->send_buf);
 }
 
 bool connection_send_submit(Connection* this, struct io_uring* uring,
@@ -66,29 +71,12 @@ static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
     http_connection_free((HttpConnection*)this, uring);
 }
 
-static bool connection_recv_buf_init(Connection* this) {
-    assert(this);
-
-    return buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
-                    RECV_BUF_MAX_CAPACITY);
-}
-
-bool connection_send_buf_init(Connection* this) {
-    assert(this);
-
-    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
-                    SEND_BUF_MAX_CAPACITY);
-}
-
 // Submit a request to receive as much data as the buffer can handle.
 static bool connection_recv_submit(Connection* this, struct io_uring* uring,
                                    unsigned sqe_flags) {
     assert(this);
     assert(uring);
     (void)sqe_flags;
-
-    if (!buf_initialized(&this->recv_buf) && !connection_recv_buf_init(this))
-        return false;
 
     return event_recv_submit(&this->last_event, uring, this->socket,
                              buf_write_ptr(&this->recv_buf));
@@ -200,13 +188,13 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
         connection_close_handle(this, cqe, uring);
         break;
     case INVALID_EVENT:
-        fprintf(stderr, "Got event with state INVALID.\n");
+        ERR("Got event with state INVALID.");
         return false;
     }
 
     // Unrecoverable connection error. Clean this one up.
     if (!rc) {
-        ERR("Connection error. Dropping.");
+        ERR_FMT("Connection error (%s). Dropping.", event_type_name(this->last_event.type));
         http_connection_free((HttpConnection*)this, uring);
     }
 

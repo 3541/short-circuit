@@ -60,11 +60,6 @@ static bool http_response_prep_status_line(HttpConnection* this,
 
     Buffer* buf = &this->conn.send_buf;
 
-    if (!buf_initialized(buf) && !connection_send_buf_init(&this->conn)) {
-        log_msg(WARN, "Failed to initialize send buffer.");
-        return false;
-    }
-
     TRYB(buf_write_str(buf, http_version_string(this->version)));
     TRYB(buf_write_byte(buf, ' '));
     TRYB(buf_write_num(buf, status));
@@ -220,8 +215,7 @@ bool http_response_error_submit(HttpConnection* this, struct io_uring* uring,
             close ? "Closing connection." : "");
 
     // Clear any previously written data.
-    if (buf_initialized(&this->conn.send_buf))
-        buf_reset(&this->conn.send_buf);
+    buf_reset(&this->conn.send_buf);
 
     this->state                 = CONNECTION_RESPONDING;
     this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;

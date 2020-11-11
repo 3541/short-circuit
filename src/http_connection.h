@@ -42,5 +42,5 @@ HttpConnection* http_connection_new(void);
 void            http_connection_free(HttpConnection*, struct io_uring*);
 void            http_connection_freelist_clear(void);
 
-void http_connection_init(HttpConnection*);
+bool http_connection_init(HttpConnection*);
 void http_connection_reset(HttpConnection*);

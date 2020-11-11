@@ -15,6 +15,7 @@
 #include "log.h"
 #include "ptr.h"
 #include "uri.h"
+#include "util.h"
 
 static HttpConnection* http_conn_freelist  = NULL;
 static size_t          http_conn_allocated = 0;
@@ -24,6 +25,7 @@ HttpConnection* http_connection_new() {
     if (http_conn_freelist) {
         ret                = http_conn_freelist;
         http_conn_freelist = (HttpConnection*)ret->conn.next;
+        ret->conn.next = NULL;
     } else if (http_conn_allocated < CONNECTION_MAX_ALLOCATED) {
         ret = calloc(1, sizeof(HttpConnection));
         http_conn_allocated++;
@@ -31,14 +33,15 @@ HttpConnection* http_connection_new() {
         ERR("Too many connections allocated.");
     }
 
-    if (ret)
-        http_connection_init(ret);
+    if (ret && !http_connection_init(ret))
+        http_connection_free(ret, NULL);
 
     return ret;
 }
 
 void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     assert(this);
+    assert(uring || this->conn.last_event.type == INVALID_EVENT);
 
     // If the socket hasn't been closed, arrange it. The close handle event will
     // call free when it's done.
@@ -59,7 +62,8 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
 
     http_connection_reset(this);
 
-    buf_free(&this->conn.recv_buf);
+    if (buf_initialized(&this->conn.recv_buf))
+        buf_free(&this->conn.recv_buf);
     if (buf_initialized(&this->conn.send_buf))
         buf_free(&this->conn.send_buf);
 
@@ -75,8 +79,10 @@ void http_connection_freelist_clear() {
     }
 }
 
-void http_connection_init(HttpConnection* this) {
+bool http_connection_init(HttpConnection* this) {
     assert(this);
+
+    TRYB(connection_init(&this->conn));
 
     this->state                       = CONNECTION_INIT;
     this->version                     = HTTP_VERSION_11;
@@ -86,6 +92,8 @@ void http_connection_init(HttpConnection* this) {
     this->target_file                 = -1;
     this->response_transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
     this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
+
+    return true;
 }
 
 void http_connection_reset(HttpConnection* this) {
