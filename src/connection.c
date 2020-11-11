@@ -160,6 +160,7 @@ static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
     assert(this->last_event.type == CLOSE);
     assert(cqe);
     assert(uring);
+    (void)cqe;
 
     http_connection_free((HttpConnection*)this, uring);
 }

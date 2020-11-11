@@ -235,7 +235,7 @@ ByteString buf_token_next_impl(_buf_token_next_args args) {
 
     // Eat preceding delimiters.
     for (; this->head < this->tail &&
-           strchr(delim.ptr, this->data.ptr[this->head]);
+           memchr(delim.ptr, this->data.ptr[this->head], delim.len);
          buf_read(this, 1))
         ;
 
@@ -243,13 +243,16 @@ ByteString buf_token_next_impl(_buf_token_next_args args) {
 
     // Find following delimiter.
     size_t end = this->head;
-    for (; end < this->tail && !strchr(delim.ptr, this->data.ptr[end]); end++)
+    for (;
+         end < this->tail && !memchr(delim.ptr, this->data.ptr[end], delim.len);
+         end++)
         ;
 
     // Zero out all delimiters.
     size_t last = end;
     if (!preserve_end)
-        for (; last < this->tail && strchr(delim.ptr, this->data.ptr[last]);
+        for (; last < this->tail &&
+               memchr(delim.ptr, this->data.ptr[last], delim.len);
              last++)
             this->data.ptr[last] = '\0';
 
