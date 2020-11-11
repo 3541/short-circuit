@@ -25,7 +25,7 @@ HttpConnection* http_connection_new() {
     if (http_conn_freelist) {
         ret                = http_conn_freelist;
         http_conn_freelist = (HttpConnection*)ret->conn.next;
-        ret->conn.next = NULL;
+        ret->conn.next     = NULL;
     } else if (http_conn_allocated < CONNECTION_MAX_ALLOCATED) {
         ret = calloc(1, sizeof(HttpConnection));
         http_conn_allocated++;
