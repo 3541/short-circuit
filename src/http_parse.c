@@ -184,7 +184,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
     // permissible, bail and wait for more.
     if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
-            return 0;
+            return HTTP_REQUEST_STATE_NEED_DATA;
         RET_MAP(http_response_error_submit(
                     this, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
