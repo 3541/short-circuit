@@ -18,7 +18,7 @@ add_project_arguments('-D_GNU_SOURCE', language: 'c')
 add_project_arguments('-Wno-override-init', language: 'c')
 
 # Extra useful warnings.
-extra_warnings = [
+extra_c_warnings = [
   'bad-function-cast',
   'disabled-optimization',
   'duplicated-branches',
@@ -39,7 +39,7 @@ extra_warnings = [
   'undef'
 ]
 
-foreach warning : extra_warnings
+foreach warning : extra_c_warnings
   warning = '-W' + warning
   if c_compiler.has_argument(warning)
     add_project_arguments(warning, language: 'c')
