@@ -32,6 +32,8 @@ typedef enum HttpVersion {
     _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                      \
     _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM,                         \
            "application/octet-stream")                                         \
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_JSON, "application/json")             \
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_PDF, "application/pdf")               \
     _CTYPE(HTTP_CONTENT_TYPE_IMAGE_BMP, "image/bmp")                           \
     _CTYPE(HTTP_CONTENT_TYPE_IMAGE_GIF, "image/gif")                           \
     _CTYPE(HTTP_CONTENT_TYPE_IMAGE_ICO, "image/x-icon")                        \

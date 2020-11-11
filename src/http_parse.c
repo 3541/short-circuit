@@ -123,12 +123,15 @@ HttpContentType http_content_type_from_path(CString path) {
         { CS("ico"), HTTP_CONTENT_TYPE_IMAGE_ICO },
         { CS("jpg"), HTTP_CONTENT_TYPE_IMAGE_JPEG },
         { CS("jpeg"), HTTP_CONTENT_TYPE_IMAGE_JPEG },
+        { CS("json"), HTTP_CONTENT_TYPE_APPLICATION_JSON },
+        { CS("pdf"), HTTP_CONTENT_TYPE_APPLICATION_PDF },
         { CS("png"), HTTP_CONTENT_TYPE_IMAGE_PNG },
         { CS("svg"), HTTP_CONTENT_TYPE_IMAGE_SVG },
         { CS("webp"), HTTP_CONTENT_TYPE_IMAGE_WEBP },
         { CS("css"), HTTP_CONTENT_TYPE_TEXT_CSS },
         { CS("js"), HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT },
         { CS("txt"), HTTP_CONTENT_TYPE_TEXT_PLAIN },
+        { CS("htm"), HTTP_CONTENT_TYPE_TEXT_HTML },
         { CS("html"), HTTP_CONTENT_TYPE_TEXT_HTML },
     };
 
