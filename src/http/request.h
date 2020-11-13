@@ -1,7 +1,7 @@
 #pragma once
 
 #include "forward.h"
-#include "http_types.h"
+#include "http/types.h"
 
 void http_request_reset(HttpConnection*);
 

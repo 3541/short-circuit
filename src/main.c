@@ -11,7 +11,7 @@
 #include "connection.h"
 #include "event.h"
 #include "forward.h"
-#include "http_connection.h"
+#include "http/connection.h"
 #include "listen.h"
 #include "log.h"
 #include "ptr.h"

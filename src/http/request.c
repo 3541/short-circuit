@@ -1,12 +1,12 @@
-#include "http_request.h"
+#include "http/request.h"
 
 #include <assert.h>
 #include <fcntl.h>
 
-#include "http_connection.h"
-#include "http_parse.h"
-#include "http_response.h"
-#include "http_types.h"
+#include "http/connection.h"
+#include "http/parse.h"
+#include "http/response.h"
+#include "http/types.h"
 #include "log.h"
 #include "ptr.h"
 #include "util.h"

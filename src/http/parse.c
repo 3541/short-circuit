@@ -1,4 +1,4 @@
-#include "http_parse.h"
+#include "http/parse.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -10,9 +10,9 @@
 #include "config.h"
 #include "connection.h"
 #include "global.h"
-#include "http_connection.h"
-#include "http_response.h"
-#include "http_types.h"
+#include "http/connection.h"
+#include "http/response.h"
+#include "http/types.h"
 #include "log.h"
 #include "ptr.h"
 #include "ptr_util.h"

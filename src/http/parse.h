@@ -1,7 +1,7 @@
 #pragma once
 
 #include "forward.h"
-#include "http_types.h"
+#include "http/types.h"
 #include "ptr.h"
 
 CString         http_version_string(HttpVersion);

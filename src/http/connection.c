@@ -1,4 +1,4 @@
-#include "http_connection.h"
+#include "http/connection.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -11,7 +11,7 @@
 #include "connection.h"
 #include "event.h"
 #include "forward.h"
-#include "http_types.h"
+#include "http/types.h"
 #include "log.h"
 #include "ptr.h"
 #include "uri.h"

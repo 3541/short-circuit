@@ -63,10 +63,10 @@ src = files([
              'src/buffer.c',
              'src/connection.c',
              'src/event.c',
-             'src/http_connection.c',
-             'src/http_request.c',
-             'src/http_response.c',
-             'src/http_parse.c',
+             'src/http/connection.c',
+             'src/http/request.c',
+             'src/http/response.c',
+             'src/http/parse.c',
              'src/listen.c',
              'src/log.c',
              'src/ptr.c',
@@ -74,9 +74,12 @@ src = files([
              'src/uri.c'
            ])
 
+headers = include_directories('src')
+
 executable(
   'urs',
   src,
   dependencies: liburing,
+  include_directories: headers,
   build_by_default: true
 )

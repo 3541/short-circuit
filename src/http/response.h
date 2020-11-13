@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 #include "forward.h"
-#include "http_types.h"
+#include "http/types.h"
 
 bool http_response_handle(HttpConnection*, struct io_uring*);
 

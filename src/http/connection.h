@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "connection.h"
-#include "http_types.h"
+#include "../connection.h"
+#include "http/types.h"
 #include "ptr.h"
 #include "uri.h"
 
