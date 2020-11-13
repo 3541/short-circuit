@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -36,6 +37,7 @@ void       buf_wrote(Buffer*, size_t);
 bool       buf_write_byte(Buffer*, uint8_t);
 bool       buf_write_str(Buffer*, CString);
 bool       buf_write_line(Buffer*, CString);
+bool       buf_write_vfmt(Buffer*, const char* fmt, va_list);
 bool       buf_write_fmt(Buffer*, const char* fmt, ...);
 bool       buf_write_num(Buffer*, size_t);
 

@@ -88,6 +88,26 @@ static bool http_response_prep_header(HttpConnection* this, CString name,
     return buf_write_str(buf, HTTP_NEWLINE);
 }
 
+FORMAT_FN(3, 4)
+static bool http_response_prep_header_fmt(HttpConnection* this, CString name,
+                                          const char* fmt, ...) {
+    assert(this);
+    assert(name.ptr);
+    assert(fmt);
+
+    Buffer* buf = &this->conn.send_buf;
+    va_list args;
+    va_start(args, fmt);
+
+    TRYB(buf_write_str(buf, name));
+    TRYB(buf_write_str(buf, CS(": ")));
+    bool ret = buf_write_vfmt(buf, fmt, args);
+    ret      = ret && buf_write_str(buf, HTTP_NEWLINE);
+
+    va_end(args);
+    return ret;
+}
+
 static bool http_response_prep_header_num(HttpConnection* this, CString name,
                                           ssize_t value) {
     assert(this);
@@ -122,8 +142,10 @@ static bool http_response_prep_header_date(HttpConnection* this, CString name,
 }
 
 // Write the default status line and headers to the send buffer.
-static bool http_response_prep_headers(HttpConnection* this, HttpStatus status,
-                                       ssize_t content_length, bool close) {
+static bool http_response_prep_default_headers(HttpConnection* this,
+                                               HttpStatus status,
+                                               ssize_t    content_length,
+                                               bool       close) {
     assert(this);
 
     TRYB(http_response_prep_status_line(this, status));
@@ -214,7 +236,7 @@ bool http_response_error_submit(HttpConnection* this, struct io_uring* uring,
     CString body = http_response_error_make_body(this, status);
     TRYB(body.ptr);
 
-    TRYB(http_response_prep_headers(this, status, body.len, close));
+    TRYB(http_response_prep_default_headers(this, status, body.len, close));
     TRYB(http_response_prep_headers_done(this));
 
     if (this->method != HTTP_METHOD_HEAD)
@@ -266,10 +288,13 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
         this->response_content_type =
             http_content_type_from_path(S_CONST(this->target_path));
 
-    TRYB(http_response_prep_headers(this, HTTP_STATUS_OK, res.st_size,
-                                    HTTP_RESPONSE_ALLOW));
+    TRYB(http_response_prep_default_headers(this, HTTP_STATUS_OK, res.st_size,
+                                            HTTP_RESPONSE_ALLOW));
     TRYB(http_response_prep_header_date(this, CS("Last-Modified"),
                                         res.st_mtim.tv_sec));
+    TRYB(http_response_prep_header_fmt(this, CS("Etag"), "\"%luX%lX%lX\"",
+                                       res.st_ino, res.st_mtim.tv_sec,
+                                       res.st_size));
     TRYB(http_response_prep_headers_done(this));
 
     Buffer* buf = &this->conn.send_buf;

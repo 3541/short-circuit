@@ -162,22 +162,29 @@ bool buf_write_line(Buffer* this, CString str) {
     return buf_write_byte(this, '\n');
 }
 
-FORMAT_FN(2, 3)
-bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
+FORMAT_FN(2, 0)
+bool buf_write_vfmt(Buffer* this, const char* fmt, va_list args) {
     assert(buf_initialized(this));
+    assert(fmt);
 
     ByteString write_ptr = buf_write_ptr(this);
-
-    va_list args;
-    va_start(args, fmt);
-
-    int rc = -1;
+    int        rc        = -1;
     if ((rc = vsnprintf((char*)write_ptr.ptr, write_ptr.len, fmt, args)) < 0)
         return false;
-    va_end(args);
 
     buf_wrote(this, MIN(write_ptr.len, (size_t)rc));
+
     return true;
+}
+
+FORMAT_FN(2, 3)
+bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    bool ret = buf_write_vfmt(this, fmt, args);
+    va_end(args);
+
+    return ret;
 }
 
 bool buf_write_num(Buffer* this, size_t num) {
