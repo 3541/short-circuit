@@ -16,7 +16,8 @@ static const uintptr_t EVENT_PTR_IGNORE = 1;
     _EVENT_TYPE(ACCEPT)                                                        \
     _EVENT_TYPE(SEND)                                                          \
     _EVENT_TYPE(RECV)                                                          \
-    _EVENT_TYPE(CLOSE)
+    _EVENT_TYPE(CLOSE)                                                         \
+    _EVENT_TYPE(TIMEOUT)
 
 typedef enum EventType {
 #define _EVENT_TYPE(E) E,
@@ -42,3 +43,4 @@ bool event_recv_submit(Event*, struct io_uring*, fd socket,
 bool event_read_submit(Event*, struct io_uring*, fd file, ByteString out_data,
                        size_t nbytes, off_t offset, unsigned sqe_flags);
 bool event_close_submit(Event*, struct io_uring*, fd socket);
+bool event_timeout_submit(Event*, struct io_uring*, time_t sec, time_t nsec);

@@ -195,8 +195,9 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
     case CLOSE:
         connection_close_handle(this, cqe, uring);
         break;
+    case TIMEOUT:
     case INVALID_EVENT:
-        ERR("Got event with state INVALID.");
+        ERR("Got invalid event.");
         return false;
     }
 

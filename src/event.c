@@ -174,11 +174,27 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
     assert(uring);
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
-    if (!sqe)
-        return false;
+    TRYB(sqe);
     this->type = CLOSE;
 
     io_uring_prep_close(sqe, socket);
+    io_uring_sqe_set_data(sqe, this);
+
+    return true;
+}
+
+bool event_timeout_submit(Event* this, struct io_uring* uring, time_t sec,
+                          time_t nsec) {
+    assert(this);
+    assert(uring);
+
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    TRYB(sqe);
+    this->type = TIMEOUT;
+
+    struct __kernel_timespec ts = { .tv_sec = sec, .tv_nsec = nsec };
+
+    io_uring_prep_timeout(sqe, &ts, 0, 0);
     io_uring_sqe_set_data(sqe, this);
 
     return true;
