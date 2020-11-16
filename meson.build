@@ -71,6 +71,7 @@ src = files([
              'src/log.c',
              'src/ptr.c',
              'src/socket.c',
+             'src/timeout.c',
              'src/uri.c'
            ])
 
