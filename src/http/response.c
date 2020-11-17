@@ -21,7 +21,6 @@
 #include "http/types.h"
 #include "log.h"
 #include "ptr.h"
-#include "ptr_util.h"
 #include "socket.h"
 #include "util.h"
 
@@ -127,14 +126,14 @@ static bool http_response_prep_header_date(HttpConnection* this, CString name,
 
     static struct {
         time_t tv;
-        char   buf[HTTP_DATE_BUF_LENGTH];
+        uint8_t   buf[HTTP_DATE_BUF_LENGTH];
         size_t len;
     } DATES[HTTP_DATE_CACHE] = { { 0, { '\0' }, 0 } };
 
     size_t i = tv % HTTP_DATE_CACHE;
     if (DATES[i].tv != tv)
         UNWRAPN(DATES[i].len,
-                strftime(DATES[i].buf, HTTP_DATE_BUF_LENGTH,
+                strftime((char*)DATES[i].buf, HTTP_DATE_BUF_LENGTH,
                          "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tv)));
 
     return http_response_prep_header(
@@ -186,10 +185,11 @@ static CString http_response_error_make_body(HttpConnection* this,
     assert(this);
     assert(status != HTTP_STATUS_INVALID);
 
-    static char body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
+    static uint8_t body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
+    size_t len = 0;
 
     // TODO: De-uglify. Probably should load a template from somewhere.
-    if (snprintf(body, HTTP_ERROR_BODY_MAX_LENGTH,
+    if ((len = snprintf((char*)body, HTTP_ERROR_BODY_MAX_LENGTH,
                  "<!DOCTYPE html>\n"
                  "<html>\n"
                  "<head>\n"
@@ -201,11 +201,11 @@ static CString http_response_error_make_body(HttpConnection* this,
                  "</body>\n"
                  "</html>\n",
                  status, http_version_string(this->version).ptr, status,
-                 http_status_reason(status).ptr) > HTTP_ERROR_BODY_MAX_LENGTH)
+                        http_status_reason(status).ptr)) > HTTP_ERROR_BODY_MAX_LENGTH)
         return CS_NULL;
 
     return (CString){ .ptr = body,
-                      .len = strnlen(body, HTTP_ERROR_BODY_MAX_LENGTH) };
+                      .len = len };
 }
 
 static bool http_response_close_submit(HttpConnection* this,
@@ -312,7 +312,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
         size_t file_sent = 0;
         size_t last_sent = 0;
         while (total_size > 0) {
-            ByteString write_ptr     = buf_write_ptr(buf);
+            String write_ptr     = buf_write_ptr(buf);
             size_t     try_read_size = MIN(file_size, write_ptr.len);
             TRYB(event_read_submit(&this->conn.last_event, uring,
                                    this->target_file, write_ptr, try_read_size,

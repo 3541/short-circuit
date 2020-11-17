@@ -15,7 +15,6 @@
 #include "http/types.h"
 #include "log.h"
 #include "ptr.h"
-#include "ptr_util.h"
 #include "uri.h"
 #include "util.h"
 
@@ -26,15 +25,14 @@ static const struct {
 } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
-static HttpMethod http_request_method_parse(CByteString str) {
+static HttpMethod http_request_method_parse(CString str) {
     assert(str.ptr && *str.ptr);
 
-    CString method_str = cbstring_as_cstring(str);
-    TRYB_MAP(method_str.ptr, HTTP_METHOD_INVALID);
+    TRYB_MAP(str.ptr && string_isascii(str), HTTP_METHOD_INVALID);
 
     for (size_t i = 0;
          i < sizeof(HTTP_METHOD_NAMES) / sizeof(HTTP_METHOD_NAMES[0]); i++) {
-        if (string_cmpi(method_str, HTTP_METHOD_NAMES[i].name) == 0)
+        if (string_cmpi(str, HTTP_METHOD_NAMES[i].name) == 0)
             return HTTP_METHOD_NAMES[i].method;
     }
 
@@ -59,16 +57,15 @@ CString http_version_string(HttpVersion version) {
     return CS_NULL;
 }
 
-static HttpVersion http_version_parse(CByteString str) {
+static HttpVersion http_version_parse(CString str) {
     assert(str.ptr && *str.ptr);
 
-    CString version_str = cbstring_as_cstring(str);
-    TRYB_MAP(version_str.ptr, HTTP_VERSION_INVALID);
+    TRYB_MAP(str.ptr && string_isascii(str), HTTP_VERSION_INVALID);
 
     for (size_t i = 0;
          i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
          i++) {
-        if (string_cmpi(version_str, HTTP_VERSION_STRINGS[i].str) == 0)
+        if (string_cmpi(str, HTTP_VERSION_STRINGS[i].str) == 0)
             return HTTP_VERSION_STRINGS[i].version;
     }
 
@@ -135,11 +132,11 @@ HttpContentType http_content_type_from_path(CString path) {
         { CS("html"), HTTP_CONTENT_TYPE_TEXT_HTML },
     };
 
-    CString last_dot = cstring_rchr(path, '.');
+    CString last_dot = string_rchr(path, '.');
     if (!last_dot.ptr || last_dot.len < 2)
         return HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM;
 
-    CString last_slash = cstring_rchr(path, '/');
+    CString last_slash = string_rchr(path, '/');
     if (last_slash.ptr && last_slash.ptr > last_dot.ptr)
         return HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM;
 
@@ -161,6 +158,8 @@ static const struct {
 
 static HttpTransferEncoding http_transfer_encoding_parse(CString value) {
     assert(value.ptr && *value.ptr);
+
+    TRYB_MAP(value.ptr && string_isascii(value), HTTP_TRANSFER_ENCODING_INVALID);
 
     for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
                                sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
@@ -191,7 +190,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
     }
 
     this->method =
-        http_request_method_parse(BS_CONST(buf_token_next(buf, CS(" "))));
+        http_request_method_parse(S_CONST(buf_token_next(buf, CS(" "))));
     switch (this->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
@@ -209,7 +208,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
         break;
     }
 
-    ByteString target_str = buf_token_next(buf, CS(" "));
+    String target_str = buf_token_next(buf, CS(" "));
     if (!target_str.ptr)
         RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
@@ -235,7 +234,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     this->version = http_version_parse(
-        BS_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
+        S_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
     // Need to only eat one "\r\n".
     TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
     if (this->version == HTTP_VERSION_INVALID ||
@@ -283,9 +282,9 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
             if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
                 return HTTP_REQUEST_STATE_NEED_DATA;
 
-            CString name  = S_CONST(buf_token_next_str(buf, CS(": ")));
+            CString name  = S_CONST(buf_token_next(buf, CS(": ")));
             CString value = S_CONST(
-                buf_token_next_str(buf, HTTP_NEWLINE, .preserve_end = true));
+                buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true));
             TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
 
             // RFC7230 § 5.4: Invalid field-value -> 400.
@@ -316,7 +315,9 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
             } else if (string_cmpi(name, CS("Content-Length")) == 0) {
                 char*   endptr     = NULL;
-                ssize_t new_length = strtol(value.ptr, &endptr, 10);
+                // NOTE: This depends on the fact that the buf_token_next
+                // null-terminates strings.
+                ssize_t new_length = strtol((const char*)value.ptr, &endptr, 10);
 
                 // RFC 7230 § 3.3.3, step 4: Invalid or conflicting
                 // Content-Length

@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     log_init(stdout);
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
-    WEB_ROOT = cstring_from(realpath(DEFAULT_WEB_ROOT, NULL));
+    WEB_ROOT = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
 
     struct io_uring uring = event_init();
 

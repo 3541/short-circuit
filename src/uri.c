@@ -8,10 +8,9 @@
 
 #include "buffer.h"
 #include "ptr.h"
-#include "ptr_util.h"
 #include "util.h"
 
-static UriScheme uri_scheme_parse(CByteString name) {
+static UriScheme uri_scheme_parse(CString name) {
 #define _SCHEME(SCHEME, S) { SCHEME, CS(S) },
     static const struct {
         UriScheme scheme;
@@ -20,20 +19,19 @@ static UriScheme uri_scheme_parse(CByteString name) {
 #undef _SCHEME
     assert(name.ptr && *name.ptr);
 
-    CString name_str = cbstring_as_cstring(name);
-    TRYB_MAP(name_str.ptr, URI_SCHEME_INVALID);
+    TRYB_MAP(name.ptr && string_isascii(name), URI_SCHEME_INVALID);
 
     for (size_t i = 0; i < sizeof(URI_SCHEMES) / sizeof(URI_SCHEMES[0]); i++) {
-        if (string_cmpi(name_str, URI_SCHEMES[i].name) == 0)
+        if (string_cmpi(name, URI_SCHEMES[i].name) == 0)
             return URI_SCHEMES[i].scheme;
     }
 
     return URI_SCHEME_INVALID;
 }
 
-static bool uri_decode(ByteString str) {
+static bool uri_decode(String str) {
     assert(str.ptr);
-    const uint8_t* end = bstring_end(BS_CONST(str));
+    const uint8_t* end = S_END(S_CONST(str));
 
     for (uint8_t *wp, *rp = wp = str.ptr; wp < end && rp < end && *wp && *rp;
          wp++) {
@@ -72,7 +70,7 @@ static bool uri_decode(ByteString str) {
     return true;
 }
 
-static void uri_collapse_dot_segments(ByteString str) {
+static void uri_collapse_dot_segments(String str) {
     assert(str.ptr);
     assert(*str.ptr == '/');
 
@@ -117,7 +115,7 @@ static void uri_collapse_dot_segments(ByteString str) {
     free(segment_indices);
 }
 
-static bool uri_normalize_path(ByteString str) {
+static bool uri_normalize_path(String str) {
     assert(str.ptr);
 
     TRYB(uri_decode(str));
@@ -126,7 +124,7 @@ static bool uri_normalize_path(ByteString str) {
     return true;
 }
 
-UriParseResult uri_parse(Uri* ret, ByteString str) {
+UriParseResult uri_parse(Uri* ret, String str) {
     assert(ret);
     assert(str.ptr);
 
@@ -141,7 +139,7 @@ UriParseResult uri_parse(Uri* ret, ByteString str) {
     // [scheme]://[authority]<path>[query][fragment]
     if (buf_memmem(buf, CS("://")).ptr) {
         ret->scheme =
-            uri_scheme_parse(BS_CONST(buf_token_next(buf, CS("://"))));
+            uri_scheme_parse(S_CONST(buf_token_next(buf, CS("://"))));
         if (ret->scheme == URI_SCHEME_INVALID)
             return URI_PARSE_BAD_URI;
     }
@@ -150,7 +148,7 @@ UriParseResult uri_parse(Uri* ret, ByteString str) {
     if (buf->data.ptr[buf->head] != '/' &&
         ret->scheme != URI_SCHEME_UNSPECIFIED) {
         ret->authority =
-            string_clone(S_CONST(buf_token_next_str(buf, CS("/"))));
+            string_clone(S_CONST(buf_token_next(buf, CS("/"))));
         TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }
@@ -182,9 +180,9 @@ String uri_path_if_contained(Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
-    ByteString buf = bstring_alloc(real_root.len + this->path.len + 2);
-    bstring_concat(buf, 4, cstring_as_cbstring(real_root), CBS("/"), this->path,
-                   CBS("\0"));
+    String buf = string_alloc(real_root.len + this->path.len + 2);
+    string_concat(buf, 4, real_root, CS("/"), this->path,
+                   CS("\0"));
 
     char* real_target = realpath((char*)buf.ptr, NULL);
     if (!real_target)
@@ -195,8 +193,8 @@ String uri_path_if_contained(Uri* this, CString real_root) {
             break;
 
 done:
-    bstring_free(&buf);
-    return string_from(real_target);
+    string_free(&buf);
+    return S_OF(real_target);
 }
 
 bool uri_is_initialized(Uri* this) {
@@ -211,9 +209,9 @@ void uri_free(Uri* this) {
     if (this->authority.ptr)
         string_free(&this->authority);
     if (this->path.ptr)
-        bstring_free(&this->path);
+        string_free(&this->path);
     if (this->query.ptr)
-        bstring_free(&this->query);
+        string_free(&this->query);
     if (this->fragment.ptr)
-        bstring_free(&this->fragment);
+        string_free(&this->fragment);
 }

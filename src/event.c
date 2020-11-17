@@ -13,7 +13,6 @@
 #include "config.h"
 #include "log.h"
 #include "ptr.h"
-#include "ptr_util.h"
 #include "socket.h"
 #include "util.h"
 
@@ -110,7 +109,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
-                       CByteString data, unsigned sqe_flags) {
+                       CString data, unsigned sqe_flags) {
     assert(this);
     assert(uring);
     assert(data.ptr);
@@ -131,7 +130,7 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
-                       ByteString data) {
+                       String data) {
     assert(this);
     assert(uring);
     assert(data.ptr);
@@ -147,7 +146,7 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_read_submit(Event* this, struct io_uring* uring, fd file,
-                       ByteString out_data, size_t nbytes, off_t offset,
+                       String out_data, size_t nbytes, off_t offset,
                        unsigned sqe_flags) {
     assert(this);
     assert(uring);

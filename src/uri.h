@@ -19,9 +19,9 @@ typedef enum UriScheme {
 typedef struct Uri {
     UriScheme  scheme;
     String     authority;
-    ByteString path;
-    ByteString query;
-    ByteString fragment;
+    String path;
+    String query;
+    String fragment;
 } Uri;
 
 typedef enum UriParseResult {
@@ -31,7 +31,7 @@ typedef enum UriParseResult {
     URI_PARSE_SUCCESS
 } UriParseResult;
 
-UriParseResult uri_parse(Uri*, ByteString);
+UriParseResult uri_parse(Uri*, String);
 String         uri_path_if_contained(Uri*, CString real_root);
 bool           uri_is_initialized(Uri*);
 void           uri_free(Uri*);

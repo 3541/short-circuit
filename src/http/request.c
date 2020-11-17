@@ -18,7 +18,7 @@ http_request_get_head_handle(HttpConnection* this, struct io_uring* uring) {
     assert(uring);
 
     // TODO: GET things other than static files.
-    if ((this->target_file = open(this->target_path.ptr, O_RDONLY)) < 0)
+    if ((this->target_file = open((const char*)this->target_path.ptr, O_RDONLY)) < 0)
         RET_MAP(http_response_error_submit(
                     this, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);

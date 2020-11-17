@@ -11,7 +11,6 @@
 #include <sys/param.h>
 
 #include "ptr.h"
-#include "ptr_util.h"
 #include "util.h"
 
 // TODO: This should probably hand out slices of a pre-registered buffer of some
@@ -22,7 +21,7 @@
 // resize (and thus copy).
 bool buf_init(Buffer* this, size_t cap, size_t max_cap) {
     if (!this->data.ptr)
-        this->data = bstring_alloc(cap);
+        this->data = string_alloc(cap);
     TRYB(this->data.ptr);
     this->max_cap = max_cap;
 
@@ -97,8 +96,8 @@ bool buf_ensure_cap(Buffer* this, size_t min_extra_cap) {
     size_t new_cap = this->data.len;
     for (; new_cap < this->data.len + min_extra_cap; new_cap *= 2)
         ;
-    ByteString new_data =
-        bstring_realloc(this->data, MIN(new_cap, this->max_cap));
+    String new_data =
+        string_realloc(this->data, MIN(new_cap, this->max_cap));
     TRYB(new_data.ptr);
     this->data = new_data;
 
@@ -116,18 +115,12 @@ bool buf_ensure_max_cap(Buffer* this) {
 }
 
 // Pointer for writing into the buffer.
-ByteString buf_write_ptr(Buffer* this) {
+String buf_write_ptr(Buffer* this) {
     assert(this);
 
     buf_reset_if_empty(this);
-    return (ByteString){ .ptr = this->data.ptr + this->tail,
+    return (String){ .ptr = this->data.ptr + this->tail,
                          .len = buf_space(this) };
-}
-
-// Pointer for writing as a string into the buffer.
-String buf_write_ptr_string(Buffer* this) {
-    ByteString ret_bytes = buf_write_ptr(this);
-    return (String){ .ptr = (char*)ret_bytes.ptr, .len = ret_bytes.len };
 }
 
 // Bytes have been written into the buffer.
@@ -155,7 +148,7 @@ bool buf_write_str(Buffer* this, CString str) {
         return false;
     TRYB(buf_ensure_cap(this, str.len));
 
-    bstring_copy(buf_write_ptr(this), cstring_as_cbstring(str));
+    string_copy(buf_write_ptr(this), str);
     buf_wrote(this, str.len);
     return true;
 }
@@ -170,7 +163,7 @@ bool buf_write_vfmt(Buffer* this, const char* fmt, va_list args) {
     assert(buf_initialized(this));
     assert(fmt);
 
-    ByteString write_ptr = buf_write_ptr(this);
+    String write_ptr = buf_write_ptr(this);
     int        rc        = -1;
     if ((rc = vsnprintf((char*)write_ptr.ptr, write_ptr.len, fmt, args)) < 0)
         return false;
@@ -191,22 +184,22 @@ bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
 }
 
 bool buf_write_num(Buffer* this, size_t num) {
-    static char   _BUF[20] = { '\0' };
-    static String BUF     = { .ptr = _BUF, .len = sizeof(_BUF) / sizeof(char) };
+    static uint8_t   _BUF[20] = { '\0' };
+    static String BUF     = { .ptr = _BUF, .len = sizeof(_BUF) };
     String        num_str = string_itoa(BUF, num);
     return buf_write_str(this, S_CONST(num_str));
 }
 
 // Pointer for reading from the buffer.
-CByteString buf_read_ptr(const Buffer* this) {
-    return BS_CONST(buf_read_ptr_mut((Buffer*)this));
+CString buf_read_ptr(const Buffer* this) {
+    return S_CONST(buf_read_ptr_mut((Buffer*)this));
 }
 
 // Mutable pointer for reading from the buffer.
-ByteString buf_read_ptr_mut(Buffer* this) {
+String buf_read_ptr_mut(Buffer* this) {
     assert(buf_initialized(this));
 
-    return (ByteString){ .ptr = this->data.ptr + this->head,
+    return (String){ .ptr = this->data.ptr + this->head,
                          .len = buf_len(this) };
 }
 
@@ -219,23 +212,23 @@ void buf_read(Buffer* this, size_t len) {
     buf_reset_if_empty(this);
 }
 
-ByteString buf_memmem(Buffer* this, CString needle) {
+String buf_memmem(Buffer* this, CString needle) {
     assert(buf_initialized(this));
     assert(needle.ptr);
     assert(needle.len > 0);
 
     if (buf_len(this) == 0)
-        return BS_NULL;
+        return S_NULL;
 
     uint8_t* ret_ptr = memmem(&this->data.ptr[this->head], buf_len(this),
                               needle.ptr, needle.len);
-    return (ByteString){ .ptr = ret_ptr, .len = needle.len };
+    return (String){ .ptr = ret_ptr, .len = needle.len };
 }
 
 // Get a token from the buffer. NOTE: This updates the head of the buffer, so
 // care should be taken not to write into the buffer as long as the returned
 // pointer is needed.
-ByteString buf_token_next_impl(_buf_token_next_args args) {
+String buf_token_next_impl(_buf_token_next_args args) {
     struct Buffer* this  = args.this;
     CString delim        = args.delim;
     bool    preserve_end = args.preserve_end;
@@ -266,7 +259,7 @@ ByteString buf_token_next_impl(_buf_token_next_args args) {
              last++)
             this->data.ptr[last] = '\0';
 
-    ByteString ret = { .ptr = &this->data.ptr[this->head],
+    String ret = { .ptr = &this->data.ptr[this->head],
                        .len = end - this->head };
     this->head     = last;
     return ret;
@@ -276,7 +269,7 @@ bool buf_consume(Buffer* this, CString needle) {
     assert(this);
     assert(needle.ptr);
 
-    ByteString pos = buf_memmem(this, needle);
+    String pos = buf_memmem(this, needle);
     TRYB(pos.ptr);
 
     if ((size_t)(pos.ptr - this->data.ptr) != this->head)
@@ -289,6 +282,6 @@ bool buf_consume(Buffer* this, CString needle) {
 void buf_free(Buffer* this) {
     assert(buf_initialized(this));
 
-    bstring_free(&this->data);
+    string_free(&this->data);
     memset(this, 0, sizeof(Buffer));
 }
