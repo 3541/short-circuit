@@ -13,7 +13,6 @@ project(
 
 c_compiler = meson.get_compiler('c')
 
-add_project_arguments('-D_GNU_SOURCE', language: 'c')
 # Required by buffer initializers.
 add_project_arguments('-Wno-override-init', language: 'c')
 

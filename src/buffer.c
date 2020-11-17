@@ -1,3 +1,6 @@
+// For memmem.
+#define _GNU_SOURCE
+
 #include "buffer.h"
 
 #include <assert.h>
