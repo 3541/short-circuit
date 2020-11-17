@@ -77,14 +77,5 @@
         return F ? T : E;                                                      \
     } while (0);
 
-INLINE bool bytes_are_string(const uint8_t* bytes) {
-    if (!bytes)
-        return false;
-    for (const uint8_t* sp = bytes; *sp; sp++)
-        TRYB(isascii(*sp));
-
-    return true;
-}
-
 #define FORMAT_FN(FMT_INDEX, VARG_INDEX)                                       \
     __attribute__((__format__(__printf__, FMT_INDEX, VARG_INDEX)))

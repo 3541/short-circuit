@@ -293,7 +293,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     TRYB(http_response_prep_header_date(this, CS("Last-Modified"),
                                         res.st_mtim.tv_sec));
     TRYB(http_response_prep_header_fmt(this, CS("Etag"), "\"%luX%lX%lX\"",
-                                       res.st_ino, res.st_mtim.tv_sec,
+                                       res.st_ino, res.st_mtime,
                                        res.st_size));
     TRYB(http_response_prep_headers_done(this));
 

@@ -3,7 +3,7 @@ project(
   ['c'],
   version: '0.1.0',
   default_options: [
-    'c_std=gnu18',
+    'c_std=c18',
     'warning_level=2',
     'werror=true',
     'buildtype=debug',
@@ -13,6 +13,8 @@ project(
 
 c_compiler = meson.get_compiler('c')
 
+add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
+add_project_arguments('-Dtypeof=__typeof__', language: 'c')
 # Required by buffer initializers.
 add_project_arguments('-Wno-override-init', language: 'c')
 

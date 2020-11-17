@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/param.h>
 
 #include "ptr.h"
@@ -32,14 +33,6 @@ INLINE const uint8_t* bstring_end(CByteString string) {
     return string.ptr + string.len;
 }
 
-INLINE bool bstring_is_string(CByteString string) {
-    if (!string.ptr)
-        return false;
-    for (size_t i = 0; i < string.len; i++)
-        TRYB(isascii(string.ptr[i]));
-    return true;
-}
-
 INLINE ByteString bstring_offset(ByteString string, size_t offset) {
     assert(offset < string.len);
     return (ByteString){ .ptr = string.ptr + offset,
@@ -47,8 +40,6 @@ INLINE ByteString bstring_offset(ByteString string, size_t offset) {
 }
 
 INLINE String bstring_as_string(ByteString bstring) {
-    if (!bstring_is_string(BS_CONST(bstring)))
-        return S_NULL;
     return (String){ .ptr = (char*)bstring.ptr, .len = bstring.len };
 }
 
