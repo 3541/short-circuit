@@ -20,6 +20,7 @@
 #define PQ_GET(TY)     TY##_pq_get
 #define PQ_SET(TY)     TY##_pq_set
 #define PQ_ENQUEUE(TY) TY##_pq_enqueue
+#define PQ_HEAPIFY(TY) TY##_pq_heapify
 #define PQ_DEQUEUE(TY) TY##_pq_dequeue
 
 INLINE size_t pq_parent(size_t i) { return i / 2; }
@@ -30,6 +31,7 @@ INLINE size_t pq_right_child(size_t i) { return i * 2 + 1; }
     void PQ_INIT(TY)(PQ(TY)*, size_t initial_cap, size_t max_cap);             \
     TY*  PQ_PEEK(TY)(PQ(TY)*);                                                 \
     void PQ_ENQUEUE(TY)(PQ(TY)*, TY);                                          \
+    void PQ_HEAPIFY(TY)(PQ(TY)*, size_t i);                                    \
     TY   PQ_DEQUEUE(TY)(PQ(TY)*)
 
 #define PQ_IMPL_METHODS(TY, C)                                                 \
@@ -75,25 +77,31 @@ INLINE size_t pq_right_child(size_t i) { return i * 2 + 1; }
         PQ_SET(TY)(this, i, item);                                             \
     }                                                                          \
                                                                                \
-    TY PQ_DEQUEUE(TY)(PQ(TY) * this) {                                         \
+    void PQ_HEAPIFY(TY)(PQ(TY) * this, size_t i) {                             \
         assert(this);                                                          \
-        assert(this->len > 0);                                                 \
                                                                                \
-        TY     ret  = *PQ_PEEK(TY)(this);                                      \
-        TY     last = *PQ_GET(TY)(this, this->len--);                          \
-        size_t i    = 1;                                                       \
+        TY item = *PQ_GET(TY)(this, i);                                        \
         while (i < this->len / 2) {                                            \
             size_t min_child = pq_left_child(i);                               \
             if (min_child < this->len &&                                       \
                 C(PQ_GET(TY)(this, min_child),                                 \
                   PQ_GET(TY)(this, min_child + 1)) > 0)                        \
                 min_child++;                                                   \
-            if (C(&last, PQ_GET(TY)(this, min_child)) <= 0)                    \
+            if (C(&item, PQ_GET(TY)(this, min_child)) <= 0)                    \
                 break;                                                         \
             PQ_SET(TY)(this, i, *PQ_GET(TY)(this, min_child));                 \
             i = min_child;                                                     \
         }                                                                      \
-        PQ_SET(TY)(this, i, last);                                             \
+        PQ_SET(TY)(this, i, item);                                             \
+    }                                                                          \
+                                                                               \
+    TY PQ_DEQUEUE(TY)(PQ(TY) * this) {                                         \
+        assert(this);                                                          \
+        assert(this->len > 0);                                                 \
+                                                                               \
+        TY ret = *PQ_PEEK(TY)(this);                                           \
+        PQ_SET(TY)(this, 1, *PQ_GET(TY)(this, this->len--));                   \
+        PQ_HEAPIFY(TY)(this, 1);                                               \
                                                                                \
         return ret;                                                            \
     }
