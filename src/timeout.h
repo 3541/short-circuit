@@ -4,7 +4,6 @@
 #include "forward.h"
 #include "pq.h"
 
-
 struct Timeout;
 typedef struct Timeout Timeout;
 

@@ -125,9 +125,9 @@ static bool http_response_prep_header_date(HttpConnection* this, CString name,
     assert(this);
 
     static struct {
-        time_t tv;
-        uint8_t   buf[HTTP_DATE_BUF_LENGTH];
-        size_t len;
+        time_t  tv;
+        uint8_t buf[HTTP_DATE_BUF_LENGTH];
+        size_t  len;
     } DATES[HTTP_DATE_CACHE] = { { 0, { '\0' }, 0 } };
 
     size_t i = tv % HTTP_DATE_CACHE;
@@ -186,26 +186,26 @@ static CString http_response_error_make_body(HttpConnection* this,
     assert(status != HTTP_STATUS_INVALID);
 
     static uint8_t body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
-    size_t len = 0;
+    size_t         len                              = 0;
 
     // TODO: De-uglify. Probably should load a template from somewhere.
     if ((len = snprintf((char*)body, HTTP_ERROR_BODY_MAX_LENGTH,
-                 "<!DOCTYPE html>\n"
-                 "<html>\n"
-                 "<head>\n"
-                 "<title>Error: %d</title>\n"
-                 "</head>\n"
-                 "<body>\n"
-                 "<h1>%s Error %d</h1>\n"
-                 "<p>%s.</p>\n"
-                 "</body>\n"
-                 "</html>\n",
-                 status, http_version_string(this->version).ptr, status,
-                        http_status_reason(status).ptr)) > HTTP_ERROR_BODY_MAX_LENGTH)
+                        "<!DOCTYPE html>\n"
+                        "<html>\n"
+                        "<head>\n"
+                        "<title>Error: %d</title>\n"
+                        "</head>\n"
+                        "<body>\n"
+                        "<h1>%s Error %d</h1>\n"
+                        "<p>%s.</p>\n"
+                        "</body>\n"
+                        "</html>\n",
+                        status, http_version_string(this->version).ptr, status,
+                        http_status_reason(status).ptr)) >
+        HTTP_ERROR_BODY_MAX_LENGTH)
         return CS_NULL;
 
-    return (CString){ .ptr = body,
-                      .len = len };
+    return (CString){ .ptr = body, .len = len };
 }
 
 static bool http_response_close_submit(HttpConnection* this,
@@ -293,8 +293,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     TRYB(http_response_prep_header_date(this, CS("Last-Modified"),
                                         res.st_mtim.tv_sec));
     TRYB(http_response_prep_header_fmt(this, CS("Etag"), "\"%luX%lX%lX\"",
-                                       res.st_ino, res.st_mtime,
-                                       res.st_size));
+                                       res.st_ino, res.st_mtime, res.st_size));
     TRYB(http_response_prep_headers_done(this));
 
     Buffer* buf = &this->conn.send_buf;
@@ -313,7 +312,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
         size_t last_sent = 0;
         while (total_size > 0) {
             String write_ptr     = buf_write_ptr(buf);
-            size_t     try_read_size = MIN(file_size, write_ptr.len);
+            size_t try_read_size = MIN(file_size, write_ptr.len);
             TRYB(event_read_submit(&this->conn.last_event, uring,
                                    this->target_file, write_ptr, try_read_size,
                                    file_sent, IOSQE_IO_LINK));

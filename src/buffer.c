@@ -96,8 +96,7 @@ bool buf_ensure_cap(Buffer* this, size_t min_extra_cap) {
     size_t new_cap = this->data.len;
     for (; new_cap < this->data.len + min_extra_cap; new_cap *= 2)
         ;
-    String new_data =
-        string_realloc(this->data, MIN(new_cap, this->max_cap));
+    String new_data = string_realloc(this->data, MIN(new_cap, this->max_cap));
     TRYB(new_data.ptr);
     this->data = new_data;
 
@@ -120,7 +119,7 @@ String buf_write_ptr(Buffer* this) {
 
     buf_reset_if_empty(this);
     return (String){ .ptr = this->data.ptr + this->tail,
-                         .len = buf_space(this) };
+                     .len = buf_space(this) };
 }
 
 // Bytes have been written into the buffer.
@@ -164,7 +163,7 @@ bool buf_write_vfmt(Buffer* this, const char* fmt, va_list args) {
     assert(fmt);
 
     String write_ptr = buf_write_ptr(this);
-    int        rc        = -1;
+    int    rc        = -1;
     if ((rc = vsnprintf((char*)write_ptr.ptr, write_ptr.len, fmt, args)) < 0)
         return false;
 
@@ -184,9 +183,9 @@ bool buf_write_fmt(Buffer* this, const char* fmt, ...) {
 }
 
 bool buf_write_num(Buffer* this, size_t num) {
-    static uint8_t   _BUF[20] = { '\0' };
-    static String BUF     = { .ptr = _BUF, .len = sizeof(_BUF) };
-    String        num_str = string_itoa(BUF, num);
+    static uint8_t _BUF[20] = { '\0' };
+    static String  BUF      = { .ptr = _BUF, .len = sizeof(_BUF) };
+    String         num_str  = string_itoa(BUF, num);
     return buf_write_str(this, S_CONST(num_str));
 }
 
@@ -199,8 +198,7 @@ CString buf_read_ptr(const Buffer* this) {
 String buf_read_ptr_mut(Buffer* this) {
     assert(buf_initialized(this));
 
-    return (String){ .ptr = this->data.ptr + this->head,
-                         .len = buf_len(this) };
+    return (String){ .ptr = this->data.ptr + this->head, .len = buf_len(this) };
 }
 
 // Bytes have been consumed from the buffer.
@@ -260,8 +258,8 @@ String buf_token_next_impl(_buf_token_next_args args) {
             this->data.ptr[last] = '\0';
 
     String ret = { .ptr = &this->data.ptr[this->head],
-                       .len = end - this->head };
-    this->head     = last;
+                   .len = end - this->head };
+    this->head = last;
     return ret;
 }
 

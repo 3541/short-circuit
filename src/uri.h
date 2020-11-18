@@ -17,11 +17,11 @@ typedef enum UriScheme {
 } UriScheme;
 
 typedef struct Uri {
-    UriScheme  scheme;
-    String     authority;
-    String path;
-    String query;
-    String fragment;
+    UriScheme scheme;
+    String    authority;
+    String    path;
+    String    query;
+    String    fragment;
 } Uri;
 
 typedef enum UriParseResult {

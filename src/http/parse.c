@@ -159,7 +159,8 @@ static const struct {
 static HttpTransferEncoding http_transfer_encoding_parse(CString value) {
     assert(value.ptr && *value.ptr);
 
-    TRYB_MAP(value.ptr && string_isascii(value), HTTP_TRANSFER_ENCODING_INVALID);
+    TRYB_MAP(value.ptr && string_isascii(value),
+             HTTP_TRANSFER_ENCODING_INVALID);
 
     for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
                                sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
@@ -314,10 +315,11 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
                                                        HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
             } else if (string_cmpi(name, CS("Content-Length")) == 0) {
-                char*   endptr     = NULL;
+                char* endptr = NULL;
                 // NOTE: This depends on the fact that the buf_token_next
                 // null-terminates strings.
-                ssize_t new_length = strtol((const char*)value.ptr, &endptr, 10);
+                ssize_t new_length =
+                    strtol((const char*)value.ptr, &endptr, 10);
 
                 // RFC 7230 § 3.3.3, step 4: Invalid or conflicting
                 // Content-Length

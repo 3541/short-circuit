@@ -14,9 +14,9 @@
 // buf_reset_if_empty will reset both indices to 0.
 typedef struct Buffer {
     String data;
-    size_t     tail;
-    size_t     head;
-    size_t     max_cap;
+    size_t tail;
+    size_t head;
+    size_t max_cap;
 } Buffer;
 
 bool buf_init(Buffer*, size_t cap, size_t max_cap);
@@ -32,20 +32,20 @@ bool buf_ensure_cap(Buffer*, size_t extra_cap);
 bool buf_ensure_max_cap(Buffer*);
 
 String buf_write_ptr(Buffer*);
-String     buf_write_ptr_string(Buffer*);
-void       buf_wrote(Buffer*, size_t);
-bool       buf_write_byte(Buffer*, uint8_t);
-bool       buf_write_str(Buffer*, CString);
-bool       buf_write_line(Buffer*, CString);
-bool       buf_write_vfmt(Buffer*, const char* fmt, va_list);
-bool       buf_write_fmt(Buffer*, const char* fmt, ...);
-bool       buf_write_num(Buffer*, size_t);
+String buf_write_ptr_string(Buffer*);
+void   buf_wrote(Buffer*, size_t);
+bool   buf_write_byte(Buffer*, uint8_t);
+bool   buf_write_str(Buffer*, CString);
+bool   buf_write_line(Buffer*, CString);
+bool   buf_write_vfmt(Buffer*, const char* fmt, va_list);
+bool   buf_write_fmt(Buffer*, const char* fmt, ...);
+bool   buf_write_num(Buffer*, size_t);
 
 CString buf_read_ptr(const Buffer*);
 String  buf_read_ptr_mut(Buffer*);
-void        buf_read(Buffer*, size_t);
+void    buf_read(Buffer*, size_t);
 String  buf_memmem(Buffer*, CString needle);
-bool        buf_consume(Buffer*, CString needle);
+bool    buf_consume(Buffer*, CString needle);
 
 // A hack for pseudo-optional arguments.
 typedef struct _buf_token_next_args {

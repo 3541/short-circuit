@@ -138,8 +138,7 @@ UriParseResult uri_parse(Uri* ret, String str) {
 
     // [scheme]://[authority]<path>[query][fragment]
     if (buf_memmem(buf, CS("://")).ptr) {
-        ret->scheme =
-            uri_scheme_parse(S_CONST(buf_token_next(buf, CS("://"))));
+        ret->scheme = uri_scheme_parse(S_CONST(buf_token_next(buf, CS("://"))));
         if (ret->scheme == URI_SCHEME_INVALID)
             return URI_PARSE_BAD_URI;
     }
@@ -147,8 +146,7 @@ UriParseResult uri_parse(Uri* ret, String str) {
     // [authority]<path>[query][fragment]
     if (buf->data.ptr[buf->head] != '/' &&
         ret->scheme != URI_SCHEME_UNSPECIFIED) {
-        ret->authority =
-            string_clone(S_CONST(buf_token_next(buf, CS("/"))));
+        ret->authority = string_clone(S_CONST(buf_token_next(buf, CS("/"))));
         TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }
@@ -181,8 +179,7 @@ String uri_path_if_contained(Uri* this, CString real_root) {
     assert(real_root.ptr && *real_root.ptr);
 
     String buf = string_alloc(real_root.len + this->path.len + 2);
-    string_concat(buf, 4, real_root, CS("/"), this->path,
-                   CS("\0"));
+    string_concat(buf, 4, real_root, CS("/"), this->path, CS("\0"));
 
     char* real_target = realpath((char*)buf.ptr, NULL);
     if (!real_target)

@@ -16,7 +16,8 @@ String string_realloc(String this, size_t new_len) {
 }
 
 String string_clone(CString other) {
-    if (!other.ptr) return S_NULL;
+    if (!other.ptr)
+        return S_NULL;
 
     String ret = string_alloc(other.len);
     string_copy(ret, other);
@@ -31,7 +32,8 @@ void string_free(String* this) {
 }
 
 void string_copy(String dst, CString src) {
-    if (!dst.ptr || !src.ptr) return;
+    if (!dst.ptr || !src.ptr)
+        return;
     memcpy(dst.ptr, src.ptr, MIN(dst.len, src.len));
 }
 

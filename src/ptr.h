@@ -11,13 +11,13 @@
 // null-terminated.
 
 typedef struct String {
-    uint8_t*  ptr;
-    size_t len;
+    uint8_t* ptr;
+    size_t   len;
 } String;
 
 typedef struct CString {
     const uint8_t* ptr;
-    size_t      len;
+    size_t         len;
 } CString;
 
 #define CS(S)                                                                  \
@@ -31,7 +31,8 @@ ALWAYS_INLINE CString S_CONST(String s) {
     return (CString){ .ptr = s.ptr, .len = s.len };
 }
 ALWAYS_INLINE String S_OF(char* str) {
-    if (!str) return S_NULL;
+    if (!str)
+        return S_NULL;
     return (String){ .ptr = (uint8_t*)str, .len = strlen(str) };
 }
 ALWAYS_INLINE CString CS_OF(const char* str) {
@@ -40,21 +41,19 @@ ALWAYS_INLINE CString CS_OF(const char* str) {
 ALWAYS_INLINE String S_OFFSET(String s, size_t offset) {
     return (String){ .ptr = s.ptr + offset, .len = s.len - offset };
 }
-ALWAYS_INLINE const uint8_t* S_END(CString s) {
-    return s.ptr + s.len;
-}
+ALWAYS_INLINE const uint8_t* S_END(CString s) { return s.ptr + s.len; }
 
-String  string_alloc(size_t len);
+String string_alloc(size_t len);
 String string_realloc(String, size_t new_len);
 String string_clone(CString);
-void    string_free(String*);
+void   string_free(String*);
 
 void string_copy(String dst, CString src);
 void string_concat(String dst, size_t count, ...);
 
-void string_reverse(String);
+void   string_reverse(String);
 String string_itoa(String dst, size_t);
 
-bool string_isascii(CString);
-int string_cmpi(CString lhs, CString rhs);
+bool    string_isascii(CString);
+int     string_cmpi(CString lhs, CString rhs);
 CString string_rchr(CString, uint8_t c);
