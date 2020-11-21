@@ -1,8 +1,9 @@
 #pragma once
 
+#include <a3/pq.h>
+
 #include "event.h"
 #include "forward.h"
-#include "pq.h"
 
 struct Timeout;
 typedef struct Timeout Timeout;

@@ -1,0 +1,4 @@
+[wrap-git]
+url = https://github.com/3541/liba3.git
+push-url = git@github.com:3541/liba3.git
+revision = head

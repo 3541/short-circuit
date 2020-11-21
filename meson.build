@@ -58,6 +58,9 @@ endif
 
 liburing = dependency('liburing')
 
+liba3_project = subproject('liba3')
+liba3 = liba3_project.get_variable('liba3_dep')
+
 src = files([
              'src/main.c',
 
@@ -81,7 +84,7 @@ headers = include_directories('src')
 executable(
   'urs',
   src,
-  dependencies: liburing,
+  dependencies: [liburing, liba3],
   include_directories: headers,
   build_by_default: true
 )
