@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "util.h"
+#include <a3/util.h>
 
 // Fat pointers for strings and byte strings, to avoid null-termination
 // shenanigans. Care should be taken not to assume that these are

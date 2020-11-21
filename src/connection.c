@@ -7,6 +7,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <a3/log.h>
+#include <a3/util.h>
+
 #include "buffer.h"
 #include "config.h"
 #include "event.h"
@@ -16,8 +19,6 @@
 #include "http/response.h"
 #include "http/types.h"
 #include "listen.h"
-#include "log.h"
-#include "util.h"
 
 static bool connection_recv_submit(Connection* this, struct io_uring* uring,
                                    unsigned sqe_flags);

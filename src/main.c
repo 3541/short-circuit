@@ -7,15 +7,16 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include <a3/log.h>
+#include <a3/util.h>
+
 #include "config.h"
 #include "connection.h"
 #include "event.h"
 #include "forward.h"
 #include "http/connection.h"
 #include "listen.h"
-#include "log.h"
 #include "ptr.h"
-#include "util.h"
 
 CString WEB_ROOT;
 
@@ -38,7 +39,11 @@ static void check_webroot_exists(const char* root) {
 int main(int argc, char** argv) {
     (void)argv;
 
-    log_init(stdout);
+#ifdef DEBUG_BUILD
+    log_init(stdout, DEBUG);
+#else
+    log_init(stdout, WARN);
+#endif
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
     WEB_ROOT = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));

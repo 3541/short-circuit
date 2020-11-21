@@ -3,8 +3,6 @@
 #include <netinet/in.h>
 #include <stdint.h>
 
-#include "log.h"
-
 #define MIN_KERNEL_VERSION_MAJOR 5
 #define MIN_KERNEL_VERSION_MINOR 6
 
@@ -17,12 +15,6 @@
 
 #define URING_ENTRIES              512
 #define URING_SUBMISSION_THRESHOLD 500
-
-#ifdef DEBUG_BUILD
-#define LOG_LEVEL DEBUG
-#else
-#define LOG_LEVEL WARN
-#endif
 
 #define CONNECTION_MAX_ALLOCATED 4096
 

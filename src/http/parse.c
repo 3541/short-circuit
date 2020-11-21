@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include <a3/log.h>
+#include <a3/util.h>
+
 #include "buffer.h"
 #include "config.h"
 #include "connection.h"
@@ -13,10 +16,8 @@
 #include "http/connection.h"
 #include "http/response.h"
 #include "http/types.h"
-#include "log.h"
 #include "ptr.h"
 #include "uri.h"
-#include "util.h"
 
 #define _METHOD(M, N) { M, CS(N) },
 static const struct {

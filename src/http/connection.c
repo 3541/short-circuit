@@ -6,16 +6,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <a3/log.h>
+#include <a3/util.h>
+
 #include "buffer.h"
 #include "config.h"
 #include "connection.h"
 #include "event.h"
 #include "forward.h"
 #include "http/types.h"
-#include "log.h"
 #include "ptr.h"
 #include "uri.h"
-#include "util.h"
 
 static HttpConnection* http_conn_freelist  = NULL;
 static size_t          http_conn_allocated = 0;

@@ -5,8 +5,9 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include <a3/util.h>
+
 #include "config.h"
-#include "util.h"
 
 fd socket_listen(in_port_t port) {
     fd ret;

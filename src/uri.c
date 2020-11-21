@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <a3/util.h>
+
 #include "buffer.h"
 #include "ptr.h"
-#include "util.h"
 
 static UriScheme uri_scheme_parse(CString name) {
 #define _SCHEME(SCHEME, S) { SCHEME, CS(S) },

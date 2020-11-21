@@ -11,6 +11,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <a3/log.h>
+#include <a3/util.h>
+
 #include "buffer.h"
 #include "config.h"
 #include "connection.h"
@@ -19,10 +22,8 @@
 #include "http/connection.h"
 #include "http/parse.h"
 #include "http/types.h"
-#include "log.h"
 #include "ptr.h"
 #include "socket.h"
-#include "util.h"
 
 static bool http_response_close_submit(HttpConnection*, struct io_uring*);
 

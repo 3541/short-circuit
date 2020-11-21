@@ -72,7 +72,6 @@ src = files([
              'src/http/response.c',
              'src/http/parse.c',
              'src/listen.c',
-             'src/log.c',
              'src/ptr.c',
              'src/socket.c',
              'src/timeout.c',
