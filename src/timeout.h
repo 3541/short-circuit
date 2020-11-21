@@ -1,6 +1,6 @@
 #pragma once
 
-#include <a3/pq.h>
+#include <a3/lpq.h>
 
 #include "event.h"
 #include "forward.h"
@@ -8,9 +8,9 @@
 struct Timeout;
 typedef struct Timeout Timeout;
 
-struct Timeout {
-    Connection* target;
-    time_t      threshold;
-};
+LPQ_IMPL_STRUCTS(Timeout);
 
-PQ(Timeout);
+struct Timeout {
+    time_t      threshold;
+    LPQ_NODE(Timeout);
+};
