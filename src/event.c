@@ -184,7 +184,7 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
 }
 
 bool event_timeout_submit(Event* this, struct io_uring* uring, time_t sec,
-                          time_t nsec) {
+                          time_t nsec, uint32_t timeout_flags) {
     assert(this);
     assert(uring);
 
@@ -194,7 +194,7 @@ bool event_timeout_submit(Event* this, struct io_uring* uring, time_t sec,
 
     struct __kernel_timespec ts = { .tv_sec = sec, .tv_nsec = nsec };
 
-    io_uring_prep_timeout(sqe, &ts, 0, 0);
+    io_uring_prep_timeout(sqe, &ts, 0, timeout_flags);
     io_uring_sqe_set_data(sqe, this);
 
     return true;
