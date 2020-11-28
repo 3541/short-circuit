@@ -22,8 +22,8 @@
 
 static bool connection_recv_submit(Connection* this, struct io_uring* uring,
                                    unsigned sqe_flags);
-static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
-                                   struct io_uring* uring);
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   struct io_uring_cqe* cqe);
 
 bool connection_init(Connection* this) {
     assert(this);
@@ -107,8 +107,8 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
 }
 
 // Handle the completion of an ACCEPT event.
-static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
-                                     struct io_uring* uring) {
+static bool connection_accept_handle(Connection* this, struct io_uring* uring,
+                                     struct io_uring_cqe* cqe) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -122,8 +122,8 @@ static bool connection_accept_handle(Connection* this, struct io_uring_cqe* cqe,
     return this->recv_submit(this, uring, 0);
 }
 
-static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
-                                   struct io_uring* uring) {
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   struct io_uring_cqe* cqe) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -144,8 +144,8 @@ static bool connection_recv_handle(Connection* this, struct io_uring_cqe* cqe,
     return true;
 }
 
-static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
-                                   struct io_uring* uring) {
+static bool connection_send_handle(Connection* this, struct io_uring* uring,
+                                   struct io_uring_cqe* cqe) {
     assert(this);
     assert(uring);
     assert(cqe);
@@ -155,8 +155,8 @@ static bool connection_send_handle(Connection* this, struct io_uring_cqe* cqe,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
-                                    struct io_uring* uring) {
+static void connection_close_handle(Connection* this, struct io_uring* uring,
+                                    struct io_uring_cqe* cqe) {
     assert(this);
     assert(this->last_event.type == CLOSE);
     assert(cqe);
@@ -167,8 +167,8 @@ static void connection_close_handle(Connection* this, struct io_uring_cqe* cqe,
 }
 
 // Dispatch an event pertaining to a connection. Returns false to die.
-bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
-                               struct io_uring* uring) {
+bool connection_event_dispatch(Connection* this, struct io_uring* uring,
+                               struct io_uring_cqe* cqe) {
     assert(this);
     assert(cqe);
     assert(uring);
@@ -185,16 +185,16 @@ bool connection_event_dispatch(Connection* this, struct io_uring_cqe* cqe,
 
     switch (this->last_event.type) {
     case ACCEPT:
-        rc = connection_accept_handle(this, cqe, uring);
+        rc = connection_accept_handle(this, uring, cqe);
         break;
     case SEND:
-        rc = connection_send_handle(this, cqe, uring);
+        rc = connection_send_handle(this, uring, cqe);
         break;
     case RECV:
-        rc = this->recv_handle(this, cqe, uring);
+        rc = this->recv_handle(this, uring, cqe);
         break;
     case CLOSE:
-        connection_close_handle(this, cqe, uring);
+        connection_close_handle(this, uring, cqe);
         break;
     case TIMEOUT:
     case INVALID_EVENT:

@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
                 goto next;
             Event* event = (Event*)event_ptr;
 
-            cont = connection_event_dispatch((Connection*)event, cqe, &uring);
+            cont = connection_event_dispatch((Connection*)event, &uring, cqe);
         next:
             io_uring_cqe_seen(&uring, cqe);
         }
