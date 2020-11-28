@@ -24,5 +24,5 @@ typedef struct TimeoutQueue {
 } TimeoutQueue;
 
 TimeoutQueue timeout_init(void);
-bool timeout_schedule(TimeoutQueue*, Timeout*, struct io_uring*);
+bool         timeout_schedule(TimeoutQueue*, Timeout*, struct io_uring*);
 bool timeout_handle(TimeoutQueue*, struct io_uring*, struct io_uring_cqe*);

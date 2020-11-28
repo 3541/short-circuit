@@ -42,4 +42,5 @@ bool event_recv_submit(Event*, struct io_uring*, fd socket, String out_data);
 bool event_read_submit(Event*, struct io_uring*, fd file, String out_data,
                        size_t nbytes, off_t offset, uint8_t sqe_flags);
 bool event_close_submit(Event*, struct io_uring*, fd socket);
-bool event_timeout_submit(Event*, struct io_uring*, time_t sec, time_t nsec, uint32_t timeout_flags);
+bool event_timeout_submit(Event*, struct io_uring*, time_t sec, time_t nsec,
+                          uint32_t timeout_flags);
