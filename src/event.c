@@ -110,7 +110,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
-                       CString data, unsigned sqe_flags) {
+                       CString data, uint8_t sqe_flags) {
     assert(this);
     assert(uring);
     assert(data.ptr);
@@ -148,7 +148,7 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
 
 bool event_read_submit(Event* this, struct io_uring* uring, fd file,
                        String out_data, size_t nbytes, off_t offset,
-                       unsigned sqe_flags) {
+                       uint8_t sqe_flags) {
     assert(this);
     assert(uring);
     assert(file >= 0);
