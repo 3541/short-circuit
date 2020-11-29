@@ -29,3 +29,6 @@ typedef struct Listener Listener;
 
 // socket.h
 typedef int fd;
+
+// timeout.h
+typedef struct __kernel_timespec Timespec;

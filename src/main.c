@@ -17,6 +17,7 @@
 #include "http/connection.h"
 #include "listen.h"
 #include "ptr.h"
+#include "timeout.h"
 
 CString WEB_ROOT;
 
@@ -39,8 +40,8 @@ static void check_webroot_exists(const char* root) {
 int main(int argc, char** argv) {
     (void)argv;
 
-#ifdef DEBUG_BUILD
-    log_init(stdout, DEBUG);
+#if defined(DEBUG_BUILD) && !defined(PROFILE)
+    log_init(stdout, TRACE);
 #else
     log_init(stdout, WARN);
 #endif
@@ -56,14 +57,15 @@ int main(int argc, char** argv) {
         n_listeners = 1;
         UNWRAPN(listeners, calloc(1, sizeof(Listener)));
         listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
+    } else {
+        PANIC("TODO: Parse arguments.");
     }
-
     listener_accept_all(listeners, n_listeners, &uring);
-
     UNWRAPND(io_uring_submit(&uring));
 
-    UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
+    connection_timeout_init();
 
+    UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
     log_msg(TRACE, "Entering event loop.");
 
 #ifdef PROFILE
@@ -83,7 +85,7 @@ int main(int argc, char** argv) {
             break;
         }
 #else
-        if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0) {
+        if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0 && rc != -ETIME) {
             log_error(-rc, "Breaking event loop.");
             break;
         }
@@ -96,7 +98,11 @@ int main(int argc, char** argv) {
                 goto next;
             Event* event = (Event*)event_ptr;
 
-            cont = connection_event_dispatch((Connection*)event, &uring, cqe);
+            if (event->type == TIMEOUT)
+                cont = timeout_handle((TimeoutQueue*)event, &uring, cqe);
+            else
+                cont =
+                    connection_event_dispatch((Connection*)event, &uring, cqe);
         next:
             io_uring_cqe_seen(&uring, cqe);
         }
@@ -105,7 +111,7 @@ int main(int argc, char** argv) {
 
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
-            log_fmt(TRACE, "Submitted %d events.", ev);
+            log_fmt(TRACE, "Submitted %d event(s).", ev);
         }
     }
 

@@ -8,10 +8,11 @@
 #include "event.h"
 #include "forward.h"
 #include "socket.h"
+#include "timeout.h"
 
 // Callback types to submit events.
 typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*,
-                                 unsigned sqe_flags);
+                                 uint8_t sqe_flags);
 typedef bool (*ConnectionHandle)(Connection*, struct io_uring*,
                                  struct io_uring_cqe*);
 
@@ -41,15 +42,19 @@ typedef struct Connection {
     Buffer recv_buf;
     Buffer send_buf;
 
+    Timeout timeout;
+
     // For the freelist.
     Connection* next;
 } Connection;
+
+void connection_timeout_init(void);
 
 bool connection_init(Connection*);
 void connection_reset(Connection*);
 
 Connection* connection_accept_submit(Listener*, struct io_uring*);
-bool connection_send_submit(Connection*, struct io_uring*, unsigned sqe_flags);
+bool connection_send_submit(Connection*, struct io_uring*, uint8_t sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 
 bool connection_event_dispatch(Connection*, struct io_uring*,

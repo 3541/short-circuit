@@ -5,26 +5,56 @@ LPQ_DECLARE_METHODS(Timeout);
 INLINE ssize_t timeout_compare(Timeout* lhs, Timeout* rhs) {
     assert(lhs);
     assert(rhs);
-    return lhs->threshold - rhs->threshold;
+    return (lhs->threshold.tv_sec != rhs->threshold.tv_sec)
+               ? lhs->threshold.tv_sec - rhs->threshold.tv_sec
+               : lhs->threshold.tv_nsec - rhs->threshold.tv_nsec;
+}
+
+// Compare a kernel timespec and libc timespec.
+INLINE ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
+    return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec
+                                      : lhs.tv_nsec - rhs.tv_nsec;
 }
 
 LPQ_IMPL_METHODS(Timeout, timeout_compare);
 
-TimeoutQueue timeout_init() {
-    TimeoutQueue ret;
-    LPQ_INIT(Timeout)(&ret.queue);
-    return ret;
+void timeout_queue_init(TimeoutQueue* this) {
+    assert(this);
+    LPQ_INIT(Timeout)(&this->queue);
 }
 
 bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
                       struct io_uring* uring) {
     assert(this);
     assert(timeout);
+    assert(uring);
     assert(!timeout->_lpq_ptr.next && !timeout->_lpq_ptr.prev);
 
     LPQ_ENQUEUE(Timeout)(&this->queue, timeout);
     if (LPQ_PEEK(Timeout)(&this->queue) == timeout)
-        return event_timeout_submit(&this->event, uring, timeout->threshold, 0,
+        return event_timeout_submit(&this->event, uring, &timeout->threshold,
                                     IORING_TIMEOUT_ABS);
+    return true;
+}
+
+bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
+                    struct io_uring_cqe* cqe) {
+    assert(this);
+    assert(uring);
+    assert(cqe);
+    assert(cqe->res > 0 || cqe->res == -ETIME);
+
+    log_msg(TRACE, "Timeout firing.");
+
+    struct timespec current;
+    UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
+
+    Timeout* peek;
+    while ((peek = LPQ_PEEK(Timeout)(&this->queue)) &&
+           timespec_compare(peek->threshold, current) <= 0) {
+        Timeout* timeout = LPQ_DEQUEUE(Timeout)(&this->queue);
+        TRYB(timeout->fire(timeout, uring));
+    }
+
     return true;
 }

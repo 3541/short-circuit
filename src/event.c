@@ -91,6 +91,19 @@ static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
     return ret;
 }
 
+static void event_sqe_fill(Event* this, struct io_uring_sqe* sqe,
+                           uint8_t sqe_flags) {
+    assert(this);
+    assert(sqe);
+
+    io_uring_sqe_set_flags(sqe, sqe_flags);
+
+    uintptr_t this_ptr = (uintptr_t)this;
+    if (sqe_flags & IOSQE_IO_LINK || sqe_flags & IOSQE_IO_HARDLINK)
+        this_ptr |= EVENT_PTR_IGNORE;
+    io_uring_sqe_set_data(sqe, (void*)this_ptr);
+}
+
 bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len) {
@@ -104,7 +117,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
 
     io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr,
                          inout_addr_len, 0);
-    io_uring_sqe_set_data(sqe, this);
+    event_sqe_fill(this, sqe, 0);
 
     return true;
 }
@@ -119,13 +132,8 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
     TRYB(sqe);
     this->type = SEND;
 
-    uintptr_t this_ptr = (uintptr_t)this;
-    if (sqe_flags & IOSQE_IO_LINK)
-        this_ptr |= EVENT_PTR_IGNORE;
-
     io_uring_prep_send(sqe, socket, data.ptr, data.len, 0);
-    io_uring_sqe_set_flags(sqe, sqe_flags);
-    io_uring_sqe_set_data(sqe, (void*)this_ptr);
+    event_sqe_fill(this, sqe, sqe_flags);
 
     return true;
 }
@@ -141,7 +149,7 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
     this->type = RECV;
 
     io_uring_prep_recv(sqe, socket, data.ptr, data.len, 0);
-    io_uring_sqe_set_data(sqe, this);
+    event_sqe_fill(this, sqe, 0);
 
     return true;
 }
@@ -157,14 +165,9 @@ bool event_read_submit(Event* this, struct io_uring* uring, fd file,
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
 
-    uintptr_t this_ptr = (uintptr_t)this;
-    if (sqe_flags & IOSQE_IO_LINK)
-        this_ptr |= EVENT_PTR_IGNORE;
-
     io_uring_prep_read(sqe, file, out_data.ptr, MIN(out_data.len, nbytes),
                        offset);
-    io_uring_sqe_set_flags(sqe, sqe_flags);
-    io_uring_sqe_set_data(sqe, (void*)this_ptr);
+    event_sqe_fill(this, sqe, sqe_flags);
 
     return true;
 }
@@ -178,24 +181,47 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
     this->type = CLOSE;
 
     io_uring_prep_close(sqe, socket);
-    io_uring_sqe_set_data(sqe, this);
+    event_sqe_fill(this, sqe, 0);
 
     return true;
 }
 
-bool event_timeout_submit(Event* this, struct io_uring* uring, time_t sec,
-                          time_t nsec, uint32_t timeout_flags) {
+bool event_timeout_submit(Event* this, struct io_uring* uring,
+                          Timespec* threshold, uint32_t timeout_flags) {
     assert(this);
     assert(uring);
+    assert(threshold);
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
     this->type = TIMEOUT;
 
-    struct __kernel_timespec ts = { .tv_sec = sec, .tv_nsec = nsec };
+    threshold->tv_sec  = 1;
+    threshold->tv_nsec = 0;
 
-    io_uring_prep_timeout(sqe, &ts, 0, timeout_flags);
+    //    io_uring_prep_timeout(sqe, &ts, 0, timeout_flags);
+    log_fmt(TRACE, "Scheduling timeout for %ld sec, %ld nsec",
+            threshold->tv_sec, threshold->tv_nsec);
+    (void)timeout_flags;
+    io_uring_prep_timeout(sqe, threshold, 0, 0);
+    //    event_sqe_fill(this, sqe, 0);
     io_uring_sqe_set_data(sqe, this);
+
+    return true;
+}
+
+bool event_cancel_submit(Event* this, struct io_uring* uring, Event* target,
+                         uint8_t sqe_flags) {
+    assert(this);
+    assert(uring);
+    assert(target);
+
+    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    TRYB(sqe);
+    this->type = CANCEL;
+
+    io_uring_prep_cancel(sqe, target, 0);
+    event_sqe_fill(this, sqe, sqe_flags);
 
     return true;
 }

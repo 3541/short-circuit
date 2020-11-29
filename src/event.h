@@ -6,17 +6,19 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "forward.h"
 #include "ptr.h"
 #include "socket.h"
 
 static const uintptr_t EVENT_PTR_IGNORE = 1;
 
 #define EVENT_TYPE_ENUM                                                        \
-    _EVENT_TYPE(INVALID_EVENT)                                                 \
     _EVENT_TYPE(ACCEPT)                                                        \
-    _EVENT_TYPE(SEND)                                                          \
-    _EVENT_TYPE(RECV)                                                          \
+    _EVENT_TYPE(CANCEL)                                                        \
     _EVENT_TYPE(CLOSE)                                                         \
+    _EVENT_TYPE(INVALID_EVENT)                                                 \
+    _EVENT_TYPE(RECV)                                                          \
+    _EVENT_TYPE(SEND)                                                          \
     _EVENT_TYPE(TIMEOUT)
 
 typedef enum EventType {
@@ -42,5 +44,7 @@ bool event_recv_submit(Event*, struct io_uring*, fd socket, String out_data);
 bool event_read_submit(Event*, struct io_uring*, fd file, String out_data,
                        size_t nbytes, off_t offset, uint8_t sqe_flags);
 bool event_close_submit(Event*, struct io_uring*, fd socket);
-bool event_timeout_submit(Event*, struct io_uring*, time_t sec, time_t nsec,
+bool event_timeout_submit(Event*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
+bool event_cancel_submit(Event*, struct io_uring*, Event* target,
+                         uint8_t sqe_flags);

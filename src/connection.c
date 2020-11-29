@@ -19,11 +19,19 @@
 #include "http/response.h"
 #include "http/types.h"
 #include "listen.h"
+#include "timeout.h"
 
-static bool connection_recv_submit(Connection* this, struct io_uring* uring,
-                                   unsigned sqe_flags);
-static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+static bool connection_recv_submit(Connection*, struct io_uring*,
+                                   uint8_t sqe_flags);
+static bool connection_recv_handle(Connection*, struct io_uring*,
                                    struct io_uring_cqe* cqe);
+static bool connection_timeout_handle(Timeout*, struct io_uring*);
+
+static TimeoutQueue connection_timeout_queue;
+
+void connection_timeout_init() {
+    timeout_queue_init(&connection_timeout_queue);
+}
 
 bool connection_init(Connection* this) {
     assert(this);
@@ -37,8 +45,10 @@ bool connection_init(Connection* this) {
 void connection_reset(Connection* this) {
     assert(this);
 
-    buf_reset(&this->recv_buf);
-    buf_reset(&this->send_buf);
+    if (buf_initialized(&this->recv_buf))
+        buf_reset(&this->recv_buf);
+    if (buf_initialized(&this->recv_buf))
+        buf_reset(&this->send_buf);
 }
 
 // Submit an ACCEPT on the uring.
@@ -80,7 +90,7 @@ Connection* connection_accept_submit(Listener*        listener,
 
 // Submit a request to receive as much data as the buffer can handle.
 static bool connection_recv_submit(Connection* this, struct io_uring* uring,
-                                   unsigned sqe_flags) {
+                                   uint8_t sqe_flags) {
     assert(this);
     assert(uring);
     (void)sqe_flags;
@@ -90,13 +100,28 @@ static bool connection_recv_submit(Connection* this, struct io_uring* uring,
 }
 
 bool connection_send_submit(Connection* this, struct io_uring* uring,
-                            unsigned sqe_flags) {
+                            uint8_t sqe_flags) {
     assert(this);
     assert(uring);
 
     Buffer* buf = &this->send_buf;
     return event_send_submit(&this->last_event, uring, this->socket,
                              buf_read_ptr(buf), sqe_flags);
+}
+
+static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
+                                      time_t delay) {
+    assert(this);
+    assert(uring);
+
+    struct timespec t;
+    if (clock_gettime(CLOCK_MONOTONIC, &t) < 0)
+        return false;
+
+    this->timeout.threshold.tv_sec  = t.tv_sec + delay;
+    this->timeout.threshold.tv_nsec = t.tv_nsec;
+    this->timeout.fire              = connection_timeout_handle;
+    return timeout_schedule(&connection_timeout_queue, &this->timeout, uring);
 }
 
 bool connection_close_submit(Connection* this, struct io_uring* uring) {
@@ -114,10 +139,10 @@ static bool connection_accept_handle(Connection* this, struct io_uring* uring,
     assert(uring);
 
     this->listener->accept_queued = false;
-
     log_msg(TRACE, "Accept connection.");
-
     this->socket = cqe->res;
+
+    TRYB(connection_timeout_submit(this, uring, CONNECTION_TIMEOUT));
 
     return this->recv_submit(this, uring, 0);
 }
@@ -155,6 +180,28 @@ static bool connection_send_handle(Connection* this, struct io_uring* uring,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
+static bool connection_timeout_handle(Timeout*         timeout,
+                                      struct io_uring* uring) {
+    assert(timeout);
+    assert(uring);
+
+    Connection* this =
+        (Connection*)((uintptr_t)timeout - offsetof(Connection, timeout));
+    assert(this);
+
+    // First, try to kill any in-flight events. Use hardlinks because failure to
+    // cancel only means that nothing was in flight.
+    TRYB(event_cancel_submit(&this->last_event, uring, &this->last_event,
+                             IOSQE_IO_HARDLINK));
+    TRYB(event_cancel_submit(
+        &this->last_event, uring,
+        (void*)((uintptr_t) & this->last_event | IOSQE_IO_HARDLINK),
+        IOSQE_IO_LINK));
+
+    return http_response_error_submit((HttpConnection*)this, uring,
+                                      HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
+}
+
 static void connection_close_handle(Connection* this, struct io_uring* uring,
                                     struct io_uring_cqe* cqe) {
     assert(this);
@@ -175,7 +222,9 @@ bool connection_event_dispatch(Connection* this, struct io_uring* uring,
 
     if (cqe->res < 0) {
         // EOF conditions.
-        if (-cqe->res != ECONNRESET && -cqe->res != EBADF)
+        if (-cqe->res == ECANCELED)
+            return true;
+        else if (-cqe->res != ECONNRESET && -cqe->res != EBADF)
             log_error(-cqe->res, "Event error. Closing connection.");
         http_connection_free((HttpConnection*)this, uring);
         return true;
@@ -195,6 +244,9 @@ bool connection_event_dispatch(Connection* this, struct io_uring* uring,
         break;
     case CLOSE:
         connection_close_handle(this, uring, cqe);
+        break;
+    case CANCEL:
+        // ignore.
         break;
     case TIMEOUT:
     case INVALID_EVENT:
