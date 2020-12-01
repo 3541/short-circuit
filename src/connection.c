@@ -195,8 +195,8 @@ static bool connection_timeout_handle(Timeout*         timeout,
                              IOSQE_IO_HARDLINK));
     TRYB(event_cancel_submit(
         &this->last_event, uring,
-        (void*)((uintptr_t) & this->last_event | IOSQE_IO_HARDLINK),
-        IOSQE_IO_LINK));
+        (void*)(((uintptr_t)&this->last_event) | EVENT_PTR_IGNORE),
+        IOSQE_IO_HARDLINK));
 
     return http_response_error_submit((HttpConnection*)this, uring,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
