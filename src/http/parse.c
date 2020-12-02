@@ -19,14 +19,14 @@
 #include "ptr.h"
 #include "uri.h"
 
+static HttpMethod http_request_method_parse(CString str) {
 #define _METHOD(M, N) { M, CS(N) },
-static const struct {
-    HttpMethod method;
-    CString    name;
-} HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
+    static const struct {
+        HttpMethod method;
+        CString    name;
+    } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
-static HttpMethod http_request_method_parse(CString str) {
     assert(str.ptr && *str.ptr);
 
     TRYB_MAP(str.ptr && string_isascii(str), HTTP_METHOD_INVALID);
@@ -40,22 +40,12 @@ static HttpMethod http_request_method_parse(CString str) {
     return HTTP_METHOD_UNKNOWN;
 }
 
-#define _VERSION(V, S) { V, CS(S) },
-static const struct {
-    HttpVersion version;
-    CString     str;
-} HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
+#define _VERSION(V, S) [V] = CS(S),
+static const CString HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
 CString http_version_string(HttpVersion version) {
-    for (size_t i = 0;
-         i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
-         i++) {
-        if (HTTP_VERSION_STRINGS[i].version == version)
-            return HTTP_VERSION_STRINGS[i].str;
-    }
-
-    return CS_NULL;
+    return HTTP_VERSION_STRINGS[version];
 }
 
 static HttpVersion http_version_parse(CString str) {
@@ -63,12 +53,9 @@ static HttpVersion http_version_parse(CString str) {
 
     TRYB_MAP(str.ptr && string_isascii(str), HTTP_VERSION_INVALID);
 
-    for (size_t i = 0;
-         i < sizeof(HTTP_VERSION_STRINGS) / sizeof(HTTP_VERSION_STRINGS[0]);
-         i++) {
-        if (string_cmpi(str, HTTP_VERSION_STRINGS[i].str) == 0)
-            return HTTP_VERSION_STRINGS[i].version;
-    }
+    for (HttpVersion v = HTTP_VERSION_INVALID + 1; v < HTTP_VERSION_UNKNOWN; v++)
+        if (string_cmpi(str, HTTP_VERSION_STRINGS[v]) == 0)
+            return v;
 
     return HTTP_VERSION_UNKNOWN;
 }
