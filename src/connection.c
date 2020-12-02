@@ -128,6 +128,9 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
+    if (timeout_is_scheduled(&this->timeout))
+        timeout_cancel(&this->timeout);
+
     return event_close_submit(&this->last_event, uring, this->socket);
 }
 
@@ -195,7 +198,7 @@ static bool connection_timeout_handle(Timeout*         timeout,
                              IOSQE_IO_HARDLINK));
     TRYB(event_cancel_submit(
         &this->last_event, uring,
-        (void*)(((uintptr_t)&this->last_event) | EVENT_PTR_IGNORE),
+        (void*)(((uintptr_t) & this->last_event) | EVENT_IGNORE_FLAG),
         IOSQE_IO_HARDLINK));
 
     return http_response_error_submit((HttpConnection*)this, uring,

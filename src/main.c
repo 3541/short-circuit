@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
         for (; cqe && io_uring_sq_ready(&uring) <= URING_SUBMISSION_THRESHOLD;
              io_uring_peek_cqe(&uring, &cqe)) {
             uintptr_t event_ptr = cqe->user_data;
-            if (event_ptr & EVENT_PTR_IGNORE)
+            if (event_ptr & EVENT_IGNORE_FLAG)
                 goto next;
             Event* event = (Event*)event_ptr;
 

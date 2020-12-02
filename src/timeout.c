@@ -23,6 +23,18 @@ void timeout_queue_init(TimeoutQueue* this) {
     LPQ_INIT(Timeout)(&this->queue);
 }
 
+static bool timeout_schedule_next(TimeoutQueue* this, struct io_uring* uring) {
+    assert(this);
+    assert(uring);
+
+    Timeout* next = LPQ_PEEK(Timeout)(&this->queue);
+    if (!next)
+        return true;
+
+    return event_timeout_submit(&this->event, uring, &next->threshold,
+                                IORING_TIMEOUT_ABS);
+}
+
 bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
                       struct io_uring* uring) {
     assert(this);
@@ -32,8 +44,24 @@ bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
 
     LPQ_ENQUEUE(Timeout)(&this->queue, timeout);
     if (LPQ_PEEK(Timeout)(&this->queue) == timeout)
-        return event_timeout_submit(&this->event, uring, &timeout->threshold,
-                                    IORING_TIMEOUT_ABS);
+        return timeout_schedule_next(this, uring);
+
+    return true;
+}
+
+bool timeout_is_scheduled(Timeout* this) {
+    assert(this);
+
+    return LPQ_IS_INSERTED(Timeout)(this);
+}
+
+bool timeout_cancel(Timeout* this) {
+    assert(this);
+    assert(this->_lpq_ptr.next && this->_lpq_ptr.prev);
+
+    // There is no need to actually fiddle with events here.
+    LPQ_REMOVE(Timeout)(this);
+
     return true;
 }
 
@@ -56,5 +84,5 @@ bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
         TRYB(timeout->fire(timeout, uring));
     }
 
-    return true;
+    return timeout_schedule_next(this, uring);
 }

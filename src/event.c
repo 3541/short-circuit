@@ -100,7 +100,7 @@ static void event_sqe_fill(Event* this, struct io_uring_sqe* sqe,
 
     uintptr_t this_ptr = (uintptr_t)this;
     if (sqe_flags & IOSQE_IO_LINK || sqe_flags & IOSQE_IO_HARDLINK)
-        this_ptr |= EVENT_PTR_IGNORE;
+        this_ptr |= EVENT_IGNORE_FLAG;
     io_uring_sqe_set_data(sqe, (void*)this_ptr);
 }
 
@@ -196,7 +196,7 @@ bool event_timeout_submit(Event* this, struct io_uring* uring,
     TRYB(sqe);
     this->type = TIMEOUT;
 
-    threshold->tv_sec  = 1;
+    threshold->tv_sec  = 4;
     threshold->tv_nsec = 0;
 
     //    io_uring_prep_timeout(sqe, &ts, 0, timeout_flags);

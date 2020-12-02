@@ -10,7 +10,8 @@
 #include "ptr.h"
 #include "socket.h"
 
-static const uintptr_t EVENT_PTR_IGNORE = 1;
+#define EVENT_IGNORE_FLAG 1ULL
+#define EVENT_IGNORE_DATA ((void*)EVENT_IGNORE_FLAG)
 
 #define EVENT_TYPE_ENUM                                                        \
     _EVENT_TYPE(ACCEPT)                                                        \
