@@ -23,6 +23,9 @@
 
 static bool connection_recv_submit(Connection*, struct io_uring*,
                                    uint8_t sqe_flags);
+static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
+                                      time_t delay);
+
 static bool connection_recv_handle(Connection*, struct io_uring*,
                                    struct io_uring_cqe* cqe);
 static bool connection_timeout_handle(Timeout*, struct io_uring*);
@@ -42,13 +45,20 @@ bool connection_init(Connection* this) {
                     SEND_BUF_MAX_CAPACITY);
 }
 
-void connection_reset(Connection* this) {
+bool connection_reset(Connection* this, struct io_uring* uring) {
     assert(this);
+    assert(uring);
 
     if (buf_initialized(&this->recv_buf))
         buf_reset(&this->recv_buf);
     if (buf_initialized(&this->recv_buf))
         buf_reset(&this->send_buf);
+    if (timeout_is_scheduled(&this->timeout)) {
+        timeout_cancel(&this->timeout);
+        return connection_timeout_submit(this, uring, CONNECTION_TIMEOUT);
+    }
+
+    return true;
 }
 
 // Submit an ACCEPT on the uring.

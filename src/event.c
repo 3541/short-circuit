@@ -196,16 +196,8 @@ bool event_timeout_submit(Event* this, struct io_uring* uring,
     TRYB(sqe);
     this->type = TIMEOUT;
 
-    threshold->tv_sec  = 4;
-    threshold->tv_nsec = 0;
-
-    //    io_uring_prep_timeout(sqe, &ts, 0, timeout_flags);
-    log_fmt(TRACE, "Scheduling timeout for %ld sec, %ld nsec",
-            threshold->tv_sec, threshold->tv_nsec);
-    (void)timeout_flags;
-    io_uring_prep_timeout(sqe, threshold, 0, 0);
-    //    event_sqe_fill(this, sqe, 0);
-    io_uring_sqe_set_data(sqe, this);
+    io_uring_prep_timeout(sqe, threshold, 0, timeout_flags);
+    event_sqe_fill(this, sqe, 0);
 
     return true;
 }

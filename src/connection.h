@@ -51,7 +51,7 @@ typedef struct Connection {
 void connection_timeout_init(void);
 
 bool connection_init(Connection*);
-void connection_reset(Connection*);
+bool connection_reset(Connection*, struct io_uring*);
 
 Connection* connection_accept_submit(Listener*, struct io_uring*);
 bool connection_send_submit(Connection*, struct io_uring*, uint8_t sqe_flags);

@@ -43,4 +43,4 @@ void            http_connection_free(HttpConnection*, struct io_uring*);
 void            http_connection_freelist_clear(void);
 
 bool http_connection_init(HttpConnection*);
-void http_connection_reset(HttpConnection*);
+bool http_connection_reset(HttpConnection*, struct io_uring*);

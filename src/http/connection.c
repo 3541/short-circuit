@@ -61,7 +61,7 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
             log_error(errno, "Failed to close socket.");
     }
 
-    http_connection_reset(this);
+    http_connection_reset(this, uring);
 
     if (buf_initialized(&this->conn.recv_buf))
         buf_free(&this->conn.recv_buf);
@@ -97,8 +97,9 @@ bool http_connection_init(HttpConnection* this) {
     return true;
 }
 
-void http_connection_reset(HttpConnection* this) {
+bool http_connection_reset(HttpConnection* this, struct io_uring* uring) {
     assert(this);
+    assert(uring);
 
     if (this->host.ptr)
         string_free(&this->host);
@@ -112,5 +113,5 @@ void http_connection_reset(HttpConnection* this) {
     if (this->target_file >= 0)
         close(this->target_file);
 
-    connection_reset(&this->conn);
+    return connection_reset(&this->conn, uring);
 }
