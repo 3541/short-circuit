@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "ptr.h"
+
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
     _METHOD(HTTP_METHOD_BREW, "BREW")                                          \
@@ -105,3 +107,12 @@ typedef enum HttpRequestStateResult {
     HTTP_REQUEST_STATE_BAIL      = HTTP_REQUEST_COMPLETE,
     HTTP_REQUEST_STATE_DONE
 } HttpRequestStateResult;
+
+HttpMethod           http_request_method_parse(CString str);
+HttpVersion          http_version_parse(CString str);
+HttpContentType      http_content_type_from_path(CString);
+HttpTransferEncoding http_transfer_encoding_parse(CString value);
+
+CString http_version_string(HttpVersion);
+CString http_status_reason(HttpStatus);
+CString http_content_type_name(HttpContentType);

@@ -237,7 +237,8 @@ bool connection_event_dispatch(Connection* this, struct io_uring* uring,
         if (-cqe->res == ECANCELED)
             return true;
         // EOF conditions.
-        else if (-cqe->res != ECONNRESET && -cqe->res != EBADF && -cqe->res != EPIPE)
+        else if (-cqe->res != ECONNRESET && -cqe->res != EBADF &&
+                 -cqe->res != EPIPE)
             log_error(-cqe->res, "Event error. Closing connection.");
         http_connection_free((HttpConnection*)this, uring);
         return true;

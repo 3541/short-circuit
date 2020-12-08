@@ -138,7 +138,7 @@ static bool http_response_prep_header_date(HttpConnection* this, CString name,
                          "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tv)));
 
     return http_response_prep_header(
-        this, name, (CString){ .ptr = DATES[i].buf, .len = DATES[i].len });
+        this, name, (CString) { .ptr = DATES[i].buf, .len = DATES[i].len });
 }
 
 // Write the default status line and headers to the send buffer.
@@ -206,7 +206,7 @@ static CString http_response_error_make_body(HttpConnection* this,
         HTTP_ERROR_BODY_MAX_LENGTH)
         return CS_NULL;
 
-    return (CString){ .ptr = body, .len = len };
+    return (CString) { .ptr = body, .len = len };
 }
 
 static bool http_response_close_submit(HttpConnection* this,
@@ -330,6 +330,9 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             sent += last_sent;
             buf_reset(buf);
         }
+        // TODO: This is a hack because chained requests do not get a send event
+        // to handle, so only the last read (i.e., the unchained event) is left
+        // in the buffer.
         buf_wrote(buf, last_sent);
     }
 

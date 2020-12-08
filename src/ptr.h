@@ -22,24 +22,24 @@ typedef struct CString {
 
 #define CS(S)                                                                  \
     (CString) { .ptr = (uint8_t*)S, .len = (sizeof(S) - 1) }
-#define CS_NULL (CString){ .ptr = NULL, .len = 0 };
-#define S_NULL  (String){ .ptr = NULL, .len = 0 };
+#define CS_NULL (CString) { .ptr = NULL, .len = 0 };
+#define S_NULL  (String) { .ptr = NULL, .len = 0 };
 ALWAYS_INLINE String CS_MUT(CString s) {
-    return (String){ .ptr = (uint8_t*)s.ptr, .len = s.len };
+    return (String) { .ptr = (uint8_t*)s.ptr, .len = s.len };
 }
 ALWAYS_INLINE CString S_CONST(String s) {
-    return (CString){ .ptr = s.ptr, .len = s.len };
+    return (CString) { .ptr = s.ptr, .len = s.len };
 }
 ALWAYS_INLINE String S_OF(char* str) {
     if (!str)
         return S_NULL;
-    return (String){ .ptr = (uint8_t*)str, .len = strlen(str) };
+    return (String) { .ptr = (uint8_t*)str, .len = strlen(str) };
 }
 ALWAYS_INLINE CString CS_OF(const char* str) {
     return S_CONST(S_OF((char*)str));
 }
 ALWAYS_INLINE String S_OFFSET(String s, size_t offset) {
-    return (String){ .ptr = s.ptr + offset, .len = s.len - offset };
+    return (String) { .ptr = s.ptr + offset, .len = s.len - offset };
 }
 ALWAYS_INLINE const uint8_t* S_END(CString s) { return s.ptr + s.len; }
 

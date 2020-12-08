@@ -119,8 +119,8 @@ String buf_write_ptr(Buffer* this) {
     assert(this);
 
     buf_reset_if_empty(this);
-    return (String){ .ptr = this->data.ptr + this->tail,
-                     .len = buf_space(this) };
+    return (String) { .ptr = this->data.ptr + this->tail,
+                      .len = buf_space(this) };
 }
 
 // Bytes have been written into the buffer.
@@ -199,7 +199,8 @@ CString buf_read_ptr(const Buffer* this) {
 String buf_read_ptr_mut(Buffer* this) {
     assert(buf_initialized(this));
 
-    return (String){ .ptr = this->data.ptr + this->head, .len = buf_len(this) };
+    return (String) { .ptr = this->data.ptr + this->head,
+                      .len = buf_len(this) };
 }
 
 // Bytes have been consumed from the buffer.
@@ -221,7 +222,7 @@ String buf_memmem(Buffer* this, CString needle) {
 
     uint8_t* ret_ptr = memmem(&this->data.ptr[this->head], buf_len(this),
                               needle.ptr, needle.len);
-    return (String){ .ptr = ret_ptr, .len = needle.len };
+    return (String) { .ptr = ret_ptr, .len = needle.len };
 }
 
 // Get a token from the buffer. NOTE: This updates the head of the buffer, so

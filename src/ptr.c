@@ -8,11 +8,11 @@
 #include <sys/param.h>
 
 String string_alloc(size_t len) {
-    return (String){ .ptr = calloc(len, sizeof(char)), .len = len };
+    return (String) { .ptr = calloc(len, sizeof(char)), .len = len };
 }
 
 String string_realloc(String this, size_t new_len) {
-    return (String){ .ptr = realloc(this.ptr, new_len), .len = new_len };
+    return (String) { .ptr = realloc(this.ptr, new_len), .len = new_len };
 }
 
 String string_clone(CString other) {
@@ -89,7 +89,7 @@ CString string_rchr(CString str, uint8_t c) {
 
     for (size_t i = str.len - 1;; i--) {
         if (str.ptr[i] == c)
-            return (CString){ .ptr = &str.ptr[i], .len = str.len - i };
+            return (CString) { .ptr = &str.ptr[i], .len = str.len - i };
 
         if (i == 0)
             break;

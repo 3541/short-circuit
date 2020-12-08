@@ -71,7 +71,7 @@ bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
     assert(uring);
     assert(cqe);
     assert(cqe->res > 0 || cqe->res == -ETIME);
-    (void) cqe;
+    (void)cqe;
 
     log_msg(TRACE, "Timeout firing.");
 

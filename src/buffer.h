@@ -57,7 +57,7 @@ typedef struct _buf_token_next_args {
 String buf_token_next_impl(_buf_token_next_args);
 
 #define buf_token_next(BUF, DELIM, ...)                                        \
-    buf_token_next_impl((_buf_token_next_args){                                \
+    buf_token_next_impl((_buf_token_next_args) {                               \
         .this = (BUF), .delim = (DELIM), .preserve_end = false, __VA_ARGS__ })
 #define buf_token_next_copy(BUF, DELIM, ...)                                   \
     string_clone(S_CONST(buf_token_next((BUF), (DELIM), __VA_ARGS__)))
