@@ -67,8 +67,12 @@ static void event_check_ops(struct io_uring* uring) {
     struct io_uring_probe* probe = io_uring_get_probe_ring(uring);
 
     REQUIRE_OP(probe, IORING_OP_ACCEPT);
-    REQUIRE_OP(probe, IORING_OP_RECV);
+    REQUIRE_OP(probe, IORING_OP_ASYNC_CANCEL);
     REQUIRE_OP(probe, IORING_OP_CLOSE);
+    REQUIRE_OP(probe, IORING_OP_READ);
+    REQUIRE_OP(probe, IORING_OP_RECV);
+    REQUIRE_OP(probe, IORING_OP_SEND);
+    REQUIRE_OP(probe, IORING_OP_TIMEOUT);
 
     free(probe);
 }
