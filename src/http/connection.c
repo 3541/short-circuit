@@ -8,6 +8,7 @@
 
 #include <a3/buffer.h>
 #include <a3/log.h>
+#include <a3/pool.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
@@ -18,21 +19,15 @@
 #include "http/types.h"
 #include "uri.h"
 
-static HttpConnection* http_conn_freelist  = NULL;
-static size_t          http_conn_allocated = 0;
+static Pool* http_connection_pool = NULL;
+
+void http_connection_pool_init() {
+    http_connection_pool =
+        pool_new(sizeof(HttpConnection), CONNECTION_MAX_ALLOCATED);
+}
 
 HttpConnection* http_connection_new() {
-    HttpConnection* ret = NULL;
-    if (http_conn_freelist) {
-        ret                = http_conn_freelist;
-        http_conn_freelist = (HttpConnection*)ret->conn.next;
-        ret->conn.next     = NULL;
-    } else if (http_conn_allocated < CONNECTION_MAX_ALLOCATED) {
-        ret = calloc(1, sizeof(HttpConnection));
-        http_conn_allocated++;
-    } else {
-        ERR("Too many connections allocated.");
-    }
+    HttpConnection* ret = pool_alloc_block(http_connection_pool);
 
     if (ret && !http_connection_init(ret))
         http_connection_free(ret, NULL);
@@ -68,17 +63,10 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     if (buf_initialized(&this->conn.send_buf))
         buf_free(&this->conn.send_buf);
 
-    this->conn.next    = (Connection*)http_conn_freelist;
-    http_conn_freelist = this;
+    pool_free_block(http_connection_pool, this);
 }
 
-void http_connection_freelist_clear() {
-    for (HttpConnection* conn = http_conn_freelist; conn;) {
-        HttpConnection* next = (HttpConnection*)conn->conn.next;
-        free(conn);
-        conn = next;
-    }
-}
+void http_connection_pool_free() { pool_free(http_connection_pool); }
 
 bool http_connection_init(HttpConnection* this) {
     assert(this);
