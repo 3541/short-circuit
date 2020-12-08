@@ -64,7 +64,6 @@ liba3 = liba3_project.get_variable('liba3_dep')
 src = files([
              'src/main.c',
 
-             'src/buffer.c',
              'src/connection.c',
              'src/event.c',
              'src/http/connection.c',

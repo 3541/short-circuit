@@ -7,10 +7,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <a3/buffer.h>
 #include <a3/log.h>
 #include <a3/util.h>
 
-#include "buffer.h"
 #include "config.h"
 #include "event.h"
 #include "forward.h"

@@ -11,11 +11,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <a3/buffer.h>
 #include <a3/log.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
-#include "buffer.h"
 #include "config.h"
 #include "connection.h"
 #include "event.h"

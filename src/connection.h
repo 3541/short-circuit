@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 
-#include "buffer.h"
+#include <a3/buffer.h>
+
 #include "event.h"
 #include "forward.h"
 #include "socket.h"
