@@ -58,16 +58,17 @@ static bool http_response_prep_status_line(HttpConnection* this,
     assert(this);
     assert(status != HTTP_STATUS_INVALID);
 
-    Buffer* buf = &this->conn.send_buf;
+    Buffer* buf         = &this->conn.send_buf;
+    int16_t status_code = http_status_code(status);
 
     TRYB(buf_write_str(buf, http_version_string(this->version)));
     TRYB(buf_write_byte(buf, ' '));
-    TRYB(buf_write_num(buf, status));
+    TRYB(buf_write_num(buf, status_code));
     TRYB(buf_write_byte(buf, ' '));
 
     CString reason = http_status_reason(status);
     if (!reason.ptr) {
-        log_fmt(WARN, "Invalid HTTP status %d.", status);
+        log_fmt(WARN, "Invalid HTTP status %d.", status_code);
         return false;
     }
     TRYB(buf_write_str(buf, reason));
@@ -188,6 +189,7 @@ static CString http_response_error_make_body(HttpConnection* this,
 
     static uint8_t body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
     size_t         len                              = 0;
+    int16_t        status_code                      = http_status_code(status);
 
     // TODO: De-uglify. Probably should load a template from somewhere.
     if ((len = snprintf((char*)body, HTTP_ERROR_BODY_MAX_LENGTH,
@@ -201,8 +203,8 @@ static CString http_response_error_make_body(HttpConnection* this,
                         "<p>%s.</p>\n"
                         "</body>\n"
                         "</html>\n",
-                        status, http_version_string(this->version).ptr, status,
-                        http_status_reason(status).ptr)) >
+                        status_code, http_version_string(this->version).ptr,
+                        status_code, http_status_reason(status).ptr)) >
         HTTP_ERROR_BODY_MAX_LENGTH)
         return CS_NULL;
 
@@ -225,7 +227,7 @@ bool http_response_error_submit(HttpConnection* this, struct io_uring* uring,
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
 
-    log_fmt(DEBUG, "HTTP error %d. %s", status,
+    log_fmt(DEBUG, "HTTP error %d. %s", http_status_code(status),
             close ? "Closing connection." : "");
 
     // Clear any previously written data.

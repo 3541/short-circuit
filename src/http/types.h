@@ -71,7 +71,7 @@ typedef enum HttpContentType {
             "HTTP Version Not Supported")
 
 typedef enum HttpStatus {
-#define _STATUS(CODE, TYPE, REASON) TYPE = CODE,
+#define _STATUS(CODE, TYPE, REASON) TYPE,
     HTTP_STATUS_ENUM
 #undef _STATUS
 } HttpStatus;
@@ -113,6 +113,7 @@ HttpVersion          http_version_parse(CString str);
 HttpContentType      http_content_type_from_path(CString);
 HttpTransferEncoding http_transfer_encoding_parse(CString value);
 
-CString http_version_string(HttpVersion);
-CString http_status_reason(HttpStatus);
-CString http_content_type_name(HttpContentType);
+CString  http_version_string(HttpVersion);
+CString  http_status_reason(HttpStatus);
+uint16_t http_status_code(HttpStatus status);
+CString  http_content_type_name(HttpContentType);
