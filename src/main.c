@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
                 goto next;
             Event* event = (Event*)event_ptr;
 
-            if (event->type == TIMEOUT)
+            if (event->type == EVENT_TIMEOUT)
                 cont = timeout_handle((TimeoutQueue*)event, &uring, cqe);
             else
                 cont =

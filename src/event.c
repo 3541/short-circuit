@@ -117,7 +117,7 @@ bool event_accept_submit(Event* this, struct io_uring* uring, fd socket,
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = ACCEPT;
+    this->type = EVENT_ACCEPT;
 
     io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr,
                          inout_addr_len, 0);
@@ -134,7 +134,7 @@ bool event_send_submit(Event* this, struct io_uring* uring, fd socket,
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = SEND;
+    this->type = EVENT_SEND;
 
     io_uring_prep_send(sqe, socket, data.ptr, data.len, 0);
     event_sqe_fill(this, sqe, sqe_flags);
@@ -150,7 +150,7 @@ bool event_recv_submit(Event* this, struct io_uring* uring, fd socket,
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = RECV;
+    this->type = EVENT_RECV;
 
     io_uring_prep_recv(sqe, socket, data.ptr, data.len, 0);
     event_sqe_fill(this, sqe, 0);
@@ -182,7 +182,7 @@ bool event_close_submit(Event* this, struct io_uring* uring, fd socket) {
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = CLOSE;
+    this->type = EVENT_CLOSE;
 
     io_uring_prep_close(sqe, socket);
     event_sqe_fill(this, sqe, 0);
@@ -198,7 +198,7 @@ bool event_timeout_submit(Event* this, struct io_uring* uring,
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = TIMEOUT;
+    this->type = EVENT_TIMEOUT;
 
     io_uring_prep_timeout(sqe, threshold, 0, timeout_flags);
     event_sqe_fill(this, sqe, 0);
@@ -214,7 +214,7 @@ bool event_cancel_submit(Event* this, struct io_uring* uring, Event* target,
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
-    this->type = CANCEL;
+    this->type = EVENT_CANCEL;
 
     io_uring_prep_cancel(sqe, target, 0);
     event_sqe_fill(this, sqe, sqe_flags);

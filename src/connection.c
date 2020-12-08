@@ -218,7 +218,7 @@ static bool connection_timeout_handle(Timeout*         timeout,
 static void connection_close_handle(Connection* this, struct io_uring* uring,
                                     struct io_uring_cqe* cqe) {
     assert(this);
-    assert(this->last_event.type == CLOSE);
+    assert(this->last_event.type == EVENT_CLOSE);
     assert(cqe);
     assert(uring);
     (void)cqe;
@@ -247,23 +247,23 @@ bool connection_event_dispatch(Connection* this, struct io_uring* uring,
     bool rc = true;
 
     switch (this->last_event.type) {
-    case ACCEPT:
+    case EVENT_ACCEPT:
         rc = connection_accept_handle(this, uring, cqe);
         break;
-    case SEND:
+    case EVENT_SEND:
         rc = connection_send_handle(this, uring, cqe);
         break;
-    case RECV:
+    case EVENT_RECV:
         rc = this->recv_handle(this, uring, cqe);
         break;
-    case CLOSE:
+    case EVENT_CLOSE:
         connection_close_handle(this, uring, cqe);
         break;
-    case CANCEL:
+    case EVENT_CANCEL:
         // ignore.
         break;
-    case TIMEOUT:
-    case INVALID_EVENT:
+    case EVENT_TIMEOUT:
+    case EVENT_INVALID:
         ERR("Got invalid event.");
         return false;
     }

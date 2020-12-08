@@ -14,13 +14,13 @@
 #define EVENT_IGNORE_DATA ((void*)EVENT_IGNORE_FLAG)
 
 #define EVENT_TYPE_ENUM                                                        \
-    _EVENT_TYPE(ACCEPT)                                                        \
-    _EVENT_TYPE(CANCEL)                                                        \
-    _EVENT_TYPE(CLOSE)                                                         \
-    _EVENT_TYPE(INVALID_EVENT)                                                 \
-    _EVENT_TYPE(RECV)                                                          \
-    _EVENT_TYPE(SEND)                                                          \
-    _EVENT_TYPE(TIMEOUT)
+    _EVENT_TYPE(EVENT_ACCEPT)                                                  \
+    _EVENT_TYPE(EVENT_CANCEL)                                                  \
+    _EVENT_TYPE(EVENT_CLOSE)                                                   \
+    _EVENT_TYPE(EVENT_INVALID)                                                 \
+    _EVENT_TYPE(EVENT_RECV)                                                    \
+    _EVENT_TYPE(EVENT_SEND)                                                    \
+    _EVENT_TYPE(EVENT_TIMEOUT)
 
 typedef enum EventType {
 #define _EVENT_TYPE(E) E,

@@ -42,12 +42,12 @@ HttpConnection* http_connection_new() {
 
 void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     assert(this);
-    assert(uring || this->conn.last_event.type == INVALID_EVENT);
+    assert(uring || this->conn.last_event.type == EVENT_INVALID);
 
     // If the socket hasn't been closed, arrange it. The close handle event will
     // call free when it's done.
-    if (this->conn.last_event.type != INVALID_EVENT &&
-        this->conn.last_event.type != CLOSE) {
+    if (this->conn.last_event.type != EVENT_INVALID &&
+        this->conn.last_event.type != EVENT_CLOSE) {
         // If the submission was successful, we're done.
         if (connection_close_submit(&this->conn, uring))
             return;
