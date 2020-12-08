@@ -6,8 +6,9 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <a3/str.h>
+
 #include "forward.h"
-#include "ptr.h"
 #include "socket.h"
 
 #define EVENT_IGNORE_FLAG 1ULL

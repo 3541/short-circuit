@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include <a3/log.h>
+#include <a3/str.h>
 #include <a3/util.h>
 
 #include "buffer.h"
@@ -16,7 +17,6 @@
 #include "http/connection.h"
 #include "http/response.h"
 #include "http/types.h"
-#include "ptr.h"
 #include "uri.h"
 
 // Try to parse the first line of the HTTP request.

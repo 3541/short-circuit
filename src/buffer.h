@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "ptr.h"
+#include <a3/str.h>
 
 // A growable buffer.
 // tail: Index at which to write.

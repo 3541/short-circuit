@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include <a3/log.h>
+#include <a3/str.h>
 #include <a3/util.h>
 
 #include "config.h"
@@ -16,7 +17,6 @@
 #include "forward.h"
 #include "http/connection.h"
 #include "listen.h"
-#include "ptr.h"
 #include "timeout.h"
 
 CString WEB_ROOT;

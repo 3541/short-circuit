@@ -3,9 +3,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include <a3/str.h>
+
 #include "../connection.h"
 #include "http/types.h"
-#include "ptr.h"
 #include "uri.h"
 
 #define HTTP_NEWLINE CS("\r\n")

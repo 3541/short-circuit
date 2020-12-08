@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#include "ptr.h"
+#include <a3/str.h>
 
 #define URI_SCHEME_ENUM                                                        \
     _SCHEME(URI_SCHEME_UNSPECIFIED, "")                                        \

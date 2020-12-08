@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "ptr.h"
+#include <a3/str.h>
 
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \

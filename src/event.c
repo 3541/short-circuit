@@ -11,10 +11,10 @@
 #include <sys/utsname.h>
 
 #include <a3/log.h>
+#include <a3/str.h>
 #include <a3/util.h>
 
 #include "config.h"
-#include "ptr.h"
 #include "socket.h"
 
 CString event_type_name(EventType ty) {

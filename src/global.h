@@ -1,5 +1,5 @@
 #pragma once
 
-#include "ptr.h"
+#include <a3/str.h>
 
 extern CString WEB_ROOT;

@@ -4,13 +4,13 @@
 #include <fcntl.h>
 
 #include <a3/log.h>
+#include <a3/str.h>
 #include <a3/util.h>
 
 #include "http/connection.h"
 #include "http/parse.h"
 #include "http/response.h"
 #include "http/types.h"
-#include "ptr.h"
 
 // TODO: Perhaps handle things other than static files.
 static HttpRequestStateResult
