@@ -1,6 +1,6 @@
 #pragma once
 
-#include <a3/lpq.h>
+#include <a3/ll.h>
 
 #include "event.h"
 #include "forward.h"
@@ -12,17 +12,17 @@ typedef struct Timeout Timeout;
 
 typedef bool (*TimeoutExec)(Timeout*, struct io_uring*);
 
-LPQ_IMPL_STRUCTS(Timeout);
+LL_IMPL_STRUCTS(Timeout);
 
 struct Timeout {
     Timespec    threshold;
     TimeoutExec fire;
-    LPQ_NODE(Timeout);
+    LL_NODE(Timeout);
 };
 
 typedef struct TimeoutQueue {
     Event event;
-    LPQ(Timeout) queue;
+    LL(Timeout) queue;
 } TimeoutQueue;
 
 void timeout_queue_init(TimeoutQueue*);

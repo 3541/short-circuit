@@ -1,6 +1,6 @@
 #include "timeout.h"
 
-LPQ_DECLARE_METHODS(Timeout);
+LL_DECLARE_METHODS(Timeout);
 
 INLINE ssize_t timeout_compare(Timeout* lhs, Timeout* rhs) {
     assert(lhs);
@@ -16,18 +16,18 @@ INLINE ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
                                       : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-LPQ_IMPL_METHODS(Timeout, timeout_compare);
+LL_IMPL_METHODS(Timeout, timeout_compare);
 
 void timeout_queue_init(TimeoutQueue* this) {
     assert(this);
-    LPQ_INIT(Timeout)(&this->queue);
+    LL_INIT(Timeout)(&this->queue);
 }
 
 static bool timeout_schedule_next(TimeoutQueue* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    Timeout* next = LPQ_PEEK(Timeout)(&this->queue);
+    Timeout* next = LL_PEEK(Timeout)(&this->queue);
     if (!next)
         return true;
 
@@ -40,10 +40,10 @@ bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
     assert(this);
     assert(timeout);
     assert(uring);
-    assert(!timeout->_lpq_ptr.next && !timeout->_lpq_ptr.prev);
+    assert(!timeout->_ll_ptr.next && !timeout->_ll_ptr.prev);
 
-    LPQ_ENQUEUE(Timeout)(&this->queue, timeout);
-    if (LPQ_PEEK(Timeout)(&this->queue) == timeout)
+    LL_ENQUEUE(Timeout)(&this->queue, timeout);
+    if (LL_PEEK(Timeout)(&this->queue) == timeout)
         return timeout_schedule_next(this, uring);
 
     return true;
@@ -52,15 +52,15 @@ bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
 bool timeout_is_scheduled(Timeout* this) {
     assert(this);
 
-    return LPQ_IS_INSERTED(Timeout)(this);
+    return LL_IS_INSERTED(Timeout)(this);
 }
 
 bool timeout_cancel(Timeout* this) {
     assert(this);
-    assert(this->_lpq_ptr.next && this->_lpq_ptr.prev);
+    assert(this->_ll_ptr.next && this->_ll_ptr.prev);
 
     // There is no need to actually fiddle with events here.
-    LPQ_REMOVE(Timeout)(this);
+    LL_REMOVE(Timeout)(this);
 
     return true;
 }
@@ -79,9 +79,9 @@ bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
     UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
 
     Timeout* peek;
-    while ((peek = LPQ_PEEK(Timeout)(&this->queue)) &&
+    while ((peek = LL_PEEK(Timeout)(&this->queue)) &&
            timespec_compare(peek->threshold, current) <= 0) {
-        Timeout* timeout = LPQ_DEQUEUE(Timeout)(&this->queue);
+        Timeout* timeout = LL_DEQUEUE(Timeout)(&this->queue);
         TRYB(timeout->fire(timeout, uring));
     }
 
