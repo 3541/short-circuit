@@ -2,21 +2,13 @@
 
 LL_DECLARE_METHODS(Timeout);
 
-INLINE ssize_t timeout_compare(Timeout* lhs, Timeout* rhs) {
-    assert(lhs);
-    assert(rhs);
-    return (lhs->threshold.tv_sec != rhs->threshold.tv_sec)
-               ? lhs->threshold.tv_sec - rhs->threshold.tv_sec
-               : lhs->threshold.tv_nsec - rhs->threshold.tv_nsec;
-}
-
 // Compare a kernel timespec and libc timespec.
-INLINE ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
+static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
     return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec
                                       : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-LL_IMPL_METHODS(Timeout, timeout_compare);
+LL_IMPL_METHODS(Timeout);
 
 void timeout_queue_init(TimeoutQueue* this) {
     assert(this);

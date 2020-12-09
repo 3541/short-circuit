@@ -84,5 +84,6 @@ executable(
   src,
   dependencies: [liburing, liba3],
   include_directories: headers,
+  gnu_symbol_visibility: 'hidden',
   build_by_default: true
 )

@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     connection_timeout_init();
 
     UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
+    UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
     log_msg(TRACE, "Entering event loop.");
 
 #ifdef PROFILE
