@@ -12,7 +12,7 @@ typedef struct Timeout Timeout;
 
 typedef bool (*TimeoutExec)(Timeout*, struct io_uring*);
 
-LL_IMPL_STRUCTS(Timeout);
+LL_IMPL_STRUCTS(Timeout)
 
 struct Timeout {
     Timespec    threshold;

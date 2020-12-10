@@ -1,6 +1,6 @@
 #include "timeout.h"
 
-LL_DECLARE_METHODS(Timeout);
+LL_DECLARE_METHODS(Timeout)
 
 // Compare a kernel timespec and libc timespec.
 static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
@@ -8,7 +8,7 @@ static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
                                       : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-LL_IMPL_METHODS(Timeout);
+LL_IMPL_METHODS(Timeout)
 
 void timeout_queue_init(TimeoutQueue* this) {
     assert(this);
