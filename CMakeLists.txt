@@ -33,7 +33,7 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing)
 
-add_subdirectory(extern/liba3)
+add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
 add_executable(urs
   src/main.c
