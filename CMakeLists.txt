@@ -40,6 +40,7 @@ add_executable(urs
   src/event.c
   src/connection.c
   src/http/connection.c
+  src/http/headers.c
   src/http/parse.c
   src/http/request.c
   src/http/response.c
@@ -50,7 +51,7 @@ add_executable(urs
   src/uri.c
 )
 target_include_directories(urs PRIVATE src)
-target_link_libraries(urs a3 PkgConfig::liburing)
+target_link_libraries(urs a3 a3hash PkgConfig::liburing)
 
 include(AddWarnings)
 target_add_extra_warnings(urs)
