@@ -45,7 +45,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
         log_msg(TRACE, "Got an invalid method.");
         RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
-                2, -1);
+                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_UNKNOWN:
         log_msg(TRACE, "Got an unknown method.");
         RET_MAP(http_response_error_submit(this, uring,
