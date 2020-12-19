@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <signal.h>
@@ -14,7 +15,6 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
-#include "forward.h"
 #include "http/connection.h"
 #include "listen.h"
 #include "timeout.h"

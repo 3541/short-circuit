@@ -1,11 +1,11 @@
 #pragma once
 
+#include <liburing.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 #include "connection.h"
-#include "forward.h"
 #include "socket.h"
 
 typedef struct Listener {

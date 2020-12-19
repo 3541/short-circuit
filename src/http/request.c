@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <liburing.h>
 
 #include <a3/log.h>
 #include <a3/str.h>

@@ -53,6 +53,9 @@ add_executable(urs
 target_include_directories(urs PRIVATE src)
 target_link_libraries(urs a3 a3hash PkgConfig::liburing)
 
+include(IWYU)
+target_add_iwyu(urs)
+
 include(AddWarnings)
 target_add_extra_warnings(urs)
 set_target_properties(urs PROPERTIES

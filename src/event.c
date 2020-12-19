@@ -7,7 +7,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
 #include <sys/utsname.h>
 
 #include <a3/log.h>

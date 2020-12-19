@@ -2,11 +2,12 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <liburing.h>
 #include <liburing/io_uring.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/param.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -19,9 +20,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
-#include "forward.h"
 #include "http/connection.h"
-#include "http/parse.h"
 #include "http/types.h"
 #include "socket.h"
 

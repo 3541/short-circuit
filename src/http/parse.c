@@ -1,6 +1,7 @@
 #include "http/parse.h"
 
 #include <assert.h>
+#include <liburing.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>

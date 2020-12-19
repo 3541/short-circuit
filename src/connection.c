@@ -5,7 +5,8 @@
 #include <liburing/io_uring.h>
 #include <netinet/in.h>
 #include <stdbool.h>
-#include <stdio.h>
+#include <stddef.h>
+#include <time.h>
 
 #include <a3/buffer.h>
 #include <a3/log.h>

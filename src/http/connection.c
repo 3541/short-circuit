@@ -15,7 +15,6 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
-#include "forward.h"
 #include "http/types.h"
 #include "uri.h"
 

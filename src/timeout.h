@@ -1,11 +1,13 @@
 #pragma once
 
+#include <liburing.h>
+#include <liburing/io_uring.h>
+#include <stdbool.h>
+
 #include <a3/ll.h>
 
 #include "event.h"
 #include "forward.h"
-
-typedef struct __kernel_timespec Timespec;
 
 struct Timeout;
 typedef struct Timeout Timeout;

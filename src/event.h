@@ -1,6 +1,7 @@
 #pragma once
 
 #include <liburing.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

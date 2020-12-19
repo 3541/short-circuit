@@ -1,6 +1,10 @@
 #include "http/types.h"
 
 #include <assert.h>
+#include <stddef.h>
+
+#include <a3/str.h>
+#include <a3/util.h>
 
 HttpMethod http_request_method_parse(CString str) {
 #define _METHOD(M, N) { M, CS(N) },

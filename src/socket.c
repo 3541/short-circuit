@@ -1,5 +1,6 @@
 #include "socket.h"
 
+#include <bits/socket-constants.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <string.h>
