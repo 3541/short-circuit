@@ -43,9 +43,9 @@ static bool uri_decode(String str) {
                     n *= 16;
                     uint8_t c = rp[2 - i];
                     if ('0' <= c && c <= '9')
-                        n += c - '0';
+                        n += (uint8_t)(c - '0');
                     else
-                        n += toupper(c) - 'A' + 10;
+                        n += (uint8_t)(toupper(c) - 'A' + 10);
                 }
 
                 if (n == 0)

@@ -59,9 +59,9 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     http_connection_reset(this, uring);
 
     if (buf_initialized(&this->conn.recv_buf))
-        buf_free(&this->conn.recv_buf);
+        buf_destroy(&this->conn.recv_buf);
     if (buf_initialized(&this->conn.send_buf))
-        buf_free(&this->conn.send_buf);
+        buf_destroy(&this->conn.send_buf);
 
     pool_free_block(http_connection_pool, this);
 }

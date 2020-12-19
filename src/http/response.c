@@ -58,8 +58,8 @@ static bool http_response_prep_status_line(HttpConnection* this,
     assert(this);
     assert(status != HTTP_STATUS_INVALID);
 
-    Buffer* buf         = &this->conn.send_buf;
-    int16_t status_code = http_status_code(status);
+    Buffer*  buf         = &this->conn.send_buf;
+    uint16_t status_code = http_status_code(status);
 
     TRYB(buf_write_str(buf, http_version_string(this->version)));
     TRYB(buf_write_byte(buf, ' '));
@@ -110,7 +110,7 @@ static bool http_response_prep_header_fmt(HttpConnection* this, CString name,
 }
 
 static bool http_response_prep_header_num(HttpConnection* this, CString name,
-                                          ssize_t value) {
+                                          size_t value) {
     assert(this);
     assert(name.ptr);
 
@@ -132,7 +132,7 @@ static bool http_response_prep_header_date(HttpConnection* this, CString name,
         size_t  len;
     } DATES[HTTP_DATE_CACHE] = { { 0, { '\0' }, 0 } };
 
-    size_t i = tv % HTTP_DATE_CACHE;
+    size_t i = (size_t)tv % HTTP_DATE_CACHE;
     if (DATES[i].tv != tv)
         UNWRAPN(DATES[i].len,
                 strftime((char*)DATES[i].buf, HTTP_DATE_BUF_LENGTH,
@@ -160,7 +160,7 @@ static bool http_response_prep_default_headers(HttpConnection* this,
     }
     if (content_length >= 0)
         TRYB(http_response_prep_header_num(this, CS("Content-Length"),
-                                           content_length));
+                                           (size_t)content_length));
     TRYB(http_response_prep_header(
         this, CS("Content-Type"),
         http_content_type_name(this->response_content_type)));
@@ -188,8 +188,8 @@ static CString http_response_error_make_body(HttpConnection* this,
     assert(status != HTTP_STATUS_INVALID);
 
     static uint8_t body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
-    size_t         len                              = 0;
-    int16_t        status_code                      = http_status_code(status);
+    ssize_t        len                              = 0;
+    uint16_t       status_code                      = http_status_code(status);
 
     // TODO: De-uglify. Probably should load a template from somewhere.
     if ((len = snprintf((char*)body, HTTP_ERROR_BODY_MAX_LENGTH,
@@ -205,10 +205,11 @@ static CString http_response_error_make_body(HttpConnection* this,
                         "</html>\n",
                         status_code, http_version_string(this->version).ptr,
                         status_code, http_status_reason(status).ptr)) >
-        HTTP_ERROR_BODY_MAX_LENGTH)
+            HTTP_ERROR_BODY_MAX_LENGTH ||
+        len < 0)
         return CS_NULL;
 
-    return (CString) { .ptr = body, .len = len };
+    return (CString) { .ptr = body, .len = (size_t)len };
 }
 
 static bool http_response_close_submit(HttpConnection* this,
@@ -239,7 +240,8 @@ bool http_response_error_submit(HttpConnection* this, struct io_uring* uring,
     CString body = http_response_error_make_body(this, status);
     TRYB(body.ptr);
 
-    TRYB(http_response_prep_default_headers(this, status, body.len, close));
+    TRYB(http_response_prep_default_headers(this, status, (ssize_t)body.len,
+                                            close));
     TRYB(http_response_prep_headers_done(this));
 
     if (this->method != HTTP_METHOD_HEAD)
@@ -318,7 +320,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             size_t try_read_size = MIN(file_size, write_ptr.len);
             TRYB(event_read_submit(&this->conn.last_event, uring,
                                    this->target_file, write_ptr, try_read_size,
-                                   file_sent, IOSQE_IO_LINK));
+                                   (off_t)file_sent, IOSQE_IO_LINK));
             buf_wrote(buf, try_read_size);
             file_size -= try_read_size;
             file_sent += try_read_size;

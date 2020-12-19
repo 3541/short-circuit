@@ -41,8 +41,8 @@ static void event_check_kver(void) {
 
     char* release = strdup(info.release);
 
-    uint8_t version_major = strtol(strtok(info.release, "."), NULL, 10);
-    uint8_t version_minor = strtol(strtok(NULL, "."), NULL, 10);
+    long version_major = strtol(strtok(info.release, "."), NULL, 10);
+    long version_minor = strtol(strtok(NULL, "."), NULL, 10);
 
     if (version_major < MIN_KERNEL_VERSION_MAJOR ||
         (version_major == MIN_KERNEL_VERSION_MAJOR &&
@@ -169,8 +169,8 @@ bool event_read_submit(Event* this, struct io_uring* uring, fd file,
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     TRYB(sqe);
 
-    io_uring_prep_read(sqe, file, out_data.ptr, MIN(out_data.len, nbytes),
-                       offset);
+    io_uring_prep_read(sqe, file, out_data.ptr,
+                       (uint32_t)MIN(out_data.len, nbytes), offset);
     event_sqe_fill(this, sqe, sqe_flags);
 
     return true;

@@ -169,7 +169,7 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring,
     if (cqe->res == 0)
         return connection_close_submit(this, uring);
 
-    buf_wrote(&this->recv_buf, cqe->res);
+    buf_wrote(&this->recv_buf, (size_t)cqe->res);
 
     HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
     if (rc == HTTP_REQUEST_ERROR) {
@@ -188,7 +188,7 @@ static bool connection_send_handle(Connection* this, struct io_uring* uring,
     assert(uring);
     assert(cqe);
 
-    buf_read(&this->send_buf, cqe->res);
+    buf_read(&this->send_buf, (size_t)cqe->res);
 
     return http_response_handle((HttpConnection*)this, uring);
 }
