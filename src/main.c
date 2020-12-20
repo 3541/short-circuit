@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
         }
 #endif
 
-        for (; cqe && io_uring_sq_ready(&uring) <= URING_SUBMISSION_THRESHOLD;
+        for (; cqe && io_uring_sq_space_left(&uring) > URING_SQ_LEAVE_SPACE;
              io_uring_peek_cqe(&uring, &cqe)) {
             uintptr_t event_ptr = cqe->user_data;
             if (event_ptr & EVENT_IGNORE_FLAG)

@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 
 #include <a3/log.h>
@@ -87,8 +88,17 @@ struct io_uring event_init() {
     return ret;
 }
 
+// Get an SQE. This may trigger a submission in an attempt to clear the SQ if it
+// is full. This /can/ return NULL if the SQ is full and, for whatever reason,
+// it does not empty in time.
 static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
     struct io_uring_sqe* ret = io_uring_get_sqe(uring);
+    // Try to service events until an SQE is available or too many retries have
+    // elapsed.
+    for (size_t retries = 0; !ret && retries < URING_SQE_RETRY_MAX;
+         ret            = io_uring_get_sqe(uring), retries++)
+        if (io_uring_submit(uring) < 0)
+            break;
     if (!ret)
         log_msg(WARN, "SQ full.");
     return ret;
