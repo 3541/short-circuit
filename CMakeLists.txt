@@ -56,6 +56,9 @@ target_link_libraries(urs a3 a3hash PkgConfig::liburing)
 include(IWYU)
 target_add_iwyu(urs)
 
+include(Sanitize)
+target_add_sanitizers(urs FALSE)
+
 include(AddWarnings)
 target_add_extra_warnings(urs)
 set_target_properties(urs PROPERTIES
@@ -73,6 +76,7 @@ if (lto_support)
   )
 endif()
 
+option(PROFILE_BUILD "Build for profiling.")
 if (PROFILE_BUILD)
   target_compile_definitions(urs PRIVATE PROFILE)
 endif()
