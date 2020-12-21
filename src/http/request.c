@@ -19,7 +19,8 @@ http_request_get_head_handle(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    // TODO: GET things other than static files.
+    // TODO: GET things other than static files. Also... Open can probably
+    // block. This should be done through the uring.
     if ((this->target_file =
              open((const char*)this->target_path.ptr, O_RDONLY)) < 0)
         RET_MAP(http_response_error_submit(

@@ -3,6 +3,7 @@
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include <a3/ll.h>
 
@@ -23,7 +24,7 @@ struct Timeout {
 };
 
 typedef struct TimeoutQueue {
-    Event event;
+    EVENT_TARGET;
     LL(Timeout) queue;
 } TimeoutQueue;
 
@@ -31,4 +32,4 @@ void timeout_queue_init(TimeoutQueue*);
 bool timeout_schedule(TimeoutQueue*, Timeout*, struct io_uring*);
 bool timeout_is_scheduled(Timeout*);
 bool timeout_cancel(Timeout*);
-bool timeout_handle(TimeoutQueue*, struct io_uring*, struct io_uring_cqe*);
+bool timeout_handle(TimeoutQueue*, struct io_uring*, int32_t status);

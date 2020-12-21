@@ -16,9 +16,9 @@
 
 // Callback types to submit events.
 typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*,
-                                 uint8_t sqe_flags);
-typedef bool (*ConnectionHandle)(Connection*, struct io_uring*,
-                                 struct io_uring_cqe*);
+                                 uint32_t event_flags, uint8_t sqe_flags);
+typedef bool (*ConnectionHandle)(Connection*, struct io_uring*, int32_t status,
+                                 bool chain);
 
 typedef enum ConnectionTransport {
     PLAIN,
@@ -27,8 +27,7 @@ typedef enum ConnectionTransport {
 } ConnectionTransport;
 
 typedef struct Connection {
-    // Has to be first so this can be cast to/from an Event.
-    Event last_event;
+    EVENT_TARGET;
 
     Listener* listener;
 
@@ -47,9 +46,6 @@ typedef struct Connection {
     Buffer send_buf;
 
     Timeout timeout;
-
-    // For the freelist.
-    Connection* next;
 } Connection;
 
 void connection_timeout_init(void);
@@ -58,8 +54,25 @@ bool connection_init(Connection*);
 bool connection_reset(Connection*, struct io_uring*);
 
 Connection* connection_accept_submit(Listener*, struct io_uring*);
-bool connection_send_submit(Connection*, struct io_uring*, uint8_t sqe_flags);
+bool connection_send_submit(Connection*, struct io_uring*, uint32_t send_flags,
+                            uint8_t sqe_flags);
+bool connection_splice_submit(Connection*, struct io_uring*, fd src, size_t len,
+                              uint8_t sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 
-bool connection_event_dispatch(Connection*, struct io_uring*,
-                               struct io_uring_cqe*);
+bool connection_accept_handle(Connection*, struct io_uring*, int32_t status,
+                              bool chain);
+bool connection_cancel_handle(Connection*, struct io_uring*, int32_t status,
+                              bool chain);
+bool connection_close_handle(Connection*, struct io_uring*, int32_t status,
+                             bool chain);
+bool connection_read_handle(Connection*, struct io_uring*, int32_t status,
+                            bool chain);
+bool connection_recv_handle(Connection*, struct io_uring*, int32_t status,
+                            bool chain);
+bool connection_send_handle(Connection*, struct io_uring*, int32_t status,
+                            bool chain);
+bool connection_splice_handle(Connection*, struct io_uring*, int32_t status,
+                              bool chain);
+void connection_event_handle(Connection*, struct io_uring*, EventType,
+                             int32_t status, bool chain);
