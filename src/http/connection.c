@@ -18,15 +18,15 @@
 #include "http/types.h"
 #include "uri.h"
 
-static Pool* http_connection_pool = NULL;
+static Pool* HTTP_CONNECTION_POOL = NULL;
 
 void http_connection_pool_init() {
-    http_connection_pool =
+    HTTP_CONNECTION_POOL =
         pool_new(sizeof(HttpConnection), CONNECTION_MAX_ALLOCATED);
 }
 
 HttpConnection* http_connection_new() {
-    HttpConnection* ret = pool_alloc_block(http_connection_pool);
+    HttpConnection* ret = pool_alloc_block(HTTP_CONNECTION_POOL);
 
     if (ret && !http_connection_init(ret))
         http_connection_free(ret, NULL);
@@ -62,10 +62,10 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     if (buf_initialized(&this->conn.send_buf))
         buf_destroy(&this->conn.send_buf);
 
-    pool_free_block(http_connection_pool, this);
+    pool_free_block(HTTP_CONNECTION_POOL, this);
 }
 
-void http_connection_pool_free() { pool_free(http_connection_pool); }
+void http_connection_pool_free() { pool_free(HTTP_CONNECTION_POOL); }
 
 bool http_connection_init(HttpConnection* this) {
     assert(this);
