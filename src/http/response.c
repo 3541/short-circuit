@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -40,7 +41,7 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
         if (this->keep_alive) {
             TRYB(http_connection_reset(this, uring));
             this->state = CONNECTION_INIT;
-            return this->conn.recv_submit(&this->conn, uring, 0);
+            return this->conn.recv_submit(&this->conn, uring, 0, 0);
         }
 
         return http_response_close_submit(this, uring);
@@ -246,7 +247,8 @@ bool http_response_error_submit(HttpConnection* this, struct io_uring* uring,
     if (this->method != HTTP_METHOD_HEAD)
         TRYB(http_response_prep_body(this, body));
 
-    TRYB(this->conn.send_submit(&this->conn, uring, close ? IOSQE_IO_LINK : 0));
+    TRYB(this->conn.send_submit(&this->conn, uring, 0,
+                                close ? IOSQE_IO_LINK : 0));
     if (close)
         return http_response_close_submit(this, uring);
 
@@ -300,47 +302,22 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
                                        res.st_ino, res.st_mtime, res.st_size));
     TRYB(http_response_prep_headers_done(this));
 
-    Buffer* buf = &this->conn.send_buf;
-    if (this->method == HTTP_METHOD_HEAD) {
-        TRYB(this->conn.send_submit(&this->conn, uring,
-                                    !this->keep_alive ? IOSQE_IO_LINK : 0));
-    } else {
-        size_t file_size   = (size_t)res.st_size;
-        size_t header_size = buf_len(buf);
-        size_t total_size  = file_size + header_size;
-        if (file_size > buf_space(buf) && !buf_ensure_cap(buf, total_size))
-            buf_ensure_max_cap(buf);
+    // Perhaps instead of just sending here, it would be better to write into
+    // the same pipe that is used for splice.
+    TRYB(this->conn.send_submit(
+        &this->conn, uring, (this->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
+        (!this->keep_alive || this->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK
+                                                                : 0));
+    if (this->method == HTTP_METHOD_HEAD)
+        goto done;
 
-        size_t sent      = 0;
-        size_t file_sent = 0;
-        size_t last_sent = 0;
-        while (total_size > 0) {
-            String write_ptr     = buf_write_ptr(buf);
-            size_t try_read_size = MIN(file_size, write_ptr.len);
-            TRYB(event_read_submit(&this->conn.last_event, uring,
-                                   this->target_file, write_ptr, try_read_size,
-                                   (off_t)file_sent, IOSQE_IO_LINK));
-            buf_wrote(buf, try_read_size);
-            file_size -= try_read_size;
-            file_sent += try_read_size;
-            last_sent = buf_len(buf);
-            TRYB(this->conn.send_submit(
-                &this->conn, uring,
-                (total_size - last_sent > 0 || !this->keep_alive)
-                    ? IOSQE_IO_LINK
-                    : 0));
-            total_size -= last_sent;
-            sent += last_sent;
-            buf_reset(buf);
-        }
-        // TODO: This is a hack because chained requests do not get a send event
-        // to handle, so only the last read (i.e., the unchained event) is left
-        // in the buffer.
-        buf_wrote(buf, last_sent);
-    }
+    // TODO: This will not work for TLS.
+    TRYB(connection_splice_submit(&this->conn, uring, this->target_file,
+                                  (size_t)res.st_size,
+                                  !this->keep_alive ? IOSQE_IO_LINK : 0));
 
+done:
     if (!this->keep_alive)
         return http_response_close_submit(this, uring);
-
     return true;
 }

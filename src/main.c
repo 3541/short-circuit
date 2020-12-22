@@ -15,6 +15,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
+#include "event_handle.h"
 #include "http/connection.h"
 #include "listen.h"
 #include "timeout.h"
@@ -41,9 +42,9 @@ int main(int argc, char** argv) {
     (void)argv;
 
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
-    log_init(stdout, TRACE);
+    log_init(stderr, TRACE);
 #else
-    log_init(stdout, WARN);
+    log_init(stderr, WARN);
 #endif
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
@@ -74,6 +75,8 @@ int main(int argc, char** argv) {
     time_t init_time = time(NULL);
 #endif
 
+    EventQueue queue;
+    event_queue_init(&queue);
     while (cont) {
         struct io_uring_cqe* cqe;
         int                  rc;
@@ -93,21 +96,7 @@ int main(int argc, char** argv) {
         }
 #endif
 
-        for (; cqe && io_uring_sq_space_left(&uring) > URING_SQ_LEAVE_SPACE;
-             io_uring_peek_cqe(&uring, &cqe)) {
-            uintptr_t event_ptr = cqe->user_data;
-            if (event_ptr & EVENT_IGNORE_FLAG)
-                goto next;
-            Event* event = (Event*)event_ptr;
-
-            if (event->type == EVENT_TIMEOUT)
-                cont = timeout_handle((TimeoutQueue*)event, &uring, cqe);
-            else
-                cont =
-                    connection_event_dispatch((Connection*)event, &uring, cqe);
-        next:
-            io_uring_cqe_seen(&uring, cqe);
-        }
+        event_handle_all(&queue, &uring);
 
         listener_accept_all(listeners, n_listeners, &uring);
 

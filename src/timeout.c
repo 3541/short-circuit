@@ -35,7 +35,7 @@ static bool timeout_schedule_next(TimeoutQueue* this, struct io_uring* uring) {
     if (!next)
         return true;
 
-    return event_timeout_submit(&this->event, uring, &next->threshold,
+    return event_timeout_submit(EVT(this), uring, &next->threshold,
                                 IORING_TIMEOUT_ABS);
 }
 
@@ -70,12 +70,11 @@ bool timeout_cancel(Timeout* this) {
 }
 
 bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
-                    struct io_uring_cqe* cqe) {
+                    int32_t status) {
     assert(this);
     assert(uring);
-    assert(cqe);
-    assert(cqe->res > 0 || cqe->res == -ETIME);
-    (void)cqe;
+    assert(status > 0 || status == -ETIME);
+    (void)status;
 
     log_msg(TRACE, "Timeout firing.");
 
