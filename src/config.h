@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 
+// This is the minimum kernel version which supports IORING_REGISTER_PROBE.
 #define MIN_KERNEL_VERSION_MAJOR 5
 #define MIN_KERNEL_VERSION_MINOR 6
 
