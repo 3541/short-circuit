@@ -110,7 +110,12 @@ struct io_uring event_init() {
     event_check_kver();
 
     struct io_uring ret;
-    UNWRAPSD(io_uring_queue_init(URING_ENTRIES, &ret, 0));
+    int rc;
+    if ((rc = io_uring_queue_init(URING_ENTRIES, &ret, 0)) < 0) {
+        log_error(-rc, "Failed to open queue.");
+        PANIC("Unable to open queue.");
+    }
+
     event_check_ops(&ret);
 
     EVENT_POOL = pool_new(sizeof(Event), EVENT_POOL_SIZE);
