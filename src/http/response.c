@@ -122,24 +122,42 @@ static bool http_response_prep_header_num(HttpConnection* this, CString name,
     return buf_write_str(buf, HTTP_NEWLINE);
 }
 
-static bool http_response_prep_header_date(HttpConnection* this, CString name,
-                                           time_t tv) {
+static bool http_response_prep_header_timestamp(HttpConnection* this,
+                                                CString name, time_t tv) {
     assert(this);
 
-    static struct {
+    static THREAD_LOCAL struct {
         time_t  tv;
-        uint8_t buf[HTTP_DATE_BUF_LENGTH];
+        uint8_t buf[HTTP_TIME_BUF_LENGTH];
         size_t  len;
-    } DATES[HTTP_DATE_CACHE] = { { 0, { '\0' }, 0 } };
+    } TIMES[HTTP_TIME_CACHE] = { { 0, { '\0' }, 0 } };
 
-    size_t i = (size_t)tv % HTTP_DATE_CACHE;
-    if (DATES[i].tv != tv)
-        UNWRAPN(DATES[i].len,
-                strftime((char*)DATES[i].buf, HTTP_DATE_BUF_LENGTH,
-                         "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tv)));
+    size_t i = (size_t)tv % HTTP_TIME_CACHE;
+    if (TIMES[i].tv != tv)
+        UNWRAPN(TIMES[i].len,
+                strftime((char*)TIMES[i].buf, HTTP_TIME_BUF_LENGTH,
+                         HTTP_TIME_FORMAT, gmtime(&tv)));
 
     return http_response_prep_header(
-        this, name, (CString) { .ptr = DATES[i].buf, .len = DATES[i].len });
+        this, name, (CString) { .ptr = TIMES[i].buf, .len = TIMES[i].len });
+}
+
+static bool http_response_prep_header_date(HttpConnection* this) {
+    assert(this);
+
+    static THREAD_LOCAL uint8_t DATE_BUF[HTTP_TIME_BUF_LENGTH] = { '\0' };
+    static THREAD_LOCAL CString DATE                           = CS_NULL;
+    static THREAD_LOCAL time_t  LAST_TIME                      = 0;
+
+    time_t current = time(NULL);
+    if (current - LAST_TIME > 2 || !DATE.ptr) {
+        UNWRAPN(DATE.len, strftime((char*)DATE_BUF, HTTP_TIME_BUF_LENGTH,
+                                   HTTP_TIME_FORMAT, gmtime(&current)));
+        DATE.ptr  = DATE_BUF;
+        LAST_TIME = current;
+    }
+
+    return http_response_prep_header(this, CS("Date"), DATE);
 }
 
 // Write the default status line and headers to the send buffer.
@@ -150,7 +168,7 @@ static bool http_response_prep_default_headers(HttpConnection* this,
     assert(this);
 
     TRYB(http_response_prep_status_line(this, status));
-    TRYB(http_response_prep_header_date(this, CS("Date"), time(NULL)));
+    TRYB(http_response_prep_header_date(this));
     if (close || !this->keep_alive || content_length < 0) {
         this->keep_alive = false;
         TRYB(http_response_prep_header(this, CS("Connection"), CS("Close")));
@@ -296,8 +314,8 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
 
     TRYB(http_response_prep_default_headers(this, HTTP_STATUS_OK, res.st_size,
                                             HTTP_RESPONSE_ALLOW));
-    TRYB(http_response_prep_header_date(this, CS("Last-Modified"),
-                                        res.st_mtim.tv_sec));
+    TRYB(http_response_prep_header_timestamp(this, CS("Last-Modified"),
+                                             res.st_mtim.tv_sec));
     TRYB(http_response_prep_header_fmt(this, CS("Etag"), "\"%luX%lX%lX\"",
                                        res.st_ino, res.st_mtime, res.st_size));
     TRYB(http_response_prep_headers_done(this));
