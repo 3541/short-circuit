@@ -174,24 +174,27 @@ UriParseResult uri_parse(Uri* ret, String str) {
     return URI_PARSE_SUCCESS;
 }
 
+// Return the path to the pointed-to file if it exists and is a child of the
+// given root path.
 String uri_path_if_contained(Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
-    String buf = string_alloc(real_root.len + this->path.len + 2);
-    string_concat(buf, 4, real_root, CS("/"), this->path, CS("\0"));
+    // Ensure there are no directory escaping shenanigans. This occurs after
+    // decoding, so ".." should be the only way such a thing can occur.
+    //
+    // TODO: This only makes sense for static files since parts of the path
+    // which are used by an endpoint are perfectly allowed to contain "..".
+    for (size_t i = 0; i < this->path.len - 1; i++)
+        if (this->path.ptr[i] == '.' && this->path.ptr[i + 1] == '.')
+            return S_NULL;
 
-    char* real_target = realpath((char*)buf.ptr, NULL);
-    if (!real_target)
-        goto done;
+    if (this->path.len == 1 && *this->path.ptr == '/')
+        return string_clone(real_root);
 
-    for (size_t i = 0; i < real_root.len; i++)
-        if (real_root.ptr[i] != real_target[i])
-            break;
-
-done:
-    string_free(&buf);
-    return S_OF(real_target);
+    String ret = string_alloc(real_root.len + this->path.len);
+    string_concat(ret, 2, real_root, this->path);
+    return ret;
 }
 
 bool uri_is_initialized(Uri* this) {
