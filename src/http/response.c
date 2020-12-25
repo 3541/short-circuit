@@ -305,7 +305,6 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     if (!S_ISREG(res.st_mode))
         return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
                                           HTTP_RESPONSE_ALLOW);
-
     if (index)
         this->response_content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
     else
