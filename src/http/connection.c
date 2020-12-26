@@ -21,8 +21,7 @@
 static Pool* HTTP_CONNECTION_POOL = NULL;
 
 void http_connection_pool_init() {
-    HTTP_CONNECTION_POOL =
-        pool_new(sizeof(HttpConnection), CONNECTION_MAX_ALLOCATED);
+    HTTP_CONNECTION_POOL = POOL_OF(HttpConnection, CONNECTION_MAX_ALLOCATED);
 }
 
 HttpConnection* http_connection_new() {
