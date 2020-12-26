@@ -97,8 +97,11 @@ bool http_connection_reset(HttpConnection* this, struct io_uring* uring) {
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
 
-    if (this->target_file >= 0)
-        close(this->target_file);
+    if (this->target_file >= 0) {
+        event_close_submit(NULL, uring, this->target_file, 0,
+                           EVENT_FALLBACK_ALLOW);
+        this->target_file = -1;
+    }
 
     return connection_reset(&this->conn, uring);
 }

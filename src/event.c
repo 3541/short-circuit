@@ -19,6 +19,7 @@
 #include <a3/util.h>
 
 #include "config.h"
+#include "event_handle.h"
 #include "event_internal.h"
 #include "socket.h"
 
@@ -250,24 +251,45 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
     return true;
 }
 
-bool event_close_submit(EventTarget* target, struct io_uring* uring, fd socket,
-                        uint8_t sqe_flags) {
+static bool event_close_fallback(Event* event, struct io_uring* uring, fd file) {
     assert(uring);
+    assert(file >= 0);
+
+    if (close(file) != 0)
+        return false;
+
+    if (event)
+        event_handle(event, uring);
+
+    return true;
+}
+
+bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file,
+                        uint8_t sqe_flags, bool fallback_sync) {
+    assert(uring);
+    assert(file >= 0);
 
     Event* event = NULL;
 
     if (target) {
         event = event_new(target, EVENT_CLOSE, false, false);
-        TRYB(event);
+        if (!event)
+            goto fallback;
     }
 
     struct io_uring_sqe* sqe = event_get_sqe(uring);
-    TRYB(sqe);
+    if (!sqe)
+        goto fallback;
 
-    io_uring_prep_close(sqe, socket);
+    io_uring_prep_close(sqe, file);
     event_sqe_fill(event, sqe, sqe_flags);
 
     return true;
+
+fallback:
+    if (!fallback_sync)
+        return false;
+    return event_close_fallback(event, uring, file);
 }
 
 bool event_timeout_submit(EventTarget* target, struct io_uring* uring,

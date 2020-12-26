@@ -13,8 +13,10 @@
 #include "forward.h"
 #include "socket.h"
 
-#define EVENT_CHAIN  (1ULL)
-#define EVENT_IGNORE (1ULL << 1)
+#define EVENT_CHAIN           (1ULL)
+#define EVENT_IGNORE          (1ULL << 1)
+#define EVENT_FALLBACK_ALLOW  true
+#define EVENT_FALLBACK_FORBID false
 
 #define EVENT_TYPE_ENUM                                                        \
     _EVENT_TYPE(EVENT_ACCEPT)                                                  \
@@ -57,8 +59,8 @@ bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
                        String out_data);
 bool event_read_submit(EventTarget*, struct io_uring*, fd file, String out_data,
                        size_t nbytes, off_t offset, uint8_t sqe_flags);
-bool event_close_submit(EventTarget*, struct io_uring*, fd socket,
-                        uint8_t sqe_flags);
+bool event_close_submit(EventTarget*, struct io_uring*, fd file,
+                        uint8_t sqe_flags, bool fallback_sync);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 bool event_cancel_submit(EventTarget*, struct io_uring*, Event* victim,

@@ -136,8 +136,10 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
         goto fail;
     }
 
-    TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK));
-    return event_close_submit(NULL, uring, pipefd[1], sqe_flags);
+    TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK,
+                            EVENT_FALLBACK_FORBID));
+    return event_close_submit(NULL, uring, pipefd[1], sqe_flags,
+                              EVENT_FALLBACK_FORBID);
 
 fail:
     UNWRAPSD(close(pipefd[0]));
@@ -167,7 +169,8 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
     if (timeout_is_scheduled(&this->timeout))
         timeout_cancel(&this->timeout);
 
-    return event_close_submit(EVT(this), uring, this->socket, 0);
+    return event_close_submit(EVT(this), uring, this->socket, 0,
+                              EVENT_FALLBACK_FORBID);
 }
 
 // Handle the completion of an ACCEPT event.
