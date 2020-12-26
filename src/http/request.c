@@ -27,7 +27,7 @@ http_request_get_head_handle(HttpConnection* this, struct io_uring* uring) {
                     this, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    log_fmt(TRACE, "Sending file %s.", this->target_path.ptr);
+    log_fmt(TRACE, "Sending file " S_F, S_FA(this->target_path));
     RET_MAP(http_response_file_submit(this, uring), HTTP_REQUEST_STATE_DONE,
             HTTP_REQUEST_STATE_ERROR);
 }
