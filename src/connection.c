@@ -27,6 +27,8 @@ static bool connection_recv_submit(Connection*, struct io_uring*,
 static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
                                       time_t delay);
 
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain);
 static bool connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
@@ -174,8 +176,8 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
 }
 
 // Handle the completion of an ACCEPT event.
-bool connection_accept_handle(Connection* this, struct io_uring* uring,
-                              int32_t status, bool chain) {
+static bool connection_accept_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -194,8 +196,8 @@ bool connection_accept_handle(Connection* this, struct io_uring* uring,
     return this->recv_submit(this, uring, 0, 0);
 }
 
-bool connection_read_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_read_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(chain);
@@ -211,8 +213,8 @@ bool connection_read_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-bool connection_recv_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -238,8 +240,8 @@ bool connection_recv_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-bool connection_send_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_send_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
 
@@ -256,8 +258,8 @@ bool connection_send_handle(Connection* this, struct io_uring* uring,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-bool connection_splice_handle(Connection* this, struct io_uring* uring,
-                              int32_t status, bool chain) {
+static bool connection_splice_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
     assert(this);
     assert(uring);
     (void)chain;
@@ -285,8 +287,8 @@ static bool connection_timeout_handle(Timeout*         timeout,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
 }
 
-bool connection_close_handle(Connection* this, struct io_uring* uring,
-                             int32_t status, bool chain) {
+static bool connection_close_handle(Connection* this, struct io_uring* uring,
+                                    int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
