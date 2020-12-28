@@ -22,12 +22,13 @@
     _EVENT_TYPE(EVENT_ACCEPT)                                                  \
     _EVENT_TYPE(EVENT_CANCEL)                                                  \
     _EVENT_TYPE(EVENT_CLOSE)                                                   \
-    _EVENT_TYPE(EVENT_INVALID)                                                 \
+    _EVENT_TYPE(EVENT_OPENAT)                                                  \
     _EVENT_TYPE(EVENT_READ)                                                    \
     _EVENT_TYPE(EVENT_RECV)                                                    \
     _EVENT_TYPE(EVENT_SEND)                                                    \
     _EVENT_TYPE(EVENT_SPLICE)                                                  \
-    _EVENT_TYPE(EVENT_TIMEOUT)
+    _EVENT_TYPE(EVENT_TIMEOUT)                                                 \
+    _EVENT_TYPE(EVENT_INVALID)
 
 typedef enum EventType {
 #define _EVENT_TYPE(E) E,
@@ -51,18 +52,21 @@ struct io_uring event_init(void);
 bool event_accept_submit(EventTarget*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len);
+bool event_cancel_submit(EventTarget*, struct io_uring*, Event* victim,
+                         uint8_t sqe_flags);
+bool event_close_submit(EventTarget*, struct io_uring*, fd file,
+                        uint8_t sqe_flags, bool fallback_sync);
+bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, CString path,
+                         int32_t open_flags, mode_t mode);
+bool event_read_submit(EventTarget*, struct io_uring*, fd file, String out_data,
+                       size_t nbytes, off_t offset, uint8_t sqe_flags);
+bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
+                       String out_data);
 bool event_send_submit(EventTarget*, struct io_uring*, fd socket, CString data,
                        uint32_t send_flags, uint8_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, fd out,
                          size_t len, uint8_t sqe_flags, bool ignore);
-bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
-                       String out_data);
-bool event_read_submit(EventTarget*, struct io_uring*, fd file, String out_data,
-                       size_t nbytes, off_t offset, uint8_t sqe_flags);
-bool event_close_submit(EventTarget*, struct io_uring*, fd file,
-                        uint8_t sqe_flags, bool fallback_sync);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
-bool event_cancel_submit(EventTarget*, struct io_uring*, Event* victim,
-                         uint8_t sqe_flags);
+
 bool event_cancel_all(EventTarget*, struct io_uring*, uint8_t sqe_flags);

@@ -37,6 +37,7 @@ void event_handle(Event* event, struct io_uring* uring) {
     switch (type) {
     case EVENT_ACCEPT:
     case EVENT_CLOSE:
+    case EVENT_OPENAT:
     case EVENT_READ:
     case EVENT_RECV:
     case EVENT_SEND:

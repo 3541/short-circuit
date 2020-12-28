@@ -277,6 +277,12 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
+    if (this->target_file < 0) {
+        this->state = CONNECTION_OPENING_FILE;
+        return event_openat_submit(EVT(&this->conn), uring, -1,
+                                   S_CONST(this->target_path), O_RDONLY, 0);
+    }
+
     this->state = CONNECTION_RESPONDING;
 
     assert(this->target_file >= 0);

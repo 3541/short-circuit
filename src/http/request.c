@@ -81,6 +81,7 @@ HttpRequestResult http_request_handle(HttpConnection* this,
             HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
+    case CONNECTION_OPENING_FILE:
     case CONNECTION_RESPONDING:
     case CONNECTION_CLOSING:
         return HTTP_REQUEST_COMPLETE;

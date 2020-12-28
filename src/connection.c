@@ -317,6 +317,8 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
     case EVENT_CLOSE:
         rc = connection_close_handle(conn, uring, status, chain);
         break;
+    case EVENT_OPENAT:
+        break;
     case EVENT_READ:
         rc = connection_read_handle(conn, uring, status, chain);
         break;
