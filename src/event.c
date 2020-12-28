@@ -107,13 +107,30 @@ static void event_check_ops(struct io_uring* uring) {
     free(probe);
 }
 
+static void event_check_ulimit(void) {
+    struct rlimit lim;
+
+    UNWRAPSD(getrlimit(RLIMIT_MEMLOCK, &lim));
+    // This is a crude check, but opening the queue will almost certainly fail
+    // if the limit is this low.
+    if (lim.rlim_cur <= 96 * URING_ENTRIES)
+        log_fmt(
+            WARN,
+            "The memlock limit (%d) is too low. The queue will probably "
+            "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
+            lim.rlim_cur);
+}
+
 struct io_uring event_init() {
     event_check_kver();
+    event_check_ulimit();
 
     struct io_uring ret;
-    int rc;
+    int             rc;
     if ((rc = io_uring_queue_init(URING_ENTRIES, &ret, 0)) < 0) {
-        log_error(-rc, "Failed to open queue.");
+        log_error(
+            -rc,
+            "Failed to open queue. The memlock limit is probably too low.");
         PANIC("Unable to open queue.");
     }
 
@@ -251,7 +268,8 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
     return true;
 }
 
-static bool event_close_fallback(Event* event, struct io_uring* uring, fd file) {
+static bool event_close_fallback(Event* event, struct io_uring* uring,
+                                 fd file) {
     assert(uring);
     assert(file >= 0);
 
