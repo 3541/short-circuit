@@ -19,15 +19,7 @@ http_request_get_head_handle(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    // TODO: GET things other than static files. Also... Open can probably
-    // block. This should be done through the uring.
-    if ((this->target_file =
-             open((const char*)this->target_path.ptr, O_RDONLY)) < 0)
-        RET_MAP(http_response_error_submit(
-                    this, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-    log_fmt(TRACE, "Sending file " S_F, S_FA(this->target_path));
+    // TODO: GET things other than static files.
     RET_MAP(http_response_file_submit(this, uring), HTTP_REQUEST_STATE_DONE,
             HTTP_REQUEST_STATE_ERROR);
 }

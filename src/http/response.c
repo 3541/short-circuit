@@ -27,7 +27,7 @@
 
 static bool http_response_close_submit(HttpConnection*, struct io_uring*);
 
-// Respond to a completed send event.
+// Respond to a mid-response event.
 bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
@@ -37,6 +37,8 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
         return true;
 
     switch (this->state) {
+    case CONNECTION_OPENING_FILE:
+        return http_response_file_submit(this, uring);
     case CONNECTION_RESPONDING:
         if (this->keep_alive) {
             TRYB(http_connection_reset(this, uring));
@@ -277,10 +279,15 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    if (this->target_file < 0) {
+    // target_file is -1 on initialization.
+    if (this->target_file == -1) {
         this->state = CONNECTION_OPENING_FILE;
         return event_openat_submit(EVT(&this->conn), uring, -1,
                                    S_CONST(this->target_path), O_RDONLY, 0);
+    } else if (this->target_file == -2) {
+        // Open failed.
+        return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
+                                          HTTP_RESPONSE_ALLOW);
     }
 
     this->state = CONNECTION_RESPONDING;
@@ -301,6 +308,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             return http_response_error_submit(
                 this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
         fd new_file = -1;
+        // TODO: This should also be done through the uring.
         if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
             return http_response_error_submit(
                 this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);

@@ -31,8 +31,11 @@ void event_handle(Event* event, struct io_uring* uring) {
 
     event_free(event);
 
-    if (ignore)
+    if (ignore) {
+        if (status < 0)
+            log_error(-status, "ignored event failed");
         return;
+    }
 
     switch (type) {
     case EVENT_ACCEPT:

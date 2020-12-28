@@ -196,6 +196,49 @@ static bool connection_accept_handle(Connection* this, struct io_uring* uring,
     return this->recv_submit(this, uring, 0, 0);
 }
 
+static bool connection_close_handle(Connection* this, struct io_uring* uring,
+                                    int32_t status, bool chain) {
+    assert(this);
+    assert(uring);
+    assert(!chain);
+    (void)chain;
+
+    if (status >= 0)
+        this->socket = -1;
+    else
+        log_error(-status, "close failed");
+    http_connection_free((HttpConnection*)this, uring);
+
+    return true;
+}
+
+static bool connection_openat_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
+    assert(this);
+    assert(uring);
+    assert(!chain);
+    (void)chain;
+
+    fd file = -3;
+    if (status < 0) {
+        // Signal to later handlers that the open failed. Not sure if it's
+        // better to check for more specific errors here. As it is currently,
+        // any failure to open a file is going to be exposed as a 404,
+        // regardless of the actual cause.
+
+        log_error(-status, "openat failed");
+        file = -2;
+    } else {
+        file = status;
+    }
+
+    // FIXME: This is ugly and unnecessary coupling.
+    HttpConnection* conn = (HttpConnection*)this;
+    conn->target_file = file;
+
+    return http_response_handle(conn, uring);
+}
+
 static bool connection_read_handle(Connection* this, struct io_uring* uring,
                                    int32_t status, bool chain) {
     assert(this);
@@ -287,22 +330,6 @@ static bool connection_timeout_handle(Timeout*         timeout,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
 }
 
-static bool connection_close_handle(Connection* this, struct io_uring* uring,
-                                    int32_t status, bool chain) {
-    assert(this);
-    assert(uring);
-    assert(!chain);
-    (void)chain;
-
-    if (status >= 0)
-        this->socket = -1;
-    else
-        log_error(-status, "close failed");
-    http_connection_free((HttpConnection*)this, uring);
-
-    return true;
-}
-
 void connection_event_handle(Connection* conn, struct io_uring* uring,
                              EventType type, int32_t status, bool chain) {
     assert(conn);
@@ -318,6 +345,7 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
         rc = connection_close_handle(conn, uring, status, chain);
         break;
     case EVENT_OPENAT:
+        rc = connection_openat_handle(conn, uring, status, chain);
         break;
     case EVENT_READ:
         rc = connection_read_handle(conn, uring, status, chain);
