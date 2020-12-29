@@ -1,6 +1,6 @@
 [submodule "boilerplate"]
 	path = boilerplate
-	url = git@github.com:3541/boilerplate.git
+	url = ../boilerplate.git
 	branch = trunk
 [submodule "extern/liba3"]
 	path = extern/liba3

@@ -60,19 +60,5 @@ bool connection_splice_submit(Connection*, struct io_uring*, fd src, size_t len,
                               uint8_t sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 
-bool connection_accept_handle(Connection*, struct io_uring*, int32_t status,
-                              bool chain);
-bool connection_cancel_handle(Connection*, struct io_uring*, int32_t status,
-                              bool chain);
-bool connection_close_handle(Connection*, struct io_uring*, int32_t status,
-                             bool chain);
-bool connection_read_handle(Connection*, struct io_uring*, int32_t status,
-                            bool chain);
-bool connection_recv_handle(Connection*, struct io_uring*, int32_t status,
-                            bool chain);
-bool connection_send_handle(Connection*, struct io_uring*, int32_t status,
-                            bool chain);
-bool connection_splice_handle(Connection*, struct io_uring*, int32_t status,
-                              bool chain);
 void connection_event_handle(Connection*, struct io_uring*, EventType,
                              int32_t status, bool chain);

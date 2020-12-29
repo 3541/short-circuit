@@ -27,6 +27,8 @@ static bool connection_recv_submit(Connection*, struct io_uring*,
 static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
                                       time_t delay);
 
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain);
 static bool connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
@@ -136,8 +138,10 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
         goto fail;
     }
 
-    TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK));
-    return event_close_submit(NULL, uring, pipefd[1], sqe_flags);
+    TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK,
+                            EVENT_FALLBACK_FORBID));
+    return event_close_submit(NULL, uring, pipefd[1], sqe_flags,
+                              EVENT_FALLBACK_FORBID);
 
 fail:
     UNWRAPSD(close(pipefd[0]));
@@ -167,12 +171,13 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
     if (timeout_is_scheduled(&this->timeout))
         timeout_cancel(&this->timeout);
 
-    return event_close_submit(EVT(this), uring, this->socket, 0);
+    return event_close_submit(EVT(this), uring, this->socket, 0,
+                              EVENT_FALLBACK_FORBID);
 }
 
 // Handle the completion of an ACCEPT event.
-bool connection_accept_handle(Connection* this, struct io_uring* uring,
-                              int32_t status, bool chain) {
+static bool connection_accept_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -191,8 +196,51 @@ bool connection_accept_handle(Connection* this, struct io_uring* uring,
     return this->recv_submit(this, uring, 0, 0);
 }
 
-bool connection_read_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_close_handle(Connection* this, struct io_uring* uring,
+                                    int32_t status, bool chain) {
+    assert(this);
+    assert(uring);
+    assert(!chain);
+    (void)chain;
+
+    if (status >= 0)
+        this->socket = -1;
+    else
+        log_error(-status, "close failed");
+    http_connection_free((HttpConnection*)this, uring);
+
+    return true;
+}
+
+static bool connection_openat_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
+    assert(this);
+    assert(uring);
+    assert(!chain);
+    (void)chain;
+
+    fd file = -3;
+    if (status < 0) {
+        // Signal to later handlers that the open failed. Not sure if it's
+        // better to check for more specific errors here. As it is currently,
+        // any failure to open a file is going to be exposed as a 404,
+        // regardless of the actual cause.
+
+        log_error(-status, "openat failed");
+        file = -2;
+    } else {
+        file = status;
+    }
+
+    // FIXME: This is ugly and unnecessary coupling.
+    HttpConnection* conn = (HttpConnection*)this;
+    conn->target_file = file;
+
+    return http_response_handle(conn, uring);
+}
+
+static bool connection_read_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(chain);
@@ -208,8 +256,8 @@ bool connection_read_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-bool connection_recv_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_recv_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -235,8 +283,8 @@ bool connection_recv_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-bool connection_send_handle(Connection* this, struct io_uring* uring,
-                            int32_t status, bool chain) {
+static bool connection_send_handle(Connection* this, struct io_uring* uring,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
 
@@ -253,8 +301,8 @@ bool connection_send_handle(Connection* this, struct io_uring* uring,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-bool connection_splice_handle(Connection* this, struct io_uring* uring,
-                              int32_t status, bool chain) {
+static bool connection_splice_handle(Connection* this, struct io_uring* uring,
+                                     int32_t status, bool chain) {
     assert(this);
     assert(uring);
     (void)chain;
@@ -282,22 +330,6 @@ static bool connection_timeout_handle(Timeout*         timeout,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
 }
 
-bool connection_close_handle(Connection* this, struct io_uring* uring,
-                             int32_t status, bool chain) {
-    assert(this);
-    assert(uring);
-    assert(!chain);
-    (void)chain;
-
-    if (status >= 0)
-        this->socket = -1;
-    else
-        log_error(-status, "close failed");
-    http_connection_free((HttpConnection*)this, uring);
-
-    return true;
-}
-
 void connection_event_handle(Connection* conn, struct io_uring* uring,
                              EventType type, int32_t status, bool chain) {
     assert(conn);
@@ -311,6 +343,9 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
         break;
     case EVENT_CLOSE:
         rc = connection_close_handle(conn, uring, status, chain);
+        break;
+    case EVENT_OPENAT:
+        rc = connection_openat_handle(conn, uring, status, chain);
         break;
     case EVENT_READ:
         rc = connection_read_handle(conn, uring, status, chain);
