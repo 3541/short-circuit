@@ -99,11 +99,12 @@ static bool http_response_prep_header_fmt(HttpConnection* this, CString name,
     assert(fmt);
 
     Buffer* buf = &this->conn.send_buf;
+    TRYB(buf_write_str(buf, name));
+    TRYB(buf_write_str(buf, CS(": ")));
+
     va_list args;
     va_start(args, fmt);
 
-    TRYB(buf_write_str(buf, name));
-    TRYB(buf_write_str(buf, CS(": ")));
     bool ret = buf_write_vfmt(buf, fmt, args);
     ret      = ret && buf_write_str(buf, HTTP_NEWLINE);
 
