@@ -77,6 +77,8 @@ static void uri_collapse_dot_segments(String str) {
     size_t segments = 0;
     for (size_t i = 0; i < str.len; segments += str.ptr[i++] == '/')
         ;
+    if (!segments)
+        return;
     size_t* segment_indices = calloc(segments, sizeof(size_t));
     UNWRAPND(segment_indices);
 
