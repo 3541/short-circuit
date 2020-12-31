@@ -54,8 +54,10 @@ add_executable(urs
 target_include_directories(urs PRIVATE src)
 target_link_libraries(urs a3 a3hash PkgConfig::liburing)
 
+include (ClangTidy)
 include(IWYU)
 target_add_iwyu(urs)
+target_add_clang_tidy(urs)
 
 include(Sanitize)
 target_add_sanitizers(urs FALSE)
