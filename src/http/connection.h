@@ -7,6 +7,7 @@
 #include <a3/str.h>
 
 #include "../connection.h"
+#include "file.h"
 #include "http/types.h"
 #include "socket.h"
 #include "uri.h"
@@ -31,7 +32,7 @@ typedef struct HttpConnection {
     HttpMethod  method;
     Uri         target;
     String      target_path;
-    fd          target_file;
+    FileHandle* target_file;
 
     bool                 keep_alive;
     String               host;

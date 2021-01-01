@@ -15,6 +15,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
+#include "file.h"
 #include "http/types.h"
 #include "uri.h"
 
@@ -76,7 +77,7 @@ bool http_connection_init(HttpConnection* this) {
     this->keep_alive                  = true;
     this->content_length              = -1;
     this->transfer_encodings          = HTTP_TRANSFER_ENCODING_IDENTITY;
-    this->target_file                 = -1;
+    this->target_file                 = NULL;
     this->response_transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
     this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
 
@@ -96,10 +97,9 @@ bool http_connection_reset(HttpConnection* this, struct io_uring* uring) {
     if (uri_is_initialized(&this->target))
         uri_free(&this->target);
 
-    if (this->target_file >= 0) {
-        event_close_submit(NULL, uring, this->target_file, 0,
-                           EVENT_FALLBACK_ALLOW);
-        this->target_file = -1;
+    if (this->target_file) {
+        file_close(this->target_file, uring);
+        this->target_file = NULL;
     }
 
     return connection_reset(&this->conn, uring);

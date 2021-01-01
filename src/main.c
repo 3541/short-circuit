@@ -50,6 +50,8 @@ int main(int argc, char** argv) {
     check_webroot_exists(DEFAULT_WEB_ROOT);
     WEB_ROOT = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
     http_connection_pool_init();
+    file_cache_init();
+    connection_timeout_init();
 
     struct io_uring uring = event_init();
 
@@ -64,8 +66,6 @@ int main(int argc, char** argv) {
     }
     listener_accept_all(listeners, n_listeners, &uring);
     UNWRAPND(io_uring_submit(&uring));
-
-    connection_timeout_init();
 
     UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
     UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
@@ -108,6 +108,7 @@ int main(int argc, char** argv) {
 
     http_connection_pool_free();
     free(listeners);
+    file_cache_destroy(&uring);
 
     return EXIT_SUCCESS;
 }

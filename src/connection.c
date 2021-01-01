@@ -130,10 +130,11 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     fd pipefd[2];
     UNWRAPSD(pipe(pipefd));
 
-    if (!event_splice_submit(EVT(this), uring, src, pipefd[1], len,
+    if (!event_splice_submit(EVT(this), uring, src, 0, pipefd[1], len,
                              sqe_flags | IOSQE_IO_LINK, true) ||
-        !event_splice_submit(EVT(this), uring, pipefd[0], this->socket, len,
-                             sqe_flags | IOSQE_IO_LINK, false)) {
+        !event_splice_submit(EVT(this), uring, pipefd[0], (uint64_t)-1,
+                             this->socket, len, sqe_flags | IOSQE_IO_LINK,
+                             false)) {
         ERR("Failed to submit splice.");
         goto fail;
     }
@@ -232,11 +233,16 @@ static bool connection_openat_handle(Connection* this, struct io_uring* uring,
         file = status;
     }
 
+    (void)this;
+    (void)uring;
+    (void)file;
     // FIXME: This is ugly and unnecessary coupling.
-    HttpConnection* conn = (HttpConnection*)this;
-    conn->target_file = file;
+    /*    HttpConnection* conn = (HttpConnection*)this;
+          conn->target_file = file;*/
+    PANIC("UNUSED");
+    return false;
 
-    return http_response_handle(conn, uring);
+    //    return http_response_handle(conn, uring);
 }
 
 static bool connection_read_handle(Connection* this, struct io_uring* uring,

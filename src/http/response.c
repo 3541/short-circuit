@@ -21,6 +21,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
+#include "file.h"
 #include "http/connection.h"
 #include "http/types.h"
 #include "socket.h"
@@ -281,40 +282,45 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     assert(uring);
 
     // target_file is -1 on initialization.
-    if (this->target_file == -1) {
+    if (!this->target_file) {
         this->state = CONNECTION_OPENING_FILE;
-        return event_openat_submit(EVT(&this->conn), uring, -1,
-                                   S_CONST(this->target_path), O_RDONLY, 0);
-    } else if (this->target_file == -2) {
-        // Open failed.
-        return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
-                                          HTTP_RESPONSE_ALLOW);
-    }
+        /*        return event_openat_submit(EVT(&this->conn), uring, -1,
+                  S_CONST(this->target_path), O_RDONLY, 0);*/
+        this->target_file =
+            file_open(uring, S_CONST(this->target_path), O_RDONLY);
+    } /* else if (this->target_file == -2) {
+         // Open failed.
+         return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
+                                           HTTP_RESPONSE_ALLOW);
+                                           }*/
 
     this->state = CONNECTION_RESPONDING;
 
-    assert(this->target_file >= 0);
+    fd target_file = file_handle_fd(this->target_file);
+    assert(target_file >= 0);
 
     struct stat res;
-    TRYB(fstat(this->target_file, &res) == 0);
+    TRYB(fstat(target_file, &res) == 0);
 
     bool index = false;
 
     // TODO: Directory listings.
     if (S_ISDIR(res.st_mode)) {
-        index    = true;
-        fd dirfd = this->target_file;
-        // TODO: Directory listings.
-        if (fstatat(dirfd, INDEX_FILENAME, &res, 0) != 0)
-            return http_response_error_submit(
-                this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
-        fd new_file = -1;
-        // TODO: This should also be done through the uring.
-        if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
-            return http_response_error_submit(
-                this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
-        close(dirfd);
-        this->target_file = new_file;
+        /*        index    = true;
+                fd dirfd = target_file;
+                // TODO: Directory listings.
+                if (fstatat(dirfd, INDEX_FILENAME, &res, 0) != 0)
+                    return http_response_error_submit(
+                        this, uring, HTTP_STATUS_NOT_FOUND,
+           HTTP_RESPONSE_ALLOW); fd new_file = -1;
+                // TODO: This should also be done through the uring.
+                if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
+                    return http_response_error_submit(
+                        this, uring, HTTP_STATUS_NOT_FOUND,
+           HTTP_RESPONSE_ALLOW); close(dirfd); this->target_file = new_file;*/
+        // TODO: Reimplement index files.
+        return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
+                                          HTTP_RESPONSE_ALLOW);
     }
 
     if (!S_ISREG(res.st_mode))
@@ -344,7 +350,7 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
         goto done;
 
     // TODO: This will not work for TLS.
-    TRYB(connection_splice_submit(&this->conn, uring, this->target_file,
+    TRYB(connection_splice_submit(&this->conn, uring, target_file,
                                   (size_t)res.st_size,
                                   !this->keep_alive ? IOSQE_IO_LINK : 0));
 
