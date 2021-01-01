@@ -16,6 +16,8 @@
 
 #define EVENT_POOL_SIZE 7268
 
+#define FD_CACHE_SIZE 256
+
 #define URING_ENTRIES        2048
 #define URING_SQ_LEAVE_SPACE 10
 #define URING_SQE_RETRY_MAX  128
