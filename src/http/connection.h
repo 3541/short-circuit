@@ -8,7 +8,6 @@
 
 #include "../connection.h"
 #include "http/types.h"
-#include "socket.h"
 #include "uri.h"
 
 #define HTTP_NEWLINE CS("\r\n")

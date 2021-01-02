@@ -23,7 +23,6 @@
 #include "event.h"
 #include "http/connection.h"
 #include "http/types.h"
-#include "socket.h"
 
 static bool http_response_close_submit(HttpConnection*, struct io_uring*);
 

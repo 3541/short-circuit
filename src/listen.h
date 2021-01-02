@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #include "connection.h"
-#include "socket.h"
+#include "forward.h"
 
 typedef struct Listener {
     fd                  socket;

@@ -11,7 +11,6 @@
 
 #include "event.h"
 #include "forward.h"
-#include "socket.h"
 #include "timeout.h"
 
 // Callback types to submit events.

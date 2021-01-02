@@ -11,7 +11,6 @@
 #include <a3/str.h>
 
 #include "forward.h"
-#include "socket.h"
 
 #define EVENT_CHAIN           (1ULL)
 #define EVENT_IGNORE          (1ULL << 1)
