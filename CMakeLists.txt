@@ -69,10 +69,14 @@ target_add_sanitizers(urs FALSE)
 
 include(AddWarnings)
 target_add_extra_warnings(urs)
+target_add_warning_cxx(urs "no-c99-designator" FALSE)
 set_target_properties(urs PROPERTIES
   C_STANDARD 11
-  C_EXTENSIONS OFF
-  CXX_EXTENSIONS OFF
+  C_EXTENSIONS FALSE
+  C_STANDARD_REQUIRED TRUE
+  CXX_STANDARD 11
+  CXX_EXTENSIONS FALSE
+  CXX_STANDARD_REQUIRED TRUE
 )
 target_compile_definitions(urs PRIVATE
   typeof=__typeof__ # For liburing, since it assumes GNU extensions.
