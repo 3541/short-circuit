@@ -17,16 +17,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define _GNU_SOURCE // For SPLICE_F_MOVE from fcntl.
 #include "event.h"
 
-#include <assert.h>
+#include <cassert>
+#include <cstdint>
 #include <fcntl.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <memory>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
@@ -39,31 +37,36 @@
 
 #include "config.h"
 #include "event_handle.h"
-#include "event_internal.h"
+#include "event_internal.hh"
+
+using std::move;
+using std::unique_ptr;
 
 SLL_DEFINE_METHODS(Event);
 
-static Pool* EVENT_POOL = NULL;
+static Pool* EVENT_POOL = nullptr;
 
-static Event* event_new(EventTarget* target, EventType ty, bool chain,
-                        bool ignore) {
-    assert(target);
+Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore)
+    : type { ty } {
+    target_ptr = reinterpret_cast<uintptr_t>(tgt) | (chain ? EVENT_CHAIN : 0) |
+                 (ignore ? EVENT_IGNORE : 0);
+    SLL_PUSH(Event)(tgt, this);
+}
 
-    Event* ret = pool_alloc_block(EVENT_POOL);
+void* Event::operator new(size_t size) noexcept {
+    assert(size == sizeof(Event));
+    (void)size;
+
+    void* ret = pool_alloc_block(EVENT_POOL);
     if (!ret) {
         log_msg(WARN, "Event pool exhausted.");
-        return NULL;
+        return nullptr;
     }
-
-    ret->target = (EventTarget*)((uintptr_t)target | (chain ? EVENT_CHAIN : 0) |
-                                 (ignore ? EVENT_IGNORE : 0));
-    ret->type   = ty;
-    SLL_PUSH(Event)(target, ret);
 
     return ret;
 }
 
-void event_free(Event* event) {
+void Event::operator delete(void* event) {
     assert(event);
 
     pool_free_block(EVENT_POOL, event);
@@ -74,7 +77,7 @@ CString event_type_name(EventType ty) {
     static const CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
-    if (!(0 <= ty && ty < sizeof(EVENT_NAMES)))
+    if (!(0 <= ty && (size_t)ty < sizeof(EVENT_NAMES)))
         return CS("INVALID");
 
     return EVENT_NAMES[ty];
@@ -162,25 +165,24 @@ struct io_uring event_init() {
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it
 // is full. This /can/ return NULL if the SQ is full and, for whatever reason,
 // it does not empty in time.
-static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
-    struct io_uring_sqe* ret = io_uring_get_sqe(uring);
+static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
+    struct io_uring_sqe* ret = io_uring_get_sqe(&uring);
     // Try to service events until an SQE is available or too many retries have
     // elapsed.
     for (size_t retries = 0; !ret && retries < URING_SQE_RETRY_MAX;
-         ret            = io_uring_get_sqe(uring), retries++)
-        if (io_uring_submit(uring) < 0)
+         ret            = io_uring_get_sqe(&uring), retries++)
+        if (io_uring_submit(&uring) < 0)
             break;
     if (!ret)
         log_msg(WARN, "SQ full.");
-    return ret;
+    return unique_ptr<struct io_uring_sqe> { ret };
 }
 
-static void event_sqe_fill(Event* event, struct io_uring_sqe* sqe,
-                           uint8_t sqe_flags) {
-    assert(sqe);
-
-    io_uring_sqe_set_flags(sqe, sqe_flags);
-    io_uring_sqe_set_data(sqe, event);
+static void event_sqe_fill(unique_ptr<Event>&&               event,
+                           unique_ptr<struct io_uring_sqe>&& sqe,
+                           uint8_t                           sqe_flags = 0) {
+    io_uring_sqe_set_flags(sqe.get(), sqe_flags);
+    io_uring_sqe_set_data(sqe.release(), event.release());
 }
 
 bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
@@ -190,15 +192,16 @@ bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
     assert(uring);
     assert(out_client_addr);
 
-    Event* event = event_new(target, EVENT_ACCEPT, false, false);
+    auto event = Event::create(target, EVENT_ACCEPT);
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr,
+    io_uring_prep_accept(sqe.get(), socket,
+                         reinterpret_cast<struct sockaddr*>(out_client_addr),
                          inout_addr_len, 0);
-    event_sqe_fill(event, sqe, 0);
+    event_sqe_fill(move(event), move(sqe), 0);
 
     return true;
 }
@@ -209,30 +212,28 @@ bool event_cancel_submit(EventTarget* target, struct io_uring* uring,
     assert(uring);
     assert(victim);
 
-    Event* event =
-        event_new(target, EVENT_CANCEL,
-                  sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), false);
+    auto event = Event::create(target, EVENT_CANCEL,
+                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_cancel(sqe, victim, 0);
-    event_sqe_fill(event, sqe, sqe_flags);
+    io_uring_prep_cancel(sqe.get(), victim, 0);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
 
-static bool event_close_fallback(Event* event, struct io_uring* uring,
+static bool event_close_fallback(Event* event, struct io_uring& uring,
                                  fd file) {
-    assert(uring);
     assert(file >= 0);
 
     if (close(file) != 0)
         return false;
 
     if (event)
-        event_handle(event, uring);
+        event->handle(uring);
 
     return true;
 }
@@ -242,27 +243,30 @@ bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file,
     assert(uring);
     assert(file >= 0);
 
-    Event* event = NULL;
+    unique_ptr<Event> event;
 
     if (target) {
-        event = event_new(target, EVENT_CLOSE, false, false);
-        if (!event)
-            goto fallback;
+        event = Event::create(target, EVENT_CLOSE);
+        if (!event) {
+            if (fallback_sync)
+                return event_close_fallback(nullptr, *uring, file);
+            else
+                return false;
+        }
     }
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
-    if (!sqe)
-        goto fallback;
+    auto sqe = event_get_sqe(*uring);
+    if (!sqe) {
+        if (fallback_sync)
+            return event_close_fallback(event.get(), *uring, file);
+        else
+            return false;
+    }
 
-    io_uring_prep_close(sqe, file);
-    event_sqe_fill(event, sqe, sqe_flags);
+    io_uring_prep_close(sqe.get(), file);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
-
-fallback:
-    if (!fallback_sync)
-        return false;
-    return event_close_fallback(event, uring, file);
 }
 
 bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir,
@@ -271,14 +275,16 @@ bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir,
     assert(uring);
     assert(path.ptr);
 
-    Event* event = event_new(target, EVENT_OPENAT, 0, false);
+    auto event = Event::create(target, EVENT_OPENAT);
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_openat(sqe, dir, (const char*)path.ptr, open_flags, mode);
-    event_sqe_fill(event, sqe, 0);
+    io_uring_prep_openat(sqe.get(), dir,
+                         reinterpret_cast<const char*>(path.ptr), open_flags,
+                         mode);
+    event_sqe_fill(move(event), move(sqe));
 
     return true;
 }
@@ -291,17 +297,17 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
     assert(file >= 0);
     assert(out_data.ptr);
 
-    Event* event =
-        event_new(target, EVENT_READ,
-                  sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), false);
+    auto event = Event::create(target, EVENT_READ,
+                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_read(sqe, file, out_data.ptr,
-                       (uint32_t)MIN(out_data.len, nbytes), offset);
-    event_sqe_fill(event, sqe, sqe_flags);
+    io_uring_prep_read(sqe.get(), file, out_data.ptr,
+                       static_cast<uint32_t>(MIN(out_data.len, nbytes)),
+                       offset);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
@@ -312,14 +318,14 @@ bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket,
     assert(uring);
     assert(data.ptr);
 
-    Event* event = event_new(target, EVENT_RECV, false, false);
+    auto event = Event::create(target, EVENT_RECV);
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_recv(sqe, socket, data.ptr, data.len, 0);
-    event_sqe_fill(event, sqe, 0);
+    io_uring_prep_recv(sqe.get(), socket, data.ptr, data.len, 0);
+    event_sqe_fill(move(event), move(sqe));
 
     return true;
 }
@@ -330,16 +336,15 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket,
     assert(uring);
     assert(data.ptr);
 
-    Event* event =
-        event_new(target, EVENT_SEND,
-                  sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), false);
+    auto event = Event::create(target, EVENT_SEND,
+                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_send(sqe, socket, data.ptr, data.len, (int)send_flags);
-    event_sqe_fill(event, sqe, sqe_flags);
+    io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, (int)send_flags);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
@@ -352,17 +357,17 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in,
     assert(in >= 0);
     assert(out >= 0);
 
-    Event* event =
-        event_new(target, EVENT_SPLICE,
-                  sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), ignore);
+    auto event =
+        Event::create(target, EVENT_SPLICE,
+                      sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), ignore);
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_splice(sqe, in, off_in, out, (uint64_t)-1,
+    io_uring_prep_splice(sqe.get(), in, off_in, out, (uint64_t)-1,
                          (unsigned)len, SPLICE_F_MOVE);
-    event_sqe_fill(event, sqe, sqe_flags);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
@@ -373,14 +378,14 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring,
     assert(uring);
     assert(threshold);
 
-    Event* event = event_new(target, EVENT_TIMEOUT, false, false);
+    auto event = Event::create(target, EVENT_TIMEOUT);
     TRYB(event);
 
-    struct io_uring_sqe* sqe = event_get_sqe(uring);
+    auto sqe = event_get_sqe(*uring);
     TRYB(sqe);
 
-    io_uring_prep_timeout(sqe, threshold, 0, timeout_flags);
-    event_sqe_fill(event, sqe, 0);
+    io_uring_prep_timeout(sqe.get(), threshold, 0, timeout_flags);
+    event_sqe_fill(move(event), move(sqe), 0);
 
     return true;
 }

@@ -21,12 +21,16 @@
 
 #include <stdbool.h>
 
+#include <a3/cpp.h>
 #include <a3/sll.h>
 
 #include "forward.h"
 
+H_BEGIN
+
 typedef SLL(Event) EventQueue;
 
 void event_queue_init(EventQueue*);
-void event_handle(Event*, struct io_uring*);
 void event_handle_all(EventQueue*, struct io_uring*);
+
+H_END

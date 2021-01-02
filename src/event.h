@@ -26,10 +26,13 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <a3/cpp.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 
 #include "forward.h"
+
+H_BEGIN
 
 #define EVENT_CHAIN           (1ULL)
 #define EVENT_IGNORE          (1ULL << 1)
@@ -88,3 +91,5 @@ bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 
 bool event_cancel_all(EventTarget*, struct io_uring*, uint8_t sqe_flags);
+
+H_END

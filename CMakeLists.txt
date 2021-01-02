@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.9...3.17)
 project(
   urs
   VERSION 0.1.0
-  LANGUAGES C
+  LANGUAGES C CXX
 )
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/boilerplate/cmake" ${CMAKE_MODULE_PATH})
@@ -37,8 +37,8 @@ add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
 add_executable(urs
   src/main.c
-  src/event.c
-  src/event_handle.c
+  src/event.cc
+  src/event_handle.cc
   src/file.c
   src/connection.c
   src/http/connection.c
@@ -54,6 +54,11 @@ add_executable(urs
 target_include_directories(urs PRIVATE src)
 target_link_libraries(urs a3 a3hash PkgConfig::liburing)
 
+include(DisableExceptions)
+include(DisableRTTI)
+target_disable_exceptions(urs)
+target_disable_rtti(urs)
+
 include (ClangTidy)
 include(IWYU)
 target_add_iwyu(urs)
@@ -67,6 +72,7 @@ target_add_extra_warnings(urs)
 set_target_properties(urs PROPERTIES
   C_STANDARD 11
   C_EXTENSIONS OFF
+  CXX_EXTENSIONS OFF
 )
 target_compile_definitions(urs PRIVATE
   typeof=__typeof__ # For liburing, since it assumes GNU extensions.

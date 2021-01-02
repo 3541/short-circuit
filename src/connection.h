@@ -28,10 +28,13 @@
 #include <sys/socket.h>
 
 #include <a3/buffer.h>
+#include <a3/cpp.h>
 
 #include "event.h"
 #include "forward.h"
 #include "timeout.h"
+
+H_BEGIN
 
 // Callback types to submit events.
 typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*,
@@ -81,3 +84,5 @@ bool connection_close_submit(Connection*, struct io_uring*);
 
 void connection_event_handle(Connection*, struct io_uring*, EventType,
                              int32_t status, bool chain);
+
+H_END

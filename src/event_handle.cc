@@ -27,7 +27,7 @@
 
 #include "config.h"
 #include "connection.h"
-#include "event_internal.h"
+#include "event_internal.hh"
 #include "timeout.h"
 
 void event_queue_init(EventQueue* queue) {
@@ -36,27 +36,22 @@ void event_queue_init(EventQueue* queue) {
     SLL_INIT(Event)(queue);
 }
 
-void event_handle(Event* event, struct io_uring* uring) {
-    assert(event);
-    assert(uring);
+void Event::handle(struct io_uring& uring) {
+    auto*     target      = this->target();
+    bool      chain       = this->chain();
+    bool      ignore      = this->ignore();
+    int32_t   status_code = status;
+    EventType ty          = type;
 
-    uintptr_t target_ptr = (uintptr_t)event->target;
-    bool      chain      = target_ptr & EVENT_CHAIN;
-    bool      ignore     = target_ptr & EVENT_IGNORE;
-
-    void*     target = (void*)(target_ptr & ~(EVENT_CHAIN | EVENT_IGNORE));
-    int32_t   status = event->status;
-    EventType type   = event->type;
-
-    event_free(event);
+    delete this;
 
     if (ignore) {
-        if (status < 0)
-            log_error(-status, "ignored event failed");
+        if (status_code < 0)
+            log_error(-status_code, "ignored event failed");
         return;
     }
 
-    switch (type) {
+    switch (ty) {
     case EVENT_ACCEPT:
     case EVENT_CLOSE:
     case EVENT_OPENAT:
@@ -64,10 +59,11 @@ void event_handle(Event* event, struct io_uring* uring) {
     case EVENT_RECV:
     case EVENT_SEND:
     case EVENT_SPLICE:
-        connection_event_handle(target, uring, type, status, chain);
+        connection_event_handle(reinterpret_cast<Connection*>(target), &uring,
+                                ty, status_code, chain);
         return;
     case EVENT_TIMEOUT:
-        timeout_handle(target, uring, status);
+        timeout_handle(reinterpret_cast<TimeoutQueue*>(target), &uring, status);
         return;
     case EVENT_CANCEL:
     case EVENT_INVALID:
@@ -84,8 +80,8 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
     struct io_uring_cqe* cqe;
     for (io_uring_peek_cqe(uring, &cqe); cqe; io_uring_peek_cqe(uring, &cqe)) {
-        Event* event  = io_uring_cqe_get_data(cqe);
-        int    status = cqe->res;
+        auto* event  = static_cast<Event*>(io_uring_cqe_get_data(cqe));
+        int   status = cqe->res;
 
         // Remove from the CQ.
         io_uring_cqe_seen(uring, cqe);
@@ -94,8 +90,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
             continue;
         event->status = status;
 
-        EventTarget* target = (EventTarget*)((uintptr_t)event->target &
-                                             ~(EVENT_CHAIN | EVENT_IGNORE));
+        auto* target = event->target();
 
         // Remove from the in-flight list.
         SLL_REMOVE(Event)(target, event);
@@ -108,10 +103,10 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
     // SQ.
     if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
         return;
-    for (Event* event = SLL_DEQUEUE(Event)(queue);
+    for (auto* event = SLL_DEQUEUE(Event)(queue);
          event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE;
          event = SLL_POP(Event)(queue))
-        event_handle(event, uring);
+        event->handle(*uring);
 
     return;
 }
