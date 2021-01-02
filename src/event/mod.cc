@@ -36,8 +36,8 @@
 #include <a3/util.h>
 
 #include "config.h"
-#include "event_handle.h"
-#include "event_internal.hh"
+#include "event/handle.h"
+#include "event/internal.hh"
 
 using std::move;
 using std::unique_ptr;
@@ -91,8 +91,8 @@ static void event_check_kver(void) {
 
     char* release = strdup(info.release);
 
-    long version_major = strtol(strtok(info.release, "."), NULL, 10);
-    long version_minor = strtol(strtok(NULL, "."), NULL, 10);
+    long version_major = strtol(strtok(info.release, "."), nullptr, 10);
+    long version_minor = strtol(strtok(nullptr, "."), nullptr, 10);
 
     if (version_major < MIN_KERNEL_VERSION_MAJOR ||
         (version_major == MIN_KERNEL_VERSION_MAJOR &&
@@ -163,8 +163,8 @@ struct io_uring event_init() {
 }
 
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it
-// is full. This /can/ return NULL if the SQ is full and, for whatever reason,
-// it does not empty in time.
+// is full. This /can/ return a null pointer if the SQ is full and, for whatever
+// reason, it does not empty in time.
 static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
     struct io_uring_sqe* ret = io_uring_get_sqe(&uring);
     // Try to service events until an SQE is available or too many retries have

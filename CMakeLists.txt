@@ -37,8 +37,8 @@ add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
 add_executable(urs
   src/main.c
-  src/event.cc
-  src/event_handle.cc
+  src/event/mod.cc
+  src/event/handle.cc
   src/file.c
   src/connection.c
   src/http/connection.c

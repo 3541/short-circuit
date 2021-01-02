@@ -17,7 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "event_handle.h"
+#include "event/handle.h"
 
 #include <assert.h>
 #include <liburing.h>
@@ -27,7 +27,7 @@
 
 #include "config.h"
 #include "connection.h"
-#include "event_internal.hh"
+#include "event/internal.hh"
 #include "timeout.h"
 
 void event_queue_init(EventQueue* queue) {

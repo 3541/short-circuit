@@ -34,7 +34,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
-#include "event_handle.h"
+#include "event/handle.h"
 #include "http/connection.h"
 #include "listen.h"
 #include "timeout.h"
