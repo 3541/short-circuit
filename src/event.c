@@ -40,7 +40,6 @@
 #include "config.h"
 #include "event_handle.h"
 #include "event_internal.h"
-#include "socket.h"
 
 SLL_DEFINE_METHODS(Event);
 

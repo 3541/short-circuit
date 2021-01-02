@@ -299,18 +299,11 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    // target_file is -1 on initialization.
     if (!this->target_file) {
         this->state = CONNECTION_OPENING_FILE;
-        /*        return event_openat_submit(EVT(&this->conn), uring, -1,
-                  S_CONST(this->target_path), O_RDONLY, 0);*/
         this->target_file =
             file_open(uring, S_CONST(this->target_path), O_RDONLY);
-    } /* else if (this->target_file == -2) {
-         // Open failed.
-         return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
-                                           HTTP_RESPONSE_ALLOW);
-                                           }*/
+    }
 
     this->state = CONNECTION_RESPONDING;
 
@@ -324,18 +317,6 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
 
     // TODO: Directory listings.
     if (S_ISDIR(res.st_mode)) {
-        /*        index    = true;
-                fd dirfd = target_file;
-                // TODO: Directory listings.
-                if (fstatat(dirfd, INDEX_FILENAME, &res, 0) != 0)
-                    return http_response_error_submit(
-                        this, uring, HTTP_STATUS_NOT_FOUND,
-           HTTP_RESPONSE_ALLOW); fd new_file = -1;
-                // TODO: This should also be done through the uring.
-                if ((new_file = openat(dirfd, INDEX_FILENAME, O_RDONLY)) < 0)
-                    return http_response_error_submit(
-                        this, uring, HTTP_STATUS_NOT_FOUND,
-           HTTP_RESPONSE_ALLOW); close(dirfd); this->target_file = new_file;*/
         // TODO: Reimplement index files.
         return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
                                           HTTP_RESPONSE_ALLOW);

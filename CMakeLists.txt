@@ -48,7 +48,6 @@ add_executable(urs
   src/http/response.c
   src/http/types.c
   src/listen.c
-  src/socket.c
   src/timeout.c
   src/uri.c
 )
