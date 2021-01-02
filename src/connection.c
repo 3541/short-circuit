@@ -150,10 +150,11 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     fd pipefd[2];
     UNWRAPSD(pipe(pipefd));
 
-    if (!event_splice_submit(EVT(this), uring, src, pipefd[1], len,
+    if (!event_splice_submit(EVT(this), uring, src, 0, pipefd[1], len,
                              sqe_flags | IOSQE_IO_LINK, true) ||
-        !event_splice_submit(EVT(this), uring, pipefd[0], this->socket, len,
-                             sqe_flags | IOSQE_IO_LINK, false)) {
+        !event_splice_submit(EVT(this), uring, pipefd[0], (uint64_t)-1,
+                             this->socket, len, sqe_flags | IOSQE_IO_LINK,
+                             false)) {
         ERR("Failed to submit splice.");
         goto fail;
     }
@@ -230,33 +231,6 @@ static bool connection_close_handle(Connection* this, struct io_uring* uring,
     http_connection_free((HttpConnection*)this, uring);
 
     return true;
-}
-
-static bool connection_openat_handle(Connection* this, struct io_uring* uring,
-                                     int32_t status, bool chain) {
-    assert(this);
-    assert(uring);
-    assert(!chain);
-    (void)chain;
-
-    fd file = -3;
-    if (status < 0) {
-        // Signal to later handlers that the open failed. Not sure if it's
-        // better to check for more specific errors here. As it is currently,
-        // any failure to open a file is going to be exposed as a 404,
-        // regardless of the actual cause.
-
-        log_error(-status, "openat failed");
-        file = -2;
-    } else {
-        file = status;
-    }
-
-    // FIXME: This is ugly and unnecessary coupling.
-    HttpConnection* conn = (HttpConnection*)this;
-    conn->target_file = file;
-
-    return http_response_handle(conn, uring);
 }
 
 static bool connection_read_handle(Connection* this, struct io_uring* uring,
@@ -365,7 +339,7 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
         rc = connection_close_handle(conn, uring, status, chain);
         break;
     case EVENT_OPENAT:
-        rc = connection_openat_handle(conn, uring, status, chain);
+        PANIC("UNIMPLEMENTED");
         break;
     case EVENT_READ:
         rc = connection_read_handle(conn, uring, status, chain);
