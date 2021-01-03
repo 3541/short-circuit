@@ -23,6 +23,7 @@
 #include <liburing.h>
 #include <liburing/io_uring.h>
 
+#include <a3/log.h>
 #include <a3/util.h>
 
 #include "config.h"
@@ -86,8 +87,11 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         // Remove from the CQ.
         io_uring_cqe_seen(uring, cqe);
 
-        if (!event)
+        if (!event) {
+            if (status < 0)
+                log_error(-status, "event without target failed");
             continue;
+        }
         event->status = status;
 
         auto* target = event->target();

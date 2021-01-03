@@ -150,7 +150,10 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     assert(uring);
 
     fd pipefd[2];
-    UNWRAPSD(pipe(pipefd));
+    if (pipe(pipefd) < 0) {
+        log_error(errno, "unable to open pipe");
+        return false;
+    }
 
     for (size_t sent = 0, remaining = len,
                 to_send = MIN(PIPE_BUF_SIZE, remaining);
@@ -353,7 +356,7 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
         rc = connection_read_handle(conn, uring, status, chain);
         break;
     case EVENT_RECV:
-        rc = connection_recv_handle(conn, uring, status, chain);
+        rc = conn->recv_handle(conn, uring, status, chain);
         break;
     case EVENT_SEND:
         rc = connection_send_handle(conn, uring, status, chain);
