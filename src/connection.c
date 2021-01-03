@@ -141,6 +141,8 @@ bool connection_send_submit(Connection* this, struct io_uring* uring,
                              send_flags, sqe_flags);
 }
 
+#define PIPE_BUF_SIZE 65536ULL
+
 // Wraps splice so it can be used without a pipe.
 bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
                               size_t len, uint8_t sqe_flags) {
@@ -150,13 +152,19 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     fd pipefd[2];
     UNWRAPSD(pipe(pipefd));
 
-    if (!event_splice_submit(EVT(this), uring, src, 0, pipefd[1], len,
-                             sqe_flags | IOSQE_IO_LINK, true) ||
-        !event_splice_submit(EVT(this), uring, pipefd[0], (uint64_t)-1,
-                             this->socket, len, sqe_flags | IOSQE_IO_LINK,
-                             false)) {
-        ERR("Failed to submit splice.");
-        goto fail;
+    for (size_t sent = 0, remaining = len,
+                to_send = MIN(PIPE_BUF_SIZE, remaining);
+         sent < len; sent += to_send, remaining -= to_send,
+                to_send = MIN(PIPE_BUF_SIZE, remaining)) {
+        if (!event_splice_submit(EVT(this), uring, src, sent, pipefd[1],
+                                 to_send, sqe_flags | IOSQE_IO_LINK, true) ||
+            !event_splice_submit(EVT(this), uring, pipefd[0], (uint64_t)-1,
+                                 this->socket, to_send,
+                                 sqe_flags | IOSQE_IO_LINK,
+                                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
+            ERR("Failed to submit splice.");
+            goto fail;
+        }
     }
 
     TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK,
