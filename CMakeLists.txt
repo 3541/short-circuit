@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9...3.17)
 
 project(
-  urs
+  short-circuit
   VERSION 0.1.0
   LANGUAGES C CXX
 )
@@ -35,7 +35,7 @@ pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing)
 
 add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
-add_executable(urs
+add_executable(sc
   src/main.c
   src/event/mod.cc
   src/event/handle.cc
@@ -51,26 +51,26 @@ add_executable(urs
   src/timeout.c
   src/uri.c
 )
-target_include_directories(urs PRIVATE src)
-target_link_libraries(urs a3 a3hash PkgConfig::liburing)
+target_include_directories(sc PRIVATE src)
+target_link_libraries(sc a3 a3hash PkgConfig::liburing)
 
 include(DisableExceptions)
 include(DisableRTTI)
-target_disable_exceptions(urs)
-target_disable_rtti(urs)
+target_disable_exceptions(sc)
+target_disable_rtti(sc)
 
 include (ClangTidy)
 include(IWYU)
-target_add_iwyu(urs)
-target_add_clang_tidy(urs)
+target_add_iwyu(sc)
+target_add_clang_tidy(sc)
 
 include(Sanitize)
-target_add_sanitizers(urs FALSE)
+target_add_sanitizers(sc FALSE)
 
 include(AddWarnings)
-target_add_extra_warnings(urs)
-target_add_warning_cxx(urs "no-c99-designator" FALSE)
-set_target_properties(urs PROPERTIES
+target_add_extra_warnings(sc)
+target_add_warning_cxx(sc "no-c99-designator" FALSE)
+set_target_properties(sc PROPERTIES
   C_STANDARD 11
   C_EXTENSIONS FALSE
   C_STANDARD_REQUIRED TRUE
@@ -78,12 +78,12 @@ set_target_properties(urs PROPERTIES
   CXX_EXTENSIONS FALSE
   CXX_STANDARD_REQUIRED TRUE
 )
-target_compile_definitions(urs PRIVATE
+target_compile_definitions(sc PRIVATE
   typeof=__typeof__ # For liburing, since it assumes GNU extensions.
   _XOPEN_SOURCE=700
 )
 if (lto_support)
-  set_target_properties(urs PROPERTIES
+  set_target_properties(sc PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
     INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE
   )
@@ -91,9 +91,9 @@ endif()
 
 option(PROFILE_BUILD "Build for profiling.")
 if (PROFILE_BUILD)
-  target_compile_definitions(urs PRIVATE PROFILE)
+  target_compile_definitions(sc PRIVATE PROFILE)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_compile_definitions(urs PRIVATE DEBUG_BUILD)
+  target_compile_definitions(sc PRIVATE DEBUG_BUILD)
 endif()
