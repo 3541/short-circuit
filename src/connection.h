@@ -58,6 +58,7 @@ typedef struct Connection {
     fd                 socket;
     struct sockaddr_in client_addr;
     socklen_t          addr_len;
+    fd                 pipe[2];
 
     ConnectionSubmit recv_submit;
     ConnectionHandle recv_handle;

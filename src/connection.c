@@ -149,36 +149,30 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     assert(this);
     assert(uring);
 
-    fd pipefd[2];
-    if (pipe(pipefd) < 0) {
-        log_error(errno, "unable to open pipe");
-        return false;
+    if (!this->pipe[0] && !this->pipe[1]) {
+        log_msg(TRACE, "Opening pipe.");
+        if (pipe(this->pipe) < 0) {
+            log_error(errno, "unable to open pipe");
+            return false;
+        }
     }
 
     for (size_t sent = 0, remaining = len,
                 to_send = MIN(PIPE_BUF_SIZE, remaining);
          sent < len; sent += to_send, remaining -= to_send,
                 to_send = MIN(PIPE_BUF_SIZE, remaining)) {
-        if (!event_splice_submit(EVT(this), uring, src, sent, pipefd[1],
+        if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1],
                                  to_send, sqe_flags | IOSQE_IO_LINK, true) ||
-            !event_splice_submit(EVT(this), uring, pipefd[0], (uint64_t)-1,
+            !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1,
                                  this->socket, to_send,
                                  sqe_flags | IOSQE_IO_LINK,
                                  (remaining > PIPE_BUF_SIZE) ? true : false)) {
             ERR("Failed to submit splice.");
-            goto fail;
+            return false;
         }
     }
 
-    TRYB(event_close_submit(NULL, uring, pipefd[0], sqe_flags | IOSQE_IO_LINK,
-                            EVENT_FALLBACK_FORBID));
-    return event_close_submit(NULL, uring, pipefd[1], sqe_flags,
-                              EVENT_FALLBACK_FORBID);
-
-fail:
-    UNWRAPSD(close(pipefd[0]));
-    UNWRAPSD(close(pipefd[1]));
-    return false;
+    return true;
 }
 
 static bool connection_timeout_submit(Connection* this, struct io_uring* uring,

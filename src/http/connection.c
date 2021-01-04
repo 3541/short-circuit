@@ -40,8 +40,19 @@
 
 static Pool* HTTP_CONNECTION_POOL = NULL;
 
+static void pool_free_cb(PoolSlot* slot) {
+    assert(slot);
+
+    HttpConnection* conn = (HttpConnection*)slot;
+    if (conn->conn.pipe[0] || conn->conn.pipe[1]) {
+        close(conn->conn.pipe[0]);
+        close(conn->conn.pipe[1]);
+    }
+}
+
 void http_connection_pool_init() {
-    HTTP_CONNECTION_POOL = POOL_OF(HttpConnection, CONNECTION_MAX_ALLOCATED);
+    HTTP_CONNECTION_POOL =
+        POOL_OF(HttpConnection, CONNECTION_POOL_SIZE, POOL_PRESERVE_BLOCKS, pool_free_cb);
 }
 
 HttpConnection* http_connection_new() {

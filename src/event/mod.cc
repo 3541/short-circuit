@@ -157,7 +157,7 @@ struct io_uring event_init() {
 
     event_check_ops(&ret);
 
-    EVENT_POOL = POOL_OF(Event, EVENT_POOL_SIZE);
+    EVENT_POOL = POOL_OF(Event, EVENT_POOL_SIZE, POOL_ZERO_BLOCKS, nullptr);
 
     return ret;
 }
