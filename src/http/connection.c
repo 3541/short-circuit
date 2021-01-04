@@ -60,7 +60,7 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
     // If the socket hasn't been closed, arrange it. The close handle event will
     // call free when it's done.
     if (this->conn.socket != -1) {
-        event_cancel_all(EVT(&this->conn), uring, IOSQE_IO_HARDLINK);
+        event_cancel_all(EVT(&this->conn));
         // If the submission was successful, we're done for now.
         if (connection_close_submit(&this->conn, uring))
             return;

@@ -92,6 +92,12 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
                 log_error(-status, "event without target failed");
             continue;
         }
+
+        if (event->canceled()) {
+            delete event;
+            continue;
+        }
+
         event->status = status;
 
         auto* target = event->target();

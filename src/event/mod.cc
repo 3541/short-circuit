@@ -390,14 +390,12 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring,
     return true;
 }
 
-bool event_cancel_all(EventTarget* target, struct io_uring* uring,
-                      uint8_t sqe_flags) {
+bool event_cancel_all(EventTarget* target) {
     assert(target);
-    assert(uring);
 
     for (Event* victim = SLL_POP(Event)(target); victim;
          victim        = SLL_POP(Event)(target))
-        TRYB(event_cancel_submit(target, uring, victim, sqe_flags));
+        victim->cancel();
 
     return true;
 }

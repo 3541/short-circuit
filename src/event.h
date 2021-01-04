@@ -90,6 +90,6 @@ bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 
-bool event_cancel_all(EventTarget*, struct io_uring*, uint8_t sqe_flags);
+bool event_cancel_all(EventTarget*);
 
 H_END

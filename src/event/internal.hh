@@ -46,7 +46,6 @@ private:
     }
 
     bool chain() { return target_ptr & EVENT_CHAIN; }
-
     bool ignore() { return target_ptr & EVENT_IGNORE; }
 
 public:
@@ -60,6 +59,8 @@ public:
     }
 
     void handle(struct io_uring&);
+    void cancel() { target_ptr = 0; }
+    bool canceled() { return !target_ptr; }
 };
 
 SLL_DECLARE_METHODS(Event);
