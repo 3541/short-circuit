@@ -147,13 +147,17 @@ struct io_uring event_init() {
     event_check_ulimit();
 
     struct io_uring ret;
-    int             rc;
-    if ((rc = io_uring_queue_init(URING_ENTRIES, &ret, 0)) < 0) {
-        log_error(
-            -rc,
-            "Failed to open queue. The memlock limit is probably too low.");
-        PANIC("Unable to open queue.");
+
+    bool opened = false;
+    for (size_t queue_size = URING_ENTRIES; queue_size >= 512;
+         queue_size /= 2) {
+        if (!io_uring_queue_init(URING_ENTRIES, &ret, 0)) {
+            opened = true;
+            break;
+        }
     }
+    if (!opened)
+        PANIC("Unable to open queue. The memlock limit is probably too low.");
 
     event_check_ops(&ret);
 
