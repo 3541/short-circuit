@@ -39,4 +39,6 @@ systems will hit the open file limit. This can be fixed by raising the open file
 limit, or by decreasing `CONNECTION_POOL_SIZE` in `config.h`. The former can be
 done with `ulimit -n [new value]` (since the soft limit is often significantly
 lower than the hard limit), or in `/etc/security/limits.conf` for a permanent
-change.
+change. A good number is a bit over three times the maximum expected number of
+concurrent connections, since each connection requires an open file for the
+socket and two for the pipe.
