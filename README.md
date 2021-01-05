@@ -16,8 +16,8 @@ To build, create a build directory and change into it. Then run `cmake ..
 build the project. This produces a binary `sc`, which can be run directly. By
 default, the server listens on port `8000`.
 
-Note: on most Linux distributions, the queue may fail to open due to the locked
-memory limit. See [here](#queue-size) for more information.
+Note: on most Linux distributions, you may see warnings about the locked memory
+and open file resource limits. See [here](#queue-size) for more information.
 
 ## Notes and disclaimer
 This is _very_ new software, which is nowhere near feature complete, let alone
