@@ -229,9 +229,8 @@ static bool connection_close_handle(Connection* this, struct io_uring* uring,
     assert(!chain);
     (void)chain;
 
-    if (status >= 0)
-        this->socket = -1;
-    else
+    this->socket = -1;
+    if (status < 0)
         log_error(-status, "close failed");
     http_connection_free((HttpConnection*)this, uring);
 
