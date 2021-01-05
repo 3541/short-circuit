@@ -41,7 +41,6 @@ H_BEGIN
 
 #define EVENT_TYPE_ENUM                                                        \
     _EVENT_TYPE(EVENT_ACCEPT)                                                  \
-    _EVENT_TYPE(EVENT_CANCEL)                                                  \
     _EVENT_TYPE(EVENT_CLOSE)                                                   \
     _EVENT_TYPE(EVENT_OPENAT)                                                  \
     _EVENT_TYPE(EVENT_READ)                                                    \
@@ -73,8 +72,6 @@ struct io_uring event_init(void);
 bool event_accept_submit(EventTarget*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len);
-bool event_cancel_submit(EventTarget*, struct io_uring*, Event* victim,
-                         uint8_t sqe_flags);
 bool event_close_submit(EventTarget*, struct io_uring*, fd file,
                         uint8_t sqe_flags, bool fallback_sync);
 bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, CString path,

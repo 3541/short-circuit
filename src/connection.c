@@ -358,7 +358,6 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
     case EVENT_SPLICE:
         rc = connection_splice_handle(conn, uring, status, chain);
         break;
-    case EVENT_CANCEL:
     case EVENT_TIMEOUT:
     case EVENT_INVALID:
         PANIC_FMT("Invalid event %d.", type);

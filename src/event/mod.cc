@@ -210,25 +210,6 @@ bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
     return true;
 }
 
-bool event_cancel_submit(EventTarget* target, struct io_uring* uring,
-                         Event* victim, uint8_t sqe_flags) {
-    assert(target);
-    assert(uring);
-    assert(victim);
-
-    auto event = Event::create(target, EVENT_CANCEL,
-                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
-    TRYB(event);
-
-    auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
-
-    io_uring_prep_cancel(sqe.get(), victim, 0);
-    event_sqe_fill(move(event), move(sqe), sqe_flags);
-
-    return true;
-}
-
 static bool event_close_fallback(Event* event, struct io_uring& uring,
                                  fd file) {
     assert(file >= 0);

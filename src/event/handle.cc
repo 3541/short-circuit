@@ -66,7 +66,6 @@ void Event::handle(struct io_uring& uring) {
     case EVENT_TIMEOUT:
         timeout_handle(reinterpret_cast<TimeoutQueue*>(target), &uring, status);
         return;
-    case EVENT_CANCEL:
     case EVENT_INVALID:
         return;
     }
