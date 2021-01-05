@@ -163,10 +163,11 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
                 to_send = MIN(PIPE_BUF_SIZE, remaining)) {
         if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1],
                                  to_send, sqe_flags | IOSQE_IO_LINK, true) ||
-            !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1,
-                                 this->socket, to_send,
-                                 sqe_flags | IOSQE_IO_LINK,
-                                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
+            !event_splice_submit(
+                EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
+                to_send,
+                sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
+                (remaining > PIPE_BUF_SIZE) ? true : false)) {
             ERR("Failed to submit splice.");
             return false;
         }
