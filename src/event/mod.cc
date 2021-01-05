@@ -128,23 +128,40 @@ static void event_check_ops(struct io_uring* uring) {
     free(probe);
 }
 
-static void event_check_ulimit(void) {
+// Set the given resource to its hard limit and return the new state.
+static struct rlimit rlimit_maximize(int resource) {
     struct rlimit lim;
 
-    UNWRAPSD(getrlimit(RLIMIT_MEMLOCK, &lim));
+    UNWRAPSD(getrlimit(resource, &lim));
+    lim.rlim_cur = lim.rlim_max;
+    UNWRAPSD(setrlimit(resource, &lim));
+    return lim;
+}
+
+static void event_check_rlimits(void) {
+    struct rlimit lim_memlock = rlimit_maximize(RLIMIT_MEMLOCK);
+
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
-    if (lim.rlim_cur <= 96 * URING_ENTRIES)
+    if (lim_memlock.rlim_cur <= 96 * URING_ENTRIES)
         log_fmt(
             WARN,
             "The memlock limit (%d) is too low. The queue will probably "
             "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
-            lim.rlim_cur);
+            lim_memlock.rlim_cur);
+
+    struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
+    if (lim_nofile.rlim_cur <= 1024)
+        log_fmt(
+            WARN,
+            "The open file limit (%d) is low. Large numbers of concurrent "
+            "connections will probably cause \"too many open files\" errors.",
+            lim_nofile.rlim_cur);
 }
 
 struct io_uring event_init() {
     event_check_kver();
-    event_check_ulimit();
+    event_check_rlimits();
 
     struct io_uring ret;
 
