@@ -151,7 +151,7 @@ static void event_check_rlimits(void) {
             lim_memlock.rlim_cur);
 
     struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
-    if (lim_nofile.rlim_cur <= 1024)
+    if (lim_nofile.rlim_cur <= CONNECTION_POOL_SIZE * 3)
         log_fmt(
             WARN,
             "The open file limit (%d) is low. Large numbers of concurrent "
