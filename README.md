@@ -3,6 +3,11 @@ A lightweight and performant web server for Linux, built on top of io_uring.
 Capable of ~~60,000~~ ~~80,000~~ ~~120,000~~ 135,000 requests per second on
 static files.
 
+[io_uring](https://kernel.dk/io_uring.pdf?source=techstories.org) is a new
+asynchronous I/O system on Linux which offers a significant performance
+advantage (and, subjectively, a much nicer interface) over its competitors
+(POSIX `aio`, `epoll`, etc...).
+
 ## Building
 Dependencies:
 * A C compiler supporting C11.
