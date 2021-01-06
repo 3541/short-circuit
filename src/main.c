@@ -43,9 +43,9 @@
 Config CONFIG = {
     CS_NULL,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
-    TRACE
+                  TRACE
 #else
-    WARN
+                  WARN
 #endif
 };
 
@@ -66,7 +66,8 @@ static void check_webroot_exists(const char* root) {
 }
 
 static void usage_print_and_die(void) {
-    fprintf(stderr, "USAGE:\n"
+    fprintf(stderr,
+            "USAGE:\n"
             "sc [options]\n"
             "Options:\n"
             "\t-v\tPrint verbose output (more 'v's for even more output).\n");
@@ -96,7 +97,6 @@ int main(int argc, char** argv) {
     config_parse(argc, argv);
     log_init(stderr, CONFIG.log_level);
 
-
     check_webroot_exists(DEFAULT_WEB_ROOT);
     CONFIG.web_root = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
     http_connection_pool_init();
@@ -109,9 +109,9 @@ int main(int argc, char** argv) {
     size_t    n_listeners = 0;
 
     // TODO: Support multiple listeners.
-        n_listeners = 1;
-        UNWRAPN(listeners, calloc(1, sizeof(Listener)));
-        listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
+    n_listeners = 1;
+    UNWRAPN(listeners, calloc(1, sizeof(Listener)));
+    listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
 
     listener_accept_all(listeners, n_listeners, &uring);
     UNWRAPND(io_uring_submit(&uring));
