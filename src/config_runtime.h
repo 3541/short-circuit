@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: GLOBAL -- Global context.
+ * SHORT CIRCUIT: RUNTIME CONFIG -- Global configuration.
  *
  * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
  *
@@ -19,6 +19,12 @@
 
 #pragma once
 
+#include <a3/log.h>
 #include <a3/str.h>
 
-extern CString WEB_ROOT;
+typedef struct Config {
+    CString web_root;
+    LogLevel log_level;
+} Config;
+
+extern Config CONFIG;

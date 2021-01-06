@@ -32,6 +32,7 @@
 #include <a3/util.h>
 
 #include "config.h"
+#include "config_runtime.h"
 #include "connection.h"
 #include "event.h"
 #include "event/handle.h"
@@ -39,7 +40,14 @@
 #include "listen.h"
 #include "timeout.h"
 
-CString WEB_ROOT;
+Config CONFIG = {
+    CS_NULL,
+#if defined(DEBUG_BUILD) && !defined(PROFILE)
+    TRACE
+#else
+    WARN
+#endif
+};
 
 static bool cont = true;
 
@@ -57,17 +65,40 @@ static void check_webroot_exists(const char* root) {
         PANIC_FMT("Web root %s is not a directory.", root);
 }
 
+static void usage_print_and_die(void) {
+    fprintf(stderr, "USAGE:\n"
+            "sc [options]\n"
+            "Options:\n"
+            "\t-v\tPrint verbose output (more 'v's for even more output).\n");
+    exit(EXIT_FAILURE);
+}
+
+static void config_parse(int argc, char** argv) {
+    int opt;
+
+    while ((opt = getopt(argc, argv, "v")) != -1) {
+        switch (opt) {
+        case 'v':
+            if (CONFIG.log_level > TRACE)
+                CONFIG.log_level--;
+            break;
+        default:
+            fprintf(stderr, "Unrecognized option '%c'.\n", opt);
+            usage_print_and_die();
+            break;
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     (void)argv;
 
-#if defined(DEBUG_BUILD) && !defined(PROFILE)
-    log_init(stderr, TRACE);
-#else
-    log_init(stderr, WARN);
-#endif
+    config_parse(argc, argv);
+    log_init(stderr, CONFIG.log_level);
+
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
-    WEB_ROOT = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
+    CONFIG.web_root = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
     http_connection_pool_init();
     file_cache_init();
     connection_timeout_init();
@@ -76,13 +107,12 @@ int main(int argc, char** argv) {
 
     Listener* listeners   = NULL;
     size_t    n_listeners = 0;
-    if (argc < 2) {
+
+    // TODO: Support multiple listeners.
         n_listeners = 1;
         UNWRAPN(listeners, calloc(1, sizeof(Listener)));
         listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
-    } else {
-        PANIC("TODO: Parse arguments.");
-    }
+
     listener_accept_all(listeners, n_listeners, &uring);
     UNWRAPND(io_uring_submit(&uring));
 

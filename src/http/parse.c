@@ -32,8 +32,8 @@
 #include <a3/util.h>
 
 #include "config.h"
+#include "config_runtime.h"
 #include "connection.h"
-#include "global.h"
 #include "http/connection.h"
 #include "http/response.h"
 #include "http/types.h"
@@ -95,7 +95,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
         break;
     }
 
-    this->target_path = uri_path_if_contained(&this->target, WEB_ROOT);
+    this->target_path = uri_path_if_contained(&this->target, CONFIG.web_root);
     if (!this->target_path.ptr)
         RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
                                            HTTP_RESPONSE_ALLOW),
