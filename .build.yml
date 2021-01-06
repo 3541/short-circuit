@@ -1,0 +1,16 @@
+image: alpine/edge
+packages:
+  - cmake
+  - liburing-dev
+  - linux-headers
+sources:
+  - https://github.com/3541/short-circuit
+tasks:
+  - submodules: |
+      cd short-circuit
+      git submodule update --init --recursive
+  - setup: |
+      mkdir -p short-circuit/build
+      cmake -S short-circuit -B short-circuit/build
+  - build: |
+      cmake --build short-circuit/build
