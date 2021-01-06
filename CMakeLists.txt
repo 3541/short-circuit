@@ -68,7 +68,7 @@ include(Sanitize)
 target_add_sanitizers(sc FALSE)
 
 include(AddWarnings)
-target_add_extra_warnings(sc)
+target_add_extra_warnings(sc FALSE)
 target_add_warning_cxx(sc "no-c99-designator" FALSE)
 set_target_properties(sc PROPERTIES
   C_STANDARD 11
