@@ -73,17 +73,17 @@ bool event_accept_submit(EventTarget*, struct io_uring*, fd socket,
                          struct sockaddr_in* out_client_addr,
                          socklen_t*          inout_addr_len);
 bool event_close_submit(EventTarget*, struct io_uring*, fd file,
-                        uint8_t sqe_flags, bool fallback_sync);
+                        uint32_t sqe_flags, bool fallback_sync);
 bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, CString path,
                          int32_t open_flags, mode_t mode);
 bool event_read_submit(EventTarget*, struct io_uring*, fd file, String out_data,
-                       size_t nbytes, off_t offset, uint8_t sqe_flags);
+                       size_t nbytes, off_t offset, uint32_t sqe_flags);
 bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
                        String out_data);
 bool event_send_submit(EventTarget*, struct io_uring*, fd socket, CString data,
-                       uint32_t send_flags, uint8_t sqe_flags);
+                       uint32_t send_flags, uint32_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
-                         fd out, size_t len, uint8_t sqe_flags, bool ignore);
+                         fd out, size_t len, uint32_t sqe_flags, bool ignore);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 

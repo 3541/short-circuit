@@ -77,7 +77,7 @@ CString event_type_name(EventType ty) {
     static const CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
-    if (!(0 <= ty && (size_t)ty < sizeof(EVENT_NAMES)))
+    if (!(0 <= ty && (size_t)ty < sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0])))
         return CS("INVALID");
 
     return EVENT_NAMES[ty];
@@ -201,7 +201,7 @@ static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
 
 static void event_sqe_fill(unique_ptr<Event>&&               event,
                            unique_ptr<struct io_uring_sqe>&& sqe,
-                           uint8_t                           sqe_flags = 0) {
+                           uint32_t                          sqe_flags = 0) {
     io_uring_sqe_set_flags(sqe.get(), sqe_flags);
     io_uring_sqe_set_data(sqe.release(), event.release());
 }
@@ -241,7 +241,7 @@ static bool event_close_fallback(Event* event, struct io_uring& uring,
 }
 
 bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file,
-                        uint8_t sqe_flags, bool fallback_sync) {
+                        uint32_t sqe_flags, bool fallback_sync) {
     assert(uring);
     assert(file >= 0);
 
@@ -293,7 +293,7 @@ bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir,
 
 bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
                        String out_data, size_t nbytes, off_t offset,
-                       uint8_t sqe_flags) {
+                       uint32_t sqe_flags) {
     assert(target);
     assert(uring);
     assert(file >= 0);
@@ -333,7 +333,7 @@ bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket,
-                       CString data, uint32_t send_flags, uint8_t sqe_flags) {
+                       CString data, uint32_t send_flags, uint32_t sqe_flags) {
     assert(target);
     assert(uring);
     assert(data.ptr);
@@ -352,8 +352,8 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket,
 }
 
 bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in,
-                         uint64_t off_in, fd out, size_t len, uint8_t sqe_flags,
-                         bool ignore) {
+                         uint64_t off_in, fd out, size_t len,
+                         uint32_t sqe_flags, bool ignore) {
     assert(target);
     assert(uring);
     assert(in >= 0);
