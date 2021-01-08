@@ -77,7 +77,8 @@ CString event_type_name(EventType ty) {
     static const CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
-    if (!(0 <= ty && (size_t)ty < sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0])))
+    if (!(0 <= ty && static_cast<size_t>(ty) <
+                         sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0])))
         return CS("INVALID");
 
     return EVENT_NAMES[ty];

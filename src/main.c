@@ -40,8 +40,7 @@
 #include "listen.h"
 #include "timeout.h"
 
-Config CONFIG = {
-    CS_NULL,
+Config CONFIG = { CS_NULL,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
                   TRACE
 #else
@@ -70,18 +69,27 @@ static void usage_print_and_die(void) {
             "USAGE:\n"
             "sc [options]\n"
             "Options:\n"
-            "\t-v\tPrint verbose output (more 'v's for even more output).\n");
+            "\t-h\tShow this message and exit.\n"
+            "\t-v\tPrint verbose output (more 'v's for even more output).\n"
+            "\t-q\tBe quieter (more 'q's for more silence).\n");
     exit(EXIT_FAILURE);
 }
 
 static void config_parse(int argc, char** argv) {
     int opt;
 
-    while ((opt = getopt(argc, argv, "v")) != -1) {
+    while ((opt = getopt(argc, argv, "vq")) != -1) {
         switch (opt) {
         case 'v':
             if (CONFIG.log_level > TRACE)
                 CONFIG.log_level--;
+            break;
+        case 'q':
+            if (CONFIG.log_level < ERROR)
+                CONFIG.log_level++;
+            break;
+        case 'h':
+            usage_print_and_die();
             break;
         default:
             fprintf(stderr, "Unrecognized option '%c'.\n", opt);
