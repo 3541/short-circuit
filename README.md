@@ -13,7 +13,7 @@ Dependencies:
 * A C compiler supporting C11.
 * A C++ compiler supporting C++11.
 * CMake 3.9 or later.
-* [liburing](https://github.com/axboe/liburing)
+* [liburing](https://github.com/axboe/liburing).
 * Linux 5.7 or later.
 
 To build, create a build directory and change into it. Then run `cmake ..
