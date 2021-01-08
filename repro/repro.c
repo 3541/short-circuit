@@ -1,3 +1,11 @@
+// Test case for OP_SPLICE short read issue. Most systems may require the open
+// file limit to be raised (4096, which is probably still within the hard limit,
+// should be enough).
+//
+// This tries to read from a file called '20k', which I generated with the
+// following:
+// `dd if=/dev/random of=20k bs=1k count=20`
+
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <liburing.h>
@@ -62,7 +70,7 @@ int main(void) {
         return -1;
     }
 
-    for (size_t i = 0; i < 100; i++) {
+    for (size_t i = 0; i < 10000; i++) {
         for (size_t j = 0; j < URING_ENTRIES / 2; j++)
             splice_submit(&uring, j);
 
