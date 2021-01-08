@@ -50,9 +50,8 @@ int main(void) {
     }
 
     for (size_t i = 0; i < URING_ENTRIES / 2; i++) {
-        pipe(pipes[i]);
-        if (pipes[i][0] < 0 || pipes[i][1] < 0) {
-            fprintf(stderr, "Failed to open pipe.\n");
+        if (pipe(pipes[i]) < 0) {
+            fprintf(stderr, "Failed to open pipe (%s).\n", strerror(errno));
             return -1;
         }
     }
@@ -67,7 +66,10 @@ int main(void) {
         for (size_t j = 0; j < URING_ENTRIES / 2; j++)
             splice_submit(&uring, j);
 
-        io_uring_submit(&uring);
+        if (io_uring_submit(&uring) < 0) {
+            fprintf(stderr, "Failed to submit.\n");
+            return -1;
+        }
 
         struct io_uring_cqe* cqe;
         for (int rc = io_uring_wait_cqe(&uring, &cqe); cqe;
