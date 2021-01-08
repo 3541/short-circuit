@@ -15,6 +15,10 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Note: This whole file is a bit of a hack at the moment, and should probably
+ * be regarded more as a test harness for development purposes than an actual
+ * final interface.
  */
 
 #include <errno.h>
