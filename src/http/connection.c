@@ -51,8 +51,8 @@ static void pool_free_cb(PoolSlot* slot) {
 }
 
 void http_connection_pool_init() {
-    HTTP_CONNECTION_POOL =
-        POOL_OF(HttpConnection, CONNECTION_POOL_SIZE, POOL_PRESERVE_BLOCKS, pool_free_cb);
+    HTTP_CONNECTION_POOL = POOL_OF(HttpConnection, CONNECTION_POOL_SIZE,
+                                   POOL_PRESERVE_BLOCKS, pool_free_cb);
 }
 
 HttpConnection* http_connection_new() {

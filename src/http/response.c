@@ -305,6 +305,10 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
             file_open(uring, S_CONST(this->target_path), O_RDONLY);
     }
 
+    if (!this->target_file)
+        return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
+                                          HTTP_RESPONSE_ALLOW);
+
     this->state = CONNECTION_RESPONDING;
 
     fd target_file = file_handle_fd(this->target_file);
@@ -315,11 +319,18 @@ bool http_response_file_submit(HttpConnection* this, struct io_uring* uring) {
 
     bool index = false;
 
-    // TODO: Directory listings.
     if (S_ISDIR(res.st_mode)) {
-        // TODO: Reimplement index files.
-        return http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
-                                          HTTP_RESPONSE_ALLOW);
+        FileHandle* index_file =
+            file_openat(uring, this->target_file, INDEX_FILENAME, O_RDONLY);
+        // TODO: Directory listings.
+        if (!index_file)
+            return http_response_error_submit(
+                this, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
+
+        file_close(this->target_file, uring);
+        this->target_file = index_file;
+        target_file       = file_handle_fd(this->target_file);
+        TRYB(fstat(target_file, &res) == 0);
     }
 
     if (!S_ISREG(res.st_mode))

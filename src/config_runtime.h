@@ -23,7 +23,7 @@
 #include <a3/str.h>
 
 typedef struct Config {
-    CString web_root;
+    CString  web_root;
     LogLevel log_level;
 } Config;
 

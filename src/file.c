@@ -33,6 +33,7 @@
 #include "forward.h"
 
 typedef struct FileHandle {
+    CString  path;
     fd       file;
     uint32_t open_count;
     int32_t  flags;
@@ -80,10 +81,60 @@ FileHandle* file_open(struct io_uring* uring, CString path, int32_t flags) {
     FileHandle* handle = NULL;
     UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     // TODO: Work out a good way to do this via the uring.
-    UNWRAPS(handle->file, open(S_AS_C_STR(path), flags));
+    handle->file = open(S_AS_C_STR(path), flags);
+    if (handle->file < 0) {
+        free(handle);
+        log_fmt(WARN, "Unable to open file " S_F ": %s.", S_FA(path),
+                strerror(errno));
+        return NULL;
+    }
+
+    handle->path       = S_CONST(string_clone(path));
     handle->open_count = 2; // Being in the cache counts for a reference.
     CACHE_INSERT(CString, FileHandlePtr)
     (&FILE_CACHE, S_CONST(string_clone(path)), handle, uring);
+
+    return handle;
+}
+
+FileHandle* file_openat(struct io_uring* uring, FileHandle* dir, CString name,
+                        int32_t flags) {
+    assert(uring);
+    assert(dir);
+    assert(name.ptr);
+    (void)uring;
+
+    String full_path = string_alloc(dir->path.len + name.len + 1);
+    if (dir->path.ptr[dir->path.len - 1] == '/')
+        string_concat(full_path, 2, dir->path, name);
+    else
+        string_concat(full_path, 3, dir->path, CS("/"), name);
+
+    FileHandle** handle_ptr =
+        CACHE_FIND(CString, FileHandlePtr)(&FILE_CACHE, S_CONST(full_path));
+    if (handle_ptr && (*handle_ptr)->flags == flags) {
+        log_fmt(TRACE, "File cache hit (openat) on " S_F ".", S_FA(full_path));
+        (*handle_ptr)->open_count++;
+        string_free(&full_path);
+        return *handle_ptr;
+    }
+
+    log_fmt(TRACE, "File cache miss (openat) on " S_F ".", S_FA(full_path));
+    FileHandle* handle = NULL;
+    UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
+    handle->file = openat(dir->file, S_AS_C_STR(name), flags);
+    if (handle->file < 0) {
+        free(handle);
+        log_fmt(WARN, "Unable to open file " S_F ": %s.", S_FA(full_path),
+                strerror(errno));
+        string_free(&full_path);
+        return NULL;
+    }
+
+    handle->path       = S_CONST(full_path);
+    handle->open_count = 2;
+    CACHE_INSERT(CString, FileHandlePtr)
+    (&FILE_CACHE, S_CONST(string_clone(handle->path)), handle, uring);
 
     return handle;
 }
@@ -104,6 +155,7 @@ void file_close(FileHandle* handle, struct io_uring* uring) {
         return; // Other users remain.
 
     event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
+    string_free((String*)&handle->path);
     free(handle);
 }
 

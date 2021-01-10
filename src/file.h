@@ -30,6 +30,8 @@ typedef struct FileHandle FileHandle;
 
 void        file_cache_init(void);
 FileHandle* file_open(struct io_uring*, CString path, int32_t flags);
+FileHandle* file_openat(struct io_uring*, FileHandle* dir, CString name,
+                        int32_t flags);
 fd          file_handle_fd(FileHandle*);
 void        file_close(FileHandle*, struct io_uring*);
 void        file_cache_destroy(struct io_uring*);
