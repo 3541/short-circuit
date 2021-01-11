@@ -5,7 +5,6 @@
 #include <linux/tls.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <openssl/tls1.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
