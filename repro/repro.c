@@ -11,13 +11,14 @@
 #include <liburing.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #define URING_ENTRIES 2048
 #define FILE_SIZE     20480
 
-#define DATA_SPLICE_IN  1
-#define DATA_SPLICE_OUT 2
+#define DATA_SPLICE_IN  (1ULL)
+#define DATA_SPLICE_OUT (2ULL)
 
 static int in;
 static int out;
@@ -30,9 +31,14 @@ static void splice_submit(struct io_uring* uring, size_t i) {
         return;
     }
 
+    int nbytes;
+    ioctl(pipes[i][0], FIONREAD, &nbytes);
+    if (nbytes)
+        fprintf(stderr, "Pipe not empty. Has %d bytes.\n", nbytes);
+
     io_uring_prep_splice(sqe, in, 0, pipes[i][1], (uint64_t)-1, FILE_SIZE,
                          SPLICE_F_MOVE);
-    io_uring_sqe_set_data(sqe, (void*)DATA_SPLICE_IN);
+    sqe->user_data = (uintptr_t)&pipes[i][1] | DATA_SPLICE_IN;
     io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 
     sqe = io_uring_get_sqe(uring);
@@ -43,7 +49,7 @@ static void splice_submit(struct io_uring* uring, size_t i) {
 
     io_uring_prep_splice(sqe, pipes[i][0], (uint64_t)-1, out, (uint64_t)-1,
                          FILE_SIZE, SPLICE_F_MOVE);
-    io_uring_sqe_set_data(sqe, (void*)DATA_SPLICE_OUT);
+    sqe->user_data = (uintptr_t)&pipes[i][0] | DATA_SPLICE_OUT;
 }
 
 int main(void) {
@@ -74,8 +80,8 @@ int main(void) {
         for (size_t j = 0; j < URING_ENTRIES / 2; j++)
             splice_submit(&uring, j);
 
-        if (io_uring_submit(&uring) < 0) {
-            fprintf(stderr, "Failed to submit.\n");
+        if ((ret = io_uring_submit(&uring)) < 0) {
+            fprintf(stderr, "Failed to submit. %s\n", strerror(-ret));
             return -1;
         }
 
@@ -87,15 +93,22 @@ int main(void) {
                         strerror(rc));
 
             if (cqe->res < FILE_SIZE) {
-                if (cqe->user_data == DATA_SPLICE_IN)
+                if (cqe->user_data & DATA_SPLICE_IN)
                     fprintf(stderr, "Splice file to pipe: ");
                 else
                     fprintf(stderr, "Splice pipe to file: ");
 
                 if (cqe->res < 0)
                     fprintf(stderr, "got error %s.\n", strerror(-cqe->res));
-                else
-                    fprintf(stderr, "got short read/write %d.\n", cqe->res);
+                else {
+                    fprintf(stderr, "got short read/write %d. ", cqe->res);
+                    int pipe = *((int*)(cqe->user_data &
+                                        ~(DATA_SPLICE_IN | DATA_SPLICE_OUT)));
+                    int nbytes;
+                    if (ioctl(pipe, FIONREAD, &nbytes) < 0)
+                        perror("ioctl");
+                    fprintf(stderr, "%d bytes in pipe.\n", nbytes);
+                }
             }
 
             io_uring_cqe_seen(&uring, cqe);
