@@ -83,7 +83,8 @@ bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
 bool event_send_submit(EventTarget*, struct io_uring*, fd socket, CString data,
                        uint32_t send_flags, uint32_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
-                         fd out, size_t len, uint32_t sqe_flags, bool ignore);
+                         fd out, size_t len, uint32_t splice_flags,
+                         uint32_t sqe_flags, bool ignore);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 
