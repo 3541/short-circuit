@@ -54,6 +54,8 @@ public:
     static std::unique_ptr<Event> create(EventTarget* target, EventType ty,
                                          bool chain  = false,
                                          bool ignore = false) {
+        // The Event must be explicitly constructed because `make_unique` cannot
+        // see the constructor.
         return std::unique_ptr<Event> { new Event { target, ty, chain,
                                                     ignore } };
     }
