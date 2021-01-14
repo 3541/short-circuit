@@ -354,7 +354,8 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket,
 
 bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in,
                          uint64_t off_in, fd out, size_t len,
-                         uint32_t sqe_flags, bool ignore) {
+                         uint32_t splice_flags, uint32_t sqe_flags,
+                         bool ignore) {
     assert(target);
     assert(uring);
     assert(in >= 0);
@@ -369,7 +370,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in,
     TRYB(sqe);
 
     io_uring_prep_splice(sqe.get(), in, off_in, out, (uint64_t)-1,
-                         (unsigned)len, SPLICE_F_MOVE);
+                         (unsigned)len, SPLICE_F_MOVE | splice_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;

@@ -1,7 +1,8 @@
 # Short Circuit
 A lightweight and performant web server for Linux, built on top of io_uring.
-Capable of ~~60,000~~ ~~80,000~~ ~~120,000~~ 135,000 requests per second on
-static files.
+Capable of ~~60,000~~ ~~80,000~~ ~~120,000~~ ~~135,000 requests per second on
+static files~~. Suffice it to say, it is fast, and getting faster. Actual, more
+rigorous benchmarks will come once the project gets closer to completion.
 
 [io_uring](https://kernel.dk/io_uring.pdf?source=techstories.org) is a new
 asynchronous I/O system on Linux which offers a significant performance

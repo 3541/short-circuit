@@ -18,10 +18,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define _GNU_SOURCE // For SPLICE_F_MORE.
+
 #include "connection.h"
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <liburing/io_uring.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -157,15 +160,16 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
         }
     }
 
+    // TODO: This is horrendous. Clean it up.
     for (size_t sent = 0, remaining = len,
                 to_send = MIN(PIPE_BUF_SIZE, remaining);
          sent < len; sent += to_send, remaining -= to_send,
                 to_send = MIN(PIPE_BUF_SIZE, remaining)) {
         if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1],
-                                 to_send, sqe_flags | IOSQE_IO_LINK, true) ||
+                                 to_send, 0, sqe_flags | IOSQE_IO_LINK, true) ||
             !event_splice_submit(
                 EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
-                to_send,
+                to_send, (remaining > PIPE_BUF_SIZE)? SPLICE_F_MORE : 0,
                 sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
             ERR("Failed to submit splice.");
