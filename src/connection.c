@@ -175,7 +175,7 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
                                  to_send, 0, sqe_flags | IOSQE_IO_LINK, true) ||
             !event_splice_submit(
                 EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
-                to_send, (remaining > PIPE_BUF_SIZE)? SPLICE_F_MORE : 0,
+                to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
                 sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
             ERR("Failed to submit splice.");
