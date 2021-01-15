@@ -97,40 +97,42 @@ void http_connection_free(HttpConnection* this, struct io_uring* uring) {
 
 void http_connection_pool_free() { pool_free(HTTP_CONNECTION_POOL); }
 
-bool http_connection_init(HttpConnection* this) {
-    assert(this);
+bool http_connection_init(HttpConnection* conn) {
+    assert(conn);
 
-    TRYB(connection_init(&this->conn));
+    TRYB(connection_init(&conn->conn));
 
-    this->state                       = CONNECTION_INIT;
-    this->version                     = HTTP_VERSION_11;
-    this->keep_alive                  = true;
-    this->content_length              = -1;
-    this->transfer_encodings          = HTTP_TRANSFER_ENCODING_IDENTITY;
-    this->target_file                 = NULL;
-    this->response_transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
-    this->response_content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
+    http_request_init(&conn->request);
+    http_response_init(&conn->response);
+
+    conn->state       = CONNECTION_INIT;
+    conn->version     = HTTP_VERSION_11;
+    conn->keep_alive  = true;
+    conn->target_file = NULL;
 
     return true;
 }
 
-bool http_connection_reset(HttpConnection* this, struct io_uring* uring) {
-    assert(this);
+bool http_connection_close_submit(HttpConnection*  conn,
+                                  struct io_uring* uring) {
+    assert(conn);
     assert(uring);
 
-    if (this->host.ptr)
-        string_free(&this->host);
+    conn->state = CONNECTION_CLOSING;
+    return connection_close_submit(&conn->conn, uring);
+}
 
-    if (this->target_path.ptr)
-        string_free(&this->target_path);
+bool http_connection_reset(HttpConnection* conn, struct io_uring* uring) {
+    assert(conn);
+    assert(uring);
 
-    if (uri_is_initialized(&this->target))
-        uri_free(&this->target);
-
-    if (this->target_file) {
-        file_close(this->target_file, uring);
-        this->target_file = NULL;
+    if (conn->target_file) {
+        file_close(conn->target_file, uring);
+        conn->target_file = NULL;
     }
 
-    return connection_reset(&this->conn, uring);
+    http_request_reset(&conn->request);
+    http_response_reset(&conn->response);
+
+    return connection_reset(&conn->conn, uring);
 }

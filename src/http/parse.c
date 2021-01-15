@@ -35,17 +35,26 @@
 #include "config_runtime.h"
 #include "connection.h"
 #include "http/connection.h"
+#include "http/request.h"
 #include "http/response.h"
 #include "http/types.h"
 #include "uri.h"
 
+static inline Buffer* http_request_recv_buf(HttpRequest* req) {
+    assert(req);
+
+    return &http_request_connection(req)->conn.recv_buf;
+}
+
 // Try to parse the first line of the HTTP request.
-HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
+HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
                                                      struct io_uring* uring) {
-    assert(this);
+    assert(req);
     assert(uring);
 
-    Buffer* buf = &this->conn.recv_buf;
+    Buffer*         buf  = http_request_recv_buf(req);
+    HttpConnection* conn = http_request_connection(req);
+    HttpResponse*   resp = http_request_response(req);
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
@@ -53,21 +62,21 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
         if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
             return HTTP_REQUEST_STATE_NEED_DATA;
         RET_MAP(http_response_error_submit(
-                    this, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
+                    resp, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
-    this->method =
+    conn->method =
         http_request_method_parse(S_CONST(buf_token_next(buf, CS(" "))));
-    switch (this->method) {
+    switch (conn->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_UNKNOWN:
         log_msg(TRACE, "Got an unknown method.");
-        RET_MAP(http_response_error_submit(this, uring,
+        RET_MAP(http_response_error_submit(resp, uring,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
@@ -78,68 +87,70 @@ HttpRequestStateResult http_request_first_line_parse(HttpConnection* this,
 
     String target_str = buf_token_next(buf, CS(" "));
     if (!target_str.ptr)
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-    switch (uri_parse(&this->target, target_str)) {
+    switch (uri_parse(&req->target, target_str)) {
     case URI_PARSE_ERROR:
     case URI_PARSE_BAD_URI:
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case URI_PARSE_TOO_LONG:
         RET_MAP(http_response_error_submit(
-                    this, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
+                    resp, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
         break;
     }
 
-    this->target_path = uri_path_if_contained(&this->target, CONFIG.web_root);
-    if (!this->target_path.ptr)
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_NOT_FOUND,
+    req->target_path = uri_path_if_contained(&req->target, CONFIG.web_root);
+    if (!req->target_path.ptr)
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    this->version = http_version_parse(
+    conn->version = http_version_parse(
         S_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
     // Need to only eat one "\r\n".
     TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
-    if (this->version == HTTP_VERSION_INVALID ||
-        this->version == HTTP_VERSION_UNKNOWN ||
-        (this->version == HTCPCP_VERSION_10 &&
-         this->method != HTTP_METHOD_BREW)) {
+    if (conn->version == HTTP_VERSION_INVALID ||
+        conn->version == HTTP_VERSION_UNKNOWN ||
+        (conn->version == HTCPCP_VERSION_10 &&
+         conn->method != HTTP_METHOD_BREW)) {
         log_msg(TRACE, "Got a bad HTTP version.");
-        this->version = HTTP_VERSION_11;
+        conn->version = HTTP_VERSION_11;
         RET_MAP(
-            http_response_error_submit(this, uring,
-                                       (this->version == HTTP_VERSION_INVALID)
+            http_response_error_submit(resp, uring,
+                                       (conn->version == HTTP_VERSION_INVALID)
                                            ? HTTP_STATUS_BAD_REQUEST
                                            : HTTP_STATUS_VERSION_NOT_SUPPORTED,
                                        HTTP_RESPONSE_CLOSE),
             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-    } else if (this->version == HTTP_VERSION_10) {
+    } else if (conn->version == HTTP_VERSION_10) {
         // HTTP/1.0 is 'Connection: Close' by default.
-        this->keep_alive = false;
+        conn->keep_alive = false;
     }
 
-    this->state = CONNECTION_PARSED_FIRST_LINE;
+    conn->state = CONNECTION_PARSED_FIRST_LINE;
 
     return HTTP_REQUEST_STATE_DONE;
 }
 
 // Try to parse the first line of the HTTP request.
-HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
+HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
                                                   struct io_uring* uring) {
-    assert(this);
+    assert(req);
     assert(uring);
 
-    Buffer* buf = &this->conn.recv_buf;
+    Buffer*         buf  = http_request_recv_buf(req);
+    HttpConnection* conn = http_request_connection(req);
+    HttpResponse*   resp = http_request_response(req);
 
     if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
             return HTTP_REQUEST_STATE_NEED_DATA;
-        RET_MAP(http_response_error_submit(this, uring,
+        RET_MAP(http_response_error_submit(resp, uring,
                                            HTTP_STATUS_HEADER_TOO_LARGE,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
@@ -157,27 +168,27 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
 
             // RFC7230 § 5.4: Invalid field-value -> 400.
             if (!name.ptr || !value.ptr)
-                RET_MAP(http_response_error_submit(this, uring,
+                RET_MAP(http_response_error_submit(resp, uring,
                                                    HTTP_STATUS_BAD_REQUEST,
                                                    HTTP_RESPONSE_CLOSE),
                         HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
             // TODO: Handle general headers.
             if (string_cmpi(name, CS("Connection")) == 0)
-                this->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
+                conn->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
             else if (string_cmpi(name, CS("Host")) == 0) {
                 // ibid. >1 Host header -> 400.
-                if (this->host.ptr)
-                    RET_MAP(http_response_error_submit(this, uring,
+                if (req->host.ptr)
+                    RET_MAP(http_response_error_submit(resp, uring,
                                                        HTTP_STATUS_BAD_REQUEST,
                                                        HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-                this->host = string_clone(value);
+                req->host = string_clone(value);
             } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
-                this->transfer_encodings |= http_transfer_encoding_parse(value);
-                if (this->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
-                    RET_MAP(http_response_error_submit(this, uring,
+                req->transfer_encodings |= http_transfer_encoding_parse(value);
+                if (req->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
+                    RET_MAP(http_response_error_submit(resp, uring,
                                                        HTTP_STATUS_BAD_REQUEST,
                                                        HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
@@ -191,20 +202,20 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
                 // RFC 7230 § 3.3.3, step 4: Invalid or conflicting
                 // Content-Length
                 // -> 400.
-                if (*endptr != '\0' || (this->content_length != -1 &&
-                                        this->content_length != new_length))
-                    RET_MAP(http_response_error_submit(this, uring,
+                if (*endptr != '\0' || (req->content_length != -1 &&
+                                        req->content_length != new_length))
+                    RET_MAP(http_response_error_submit(resp, uring,
                                                        HTTP_STATUS_BAD_REQUEST,
                                                        HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
                 if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
                     RET_MAP(http_response_error_submit(
-                                this, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                                resp, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
                                 HTTP_RESPONSE_CLOSE),
                             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-                this->content_length = new_length;
+                req->content_length = new_length;
             }
         }
 
@@ -214,37 +225,37 @@ HttpRequestStateResult http_request_headers_parse(HttpConnection* this,
 
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
     // a request, and the server MUST respond with a 400.
-    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
-        (this->transfer_encodings & HTTP_TRANSFER_ENCODING_CHUNKED) == 0)
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
+    if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) &&
+        !(req->transfer_encodings & HTTP_TRANSFER_ENCODING_CHUNKED))
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // ibid. Transfer-Encoding overrides Content-Length.
-    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0 &&
-        this->content_length >= 0)
-        this->content_length = -1;
+    if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) &&
+        req->content_length >= 0)
+        req->content_length = -1;
 
     // TODO: Support other transfer encodings.
-    if ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) != 0)
-        RET_MAP(http_response_error_submit(this, uring,
+    if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY))
+        RET_MAP(http_response_error_submit(resp, uring,
                                            HTTP_STATUS_NOT_IMPLEMENTED,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // RFC7230 § 3.3.3, step 6: default to Content-Length of 0.
-    if (this->content_length == -1 &&
-        ((this->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) == 0)) {
-        this->content_length = 0;
+    if (req->content_length == -1 &&
+        !(req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY)) {
+        req->content_length = 0;
     }
 
     // RFC7230 § 5.4: HTTP/1.1 messages must have a Host header.
-    if (this->version == HTTP_VERSION_11 && !this->host.ptr)
-        RET_MAP(http_response_error_submit(this, uring, HTTP_STATUS_BAD_REQUEST,
+    if (conn->version == HTTP_VERSION_11 && !req->host.ptr)
+        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    this->state = CONNECTION_PARSED_HEADERS;
+    conn->state = CONNECTION_PARSED_HEADERS;
 
     return HTTP_REQUEST_STATE_DONE;
 }

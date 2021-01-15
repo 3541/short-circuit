@@ -56,6 +56,12 @@ static bool connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
 
+static inline HttpConnection* connection_http(Connection* conn) {
+    assert(conn);
+
+    return CONTAINER_OF(conn, HttpConnection, conn);
+}
+
 void connection_timeout_init() {
     timeout_queue_init(&connection_timeout_queue);
 }
@@ -325,11 +331,9 @@ static bool connection_timeout_handle(Timeout*         timeout,
     assert(timeout);
     assert(uring);
 
-    Connection* this =
-        (Connection*)((uintptr_t)timeout - offsetof(Connection, timeout));
-    assert(this);
+    Connection* conn = CONTAINER_OF(timeout, Connection, timeout);
 
-    return http_response_error_submit((HttpConnection*)this, uring,
+    return http_response_error_submit(&connection_http(conn)->response, uring,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
 }
 

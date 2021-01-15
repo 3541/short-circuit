@@ -24,11 +24,19 @@
 #include "forward.h"
 #include "http/types.h"
 
+typedef struct HttpResponse {
+    HttpContentType      content_type;
+    HttpTransferEncoding transfer_encodings;
+} HttpResponse;
+
+void http_response_init(HttpResponse*);
+void http_response_reset(HttpResponse*);
+
 bool http_response_handle(HttpConnection*, struct io_uring*);
 
 #define HTTP_RESPONSE_CLOSE true
 #define HTTP_RESPONSE_ALLOW false
-bool http_response_error_submit(HttpConnection*, struct io_uring*, HttpStatus,
+bool http_response_error_submit(HttpResponse*, struct io_uring*, HttpStatus,
                                 bool close);
 
-bool http_response_file_submit(HttpConnection*, struct io_uring*);
+bool http_response_file_submit(HttpResponse*, struct io_uring*);

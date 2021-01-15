@@ -19,9 +19,25 @@
 
 #pragma once
 
+#include <assert.h>
+
 #include "forward.h"
 #include "http/types.h"
+#include "uri.h"
 
-void http_request_reset(HttpConnection*);
+typedef struct HttpRequest {
+    HttpTransferEncoding transfer_encodings;
+    ssize_t              content_length;
+
+    String host;
+    Uri    target;
+    String target_path;
+} HttpRequest;
+
+HttpConnection* http_request_connection(HttpRequest*);
+HttpResponse*   http_request_response(HttpRequest*);
+
+void http_request_init(HttpRequest*);
+void http_request_reset(HttpRequest*);
 
 HttpRequestResult http_request_handle(HttpConnection*, struct io_uring*);

@@ -27,6 +27,8 @@
 
 #include "../connection.h"
 #include "file.h"
+#include "http/request.h"
+#include "http/response.h"
 #include "http/types.h"
 #include "uri.h"
 
@@ -45,20 +47,14 @@ typedef struct HttpConnection {
     Connection conn;
 
     HttpConnectionState state;
+    HttpVersion         version;
+    HttpMethod          method;
+    bool                keep_alive;
 
-    HttpVersion version;
-    HttpMethod  method;
-    Uri         target;
-    String      target_path;
+    HttpRequest  request;
+    HttpResponse response;
+
     FileHandle* target_file;
-
-    bool                 keep_alive;
-    String               host;
-    HttpTransferEncoding transfer_encodings;
-    ssize_t              content_length;
-
-    HttpContentType      response_content_type;
-    HttpTransferEncoding response_transfer_encodings;
 } HttpConnection;
 
 void            http_connection_pool_init(void);
@@ -67,4 +63,5 @@ void            http_connection_free(HttpConnection*, struct io_uring*);
 void            http_connection_pool_free(void);
 
 bool http_connection_init(HttpConnection*);
+bool http_connection_close_submit(HttpConnection*, struct io_uring*);
 bool http_connection_reset(HttpConnection*, struct io_uring*);

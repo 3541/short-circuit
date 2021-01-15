@@ -42,6 +42,14 @@ typedef struct Event Event;
 struct HttpConnection;
 typedef struct HttpConnection HttpConnection;
 
+// http_request.h
+struct HttpRequest;
+typedef struct HttpRequest HttpRequest;
+
+// http_response.h
+struct HttpResponse;
+typedef struct HttpResponse HttpResponse;
+
 // listen.h
 struct Listener;
 typedef struct Listener Listener;
