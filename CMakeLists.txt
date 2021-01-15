@@ -25,8 +25,6 @@ else()
   message(WARNING "LTO is not supported.")
 endif()
 
-add_compile_options(-Wall -Wextra)
-
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
