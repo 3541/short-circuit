@@ -23,6 +23,8 @@
 
 #include <a3/str.h>
 
+#define HTTP_NEWLINE CS("\r\n")
+
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
     _METHOD(HTTP_METHOD_BREW, "BREW")                                          \

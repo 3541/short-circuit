@@ -30,8 +30,6 @@
 #include "http/response.h"
 #include "http/types.h"
 
-#define HTTP_NEWLINE CS("\r\n")
-
 typedef enum HttpConnectionState {
     CONNECTION_INIT,
     CONNECTION_PARSED_FIRST_LINE,
