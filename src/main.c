@@ -23,13 +23,12 @@
 
 #include <errno.h>
 #include <liburing.h>
-#include <liburing/io_uring.h>
 #include <signal.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <a3/log.h>
 #include <a3/str.h>
@@ -40,9 +39,10 @@
 #include "connection.h"
 #include "event.h"
 #include "event/handle.h"
+#include "file.h"
+#include "forward.h"
 #include "http/connection.h"
 #include "listen.h"
-#include "timeout.h"
 
 Config CONFIG = { CS_NULL,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)

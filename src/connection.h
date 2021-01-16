@@ -21,9 +21,9 @@
 #pragma once
 
 #include <liburing.h>
-#include <liburing/io_uring.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <sys/socket.h>
 

@@ -20,7 +20,6 @@
 #include "http/request.h"
 
 #include <assert.h>
-#include <fcntl.h>
 #include <liburing.h>
 
 #include <a3/log.h>

@@ -34,6 +34,7 @@
 
 #include <a3/buffer.h>
 #include <a3/log.h>
+#include <a3/platform/types.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
@@ -42,6 +43,7 @@
 #include "event.h"
 #include "file.h"
 #include "http/connection.h"
+#include "http/request.h"
 #include "http/types.h"
 
 static inline HttpConnection* http_response_connection(HttpResponse* resp) {

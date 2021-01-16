@@ -19,11 +19,13 @@
 
 #include "event/handle.h"
 
-#include <assert.h>
+#include <cassert>
+#include <cstdint>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 
 #include <a3/log.h>
+#include <a3/sll.h>
 #include <a3/util.h>
 
 #include "config.h"

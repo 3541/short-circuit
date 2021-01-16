@@ -22,10 +22,12 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <liburing.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <a3/cache.h>
-#include <a3/ht.h>
+#include <a3/log.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 #include <a3/util.h>

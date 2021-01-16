@@ -39,6 +39,7 @@ struct Event;
 typedef struct Event Event;
 
 typedef struct EventSLL EventTarget;
+typedef struct EventSLL EventQueue;
 
 // http_connection.h
 struct HttpConnection;

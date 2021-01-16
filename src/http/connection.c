@@ -28,15 +28,14 @@
 #include <a3/buffer.h>
 #include <a3/log.h>
 #include <a3/pool.h>
-#include <a3/str.h>
 #include <a3/util.h>
 
 #include "config.h"
 #include "connection.h"
 #include "event.h"
 #include "file.h"
+#include "forward.h"
 #include "http/types.h"
-#include "uri.h"
 
 static Pool* HTTP_CONNECTION_POOL = NULL;
 

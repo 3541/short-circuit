@@ -23,6 +23,10 @@
 #include <assert.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <string.h>
+#include <sys/socket.h>
+
+#include <a3/util.h>
 
 #include "config.h"
 #include "connection.h"

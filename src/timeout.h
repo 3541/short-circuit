@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <liburing.h>
-#include <liburing/io_uring.h>
 #include <stdbool.h>
 #include <stdint.h>
 

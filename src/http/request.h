@@ -19,7 +19,9 @@
 
 #pragma once
 
-#include <assert.h>
+#include <sys/types.h>
+
+#include <a3/str.h>
 
 #include "forward.h"
 #include "http/types.h"

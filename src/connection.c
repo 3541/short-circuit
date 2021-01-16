@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <a3/buffer.h>
 #include <a3/log.h>

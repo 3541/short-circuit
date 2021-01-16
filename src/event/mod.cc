@@ -21,13 +21,17 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <fcntl.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <memory>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
+#include <unistd.h>
+#include <utility>
 
 #include <a3/log.h>
 #include <a3/pool.h>
@@ -36,8 +40,8 @@
 #include <a3/util.h>
 
 #include "config.h"
-#include "event/handle.h"
 #include "event/internal.hh"
+#include "forward.h"
 
 using std::move;
 using std::unique_ptr;
