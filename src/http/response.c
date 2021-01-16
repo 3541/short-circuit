@@ -321,17 +321,21 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     if (!conn->target_file) {
         conn->state = CONNECTION_OPENING_FILE;
         conn->target_file =
-            file_open(uring, S_CONST(conn->request.target_path), O_RDONLY);
+            file_open(EVT(&conn->conn), uring,
+                      S_CONST(conn->request.target_path), O_RDONLY);
     }
 
     if (!conn->target_file)
-        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
+        return http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
                                           HTTP_RESPONSE_ALLOW);
 
-    conn->state = CONNECTION_RESPONDING;
+    if (file_handle_waiting(conn->target_file))
+        return true;
 
-    fd target_file = file_handle_fd(conn->target_file);
-    assert(target_file >= 0);
+    fd target_file = file_handle_fd_unchecked(conn->target_file);
+    if (target_file < 0)
+        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
+                                          HTTP_RESPONSE_ALLOW);
 
     struct stat res;
     TRYB(fstat(target_file, &res) == 0);
@@ -340,21 +344,28 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
 
     if (S_ISDIR(res.st_mode)) {
         FileHandle* index_file =
-            file_openat(uring, conn->target_file, INDEX_FILENAME, O_RDONLY);
+            file_openat(EVT(&conn->conn), uring, conn->target_file,
+                        INDEX_FILENAME, O_RDONLY);
         // TODO: Directory listings.
         if (!index_file)
             return http_response_error_submit(
-                resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
+                resp, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_ALLOW);
 
         file_close(conn->target_file, uring);
         conn->target_file = index_file;
-        target_file       = file_handle_fd(conn->target_file);
+        if (file_handle_waiting(conn->target_file))
+            return true;
+
+        target_file = file_handle_fd(conn->target_file);
         TRYB(fstat(target_file, &res) == 0);
     }
 
     if (!S_ISREG(res.st_mode))
         return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
                                           HTTP_RESPONSE_ALLOW);
+
+    conn->state = CONNECTION_RESPONDING;
+
     if (index)
         resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
     else

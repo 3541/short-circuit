@@ -18,6 +18,7 @@
  */
 
 #include "file.h"
+#include "file_handle.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -25,19 +26,16 @@
 
 #include <a3/cache.h>
 #include <a3/ht.h>
+#include <a3/sll.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
 #include "config.h"
 #include "event.h"
+#include "event/handle.h"
 #include "forward.h"
 
-typedef struct FileHandle {
-    CString  path;
-    fd       file;
-    uint32_t open_count;
-    int32_t  flags;
-} FileHandle;
+#define FILE_HANDLE_WAITING (-4242)
 
 typedef FileHandle* FileHandlePtr;
 
@@ -55,7 +53,6 @@ static void file_evict_callback(void* uring, CString* key, FileHandle** value) {
     assert(value);
 
     log_fmt(TRACE, "Evicting file " S_F ".", S_FA(*key));
-    string_free((String*)key);
     file_close(*value, uring);
 }
 
@@ -64,45 +61,67 @@ void file_cache_init() {
     (&FILE_CACHE, FD_CACHE_SIZE, file_evict_callback);
 }
 
-FileHandle* file_open(struct io_uring* uring, CString path, int32_t flags) {
+static void file_handle_wait(EventTarget* target, FileHandle* handle) {
+    assert(target);
+    assert(handle);
+
+    Event* event = event_create(target, EVENT_OPENAT_SYNTH);
+    SLL_PUSH(Event)(&handle->waiting, event);
+}
+
+FileHandle* file_open(EventTarget* target, struct io_uring* uring, CString path,
+                      int32_t flags) {
+    assert(target);
     assert(uring);
     assert(path.ptr);
-    (void)uring;
+    assert(flags == O_RDONLY);
 
     FileHandle** handle_ptr =
         CACHE_FIND(CString, FileHandlePtr)(&FILE_CACHE, path);
     if (handle_ptr && (*handle_ptr)->flags == flags) {
+        FileHandle* handle = *handle_ptr;
+
         log_fmt(TRACE, "File cache hit on " S_F ".", S_FA(path));
-        (*handle_ptr)->open_count++;
-        return *handle_ptr;
+        handle->open_count++;
+
+        // The handle is not ready, but an open request is in flight. Synthesize
+        // an event so the caller is notified when the file is opened.
+        if (file_handle_waiting(handle)) {
+            log_msg(TRACE, "  Open in-flight. Waiting.");
+            file_handle_wait(target, handle);
+        }
+
+        return handle;
     }
 
     log_fmt(TRACE, "File cache miss on " S_F ".", S_FA(path));
     FileHandle* handle = NULL;
     UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
-    // TODO: Work out a good way to do this via the uring.
-    handle->file = open(S_AS_C_STR(path), flags);
-    if (handle->file < 0) {
+    handle->path       = S_CONST(string_clone(path));
+    handle->open_count = 2;
+    handle->file       = FILE_HANDLE_WAITING;
+
+    if (!event_openat_submit(EVT(handle), uring, -1, handle->path, flags, 0)) {
+        log_msg(WARN, "Unable to submit OPENAT event.");
+        string_free((String*)&handle->path);
         free(handle);
-        log_fmt(WARN, "Unable to open file " S_F ": %s.", S_FA(path),
-                strerror(errno));
         return NULL;
     }
 
-    handle->path       = S_CONST(string_clone(path));
-    handle->open_count = 2; // Being in the cache counts for a reference.
+    file_handle_wait(target, handle);
     CACHE_INSERT(CString, FileHandlePtr)
-    (&FILE_CACHE, S_CONST(string_clone(path)), handle, uring);
+    (&FILE_CACHE, handle->path, handle, uring);
 
     return handle;
 }
 
-FileHandle* file_openat(struct io_uring* uring, FileHandle* dir, CString name,
-                        int32_t flags) {
+FileHandle* file_openat(EventTarget* target, struct io_uring* uring,
+                        FileHandle* dir, CString name, int32_t flags) {
+    assert(target);
     assert(uring);
     assert(dir);
     assert(name.ptr);
-    (void)uring;
+    assert(flags == O_RDONLY);
 
     String full_path = string_alloc(dir->path.len + name.len + 1);
     if (dir->path.ptr[dir->path.len - 1] == '/')
@@ -113,28 +132,35 @@ FileHandle* file_openat(struct io_uring* uring, FileHandle* dir, CString name,
     FileHandle** handle_ptr =
         CACHE_FIND(CString, FileHandlePtr)(&FILE_CACHE, S_CONST(full_path));
     if (handle_ptr && (*handle_ptr)->flags == flags) {
+        FileHandle* handle = *handle_ptr;
+
         log_fmt(TRACE, "File cache hit (openat) on " S_F ".", S_FA(full_path));
-        (*handle_ptr)->open_count++;
+        handle->open_count++;
         string_free(&full_path);
-        return *handle_ptr;
+
+        file_handle_wait(target, handle);
+
+        return handle;
     }
 
     log_fmt(TRACE, "File cache miss (openat) on " S_F ".", S_FA(full_path));
     FileHandle* handle = NULL;
     UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
-    handle->file = openat(dir->file, S_AS_C_STR(name), flags);
-    if (handle->file < 0) {
-        free(handle);
-        log_fmt(WARN, "Unable to open file " S_F ": %s.", S_FA(full_path),
-                strerror(errno));
+    handle->path       = S_CONST(full_path);
+    handle->open_count = 2;
+    handle->file       = FILE_HANDLE_WAITING;
+
+    if (!event_openat_submit(EVT(handle), uring, file_handle_fd(dir),
+                             handle->path, flags, 0)) {
+        log_msg(WARN, "Unable to submit OPENAT event.");
         string_free(&full_path);
+        free(handle);
         return NULL;
     }
 
-    handle->path       = S_CONST(full_path);
-    handle->open_count = 2;
+    file_handle_wait(target, handle);
     CACHE_INSERT(CString, FileHandlePtr)
-    (&FILE_CACHE, S_CONST(string_clone(handle->path)), handle, uring);
+    (&FILE_CACHE, handle->path, handle, uring);
 
     return handle;
 }
@@ -145,16 +171,24 @@ fd file_handle_fd(FileHandle* handle) {
     return handle->file;
 }
 
+fd file_handle_fd_unchecked(FileHandle* handle) { return handle->file; }
+
+bool file_handle_waiting(FileHandle* handle) {
+    assert(handle);
+
+    return handle->file == FILE_HANDLE_WAITING;
+}
+
 void file_close(FileHandle* handle, struct io_uring* uring) {
     assert(handle);
-    assert(handle->file >= 0);
     assert(handle->open_count);
     assert(uring);
 
     if (--handle->open_count)
         return; // Other users remain.
 
-    event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
+    if (handle->file >= 0)
+        event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
     string_free((String*)&handle->path);
     free(handle);
 }
@@ -163,4 +197,15 @@ void file_cache_destroy(struct io_uring* uring) {
     assert(uring);
 
     CACHE_CLEAR(CString, FileHandlePtr)(&FILE_CACHE, uring);
+}
+
+void file_handle_event_handle(FileHandle* handle, struct io_uring* uring,
+                              int32_t status) {
+    assert(handle);
+    assert(file_handle_waiting(handle));
+    assert(uring);
+
+    handle->file = status;
+
+    event_handle_all(&handle->waiting, uring);
 }

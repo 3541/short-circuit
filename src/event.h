@@ -44,6 +44,7 @@ H_BEGIN
     _EVENT_TYPE(EVENT_ACCEPT)                                                  \
     _EVENT_TYPE(EVENT_CLOSE)                                                   \
     _EVENT_TYPE(EVENT_OPENAT)                                                  \
+    _EVENT_TYPE(EVENT_OPENAT_SYNTH)                                            \
     _EVENT_TYPE(EVENT_READ)                                                    \
     _EVENT_TYPE(EVENT_RECV)                                                    \
     _EVENT_TYPE(EVENT_SEND)                                                    \

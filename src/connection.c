@@ -248,6 +248,18 @@ static bool connection_close_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
+static bool connection_openat_handle(Connection* conn, struct io_uring* uring,
+                                     int32_t status, bool chain) {
+    assert(conn);
+    assert(uring);
+    assert(!chain);
+    (void)chain;
+    (void)status;
+
+    // FIXME: This is ugly and unnecessary coupling.
+    return http_response_handle((HttpConnection*)conn, uring);
+}
+
 static bool connection_read_handle(Connection* this, struct io_uring* uring,
                                    int32_t status, bool chain) {
     assert(this);
@@ -351,8 +363,8 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
     case EVENT_CLOSE:
         rc = connection_close_handle(conn, uring, status, chain);
         break;
-    case EVENT_OPENAT:
-        PANIC("UNIMPLEMENTED");
+    case EVENT_OPENAT_SYNTH:
+        rc = connection_openat_handle(conn, uring, status, chain);
         break;
     case EVENT_READ:
         rc = connection_read_handle(conn, uring, status, chain);
@@ -366,8 +378,9 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
     case EVENT_SPLICE:
         rc = connection_splice_handle(conn, uring, status, chain);
         break;
-    case EVENT_TIMEOUT:
     case EVENT_INVALID:
+    case EVENT_OPENAT:
+    case EVENT_TIMEOUT:
         PANIC_FMT("Invalid event %d.", type);
     }
 

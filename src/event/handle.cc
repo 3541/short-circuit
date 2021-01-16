@@ -30,6 +30,8 @@
 #include "connection.h"
 #include "event.h"
 #include "event/internal.hh"
+#include "file.h"
+#include "file_handle.h"
 #include "timeout.h"
 
 void event_queue_init(EventQueue* queue) {
@@ -56,7 +58,7 @@ void Event::handle(struct io_uring& uring) {
     switch (ty) {
     case EVENT_ACCEPT:
     case EVENT_CLOSE:
-    case EVENT_OPENAT:
+    case EVENT_OPENAT_SYNTH:
     case EVENT_READ:
     case EVENT_RECV:
     case EVENT_SEND:
@@ -64,6 +66,9 @@ void Event::handle(struct io_uring& uring) {
         connection_event_handle(EVT_PTR(target, Connection), &uring, ty,
                                 status_code, chain);
         return;
+    case EVENT_OPENAT:
+        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring,
+                                 status_code);
         return;
     case EVENT_TIMEOUT:
         timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring,
