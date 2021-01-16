@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <a3/cpp.h>
+#include <a3/platform/util.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 
@@ -59,11 +60,14 @@ typedef enum EventType {
 typedef struct Event Event;
 
 SLL_DEFINE_STRUCTS(Event);
+SLL_DECLARE_METHODS(Event);
 
 typedef SLL(Event) EventTarget;
 
-#define EVENT_TARGET EventTarget _events_queued
-#define EVT(O)       (&(O)->_events_queued)
+// Include this as a member to make an object a viable event target.
+#define EVENT_TARGET   EventTarget _events_queued
+#define EVT(O)         (&(O)->_events_queued)
+#define EVT_PTR(T, TY) CONTAINER_OF((T), TY, _events_queued)
 
 CString event_type_name(EventType);
 

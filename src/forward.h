@@ -38,6 +38,8 @@ typedef struct Connection Connection;
 struct Event;
 typedef struct Event Event;
 
+typedef struct EventSLL EventTarget;
+
 // http_connection.h
 struct HttpConnection;
 typedef struct HttpConnection HttpConnection;

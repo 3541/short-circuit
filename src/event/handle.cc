@@ -28,6 +28,7 @@
 
 #include "config.h"
 #include "connection.h"
+#include "event.h"
 #include "event/internal.hh"
 #include "timeout.h"
 
@@ -60,11 +61,13 @@ void Event::handle(struct io_uring& uring) {
     case EVENT_RECV:
     case EVENT_SEND:
     case EVENT_SPLICE:
-        connection_event_handle(reinterpret_cast<Connection*>(target), &uring,
-                                ty, status_code, chain);
+        connection_event_handle(EVT_PTR(target, Connection), &uring, ty,
+                                status_code, chain);
+        return;
         return;
     case EVENT_TIMEOUT:
-        timeout_handle(reinterpret_cast<TimeoutQueue*>(target), &uring, status);
+        timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring,
+                             status_code);
         return;
     case EVENT_INVALID:
         return;
