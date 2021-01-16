@@ -92,6 +92,11 @@ bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
                           uint32_t timeout_flags);
 
+// Synthesize an event. This Event is _not_ queued, but is useful for situations
+// in which one completion from the uring must notify multiple targets. See
+// file.c for an example of usage.
+Event* event_create(EventTarget*, EventType);
+
 bool event_cancel_all(EventTarget*);
 
 H_END

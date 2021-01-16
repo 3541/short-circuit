@@ -46,11 +46,13 @@ SLL_DEFINE_METHODS(Event);
 
 static Pool* EVENT_POOL = nullptr;
 
-Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore)
-    : type { ty } {
+Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore,
+             bool queue) :
+    type { ty } {
     target_ptr = reinterpret_cast<uintptr_t>(tgt) | (chain ? EVENT_CHAIN : 0) |
                  (ignore ? EVENT_IGNORE : 0);
-    SLL_PUSH(Event)(tgt, this);
+    if (queue)
+        SLL_PUSH(Event)(tgt, this);
 }
 
 void* Event::operator new(size_t size) noexcept {
@@ -402,4 +404,11 @@ bool event_cancel_all(EventTarget* target) {
         victim->cancel();
 
     return true;
+}
+
+Event* event_create(EventTarget* target, EventType ty) {
+    assert(target);
+    return Event::create(target, ty, /* chain */ false, /* ignore */ false,
+                         /* queue */ false)
+        .release();
 }

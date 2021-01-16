@@ -36,8 +36,10 @@ private:
 
     // For access to the target.
     friend void event_handle_all(EventQueue* queue, struct io_uring* uring);
+    // For initialization.
+    friend Event* event_create(EventTarget*, EventType);
 
-    Event(EventTarget*, EventType, bool chain, bool ignore);
+    Event(EventTarget*, EventType, bool chain, bool ignore, bool queue);
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
@@ -56,11 +58,12 @@ public:
 
     static std::unique_ptr<Event> create(EventTarget* target, EventType ty,
                                          bool chain  = false,
-                                         bool ignore = false) {
+                                         bool ignore = false,
+                                         bool queue  = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, chain,
-                                                    ignore } };
+        return std::unique_ptr<Event> { new Event { target, ty, chain, ignore,
+                                                    queue } };
     }
 
     void handle(struct io_uring&);
