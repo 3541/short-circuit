@@ -22,9 +22,12 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include <a3/cpp.h>
 #include <a3/str.h>
 
 #include "forward.h"
+
+H_BEGIN
 
 typedef struct FileHandle FileHandle;
 
@@ -35,3 +38,5 @@ FileHandle* file_openat(struct io_uring*, FileHandle* dir, CString name,
 fd          file_handle_fd(FileHandle*);
 void        file_close(FileHandle*, struct io_uring*);
 void        file_cache_destroy(struct io_uring*);
+
+H_END
