@@ -89,8 +89,8 @@ bool timeout_cancel(Timeout* this) {
     return true;
 }
 
-bool timeout_handle(TimeoutQueue* this, struct io_uring* uring,
-                    int32_t status) {
+bool timeout_event_handle(TimeoutQueue* this, struct io_uring* uring,
+                          int32_t status) {
     assert(this);
     assert(uring);
     assert(status > 0 || status == -ETIME);

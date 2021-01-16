@@ -54,6 +54,6 @@ void timeout_queue_init(TimeoutQueue*);
 bool timeout_schedule(TimeoutQueue*, Timeout*, struct io_uring*);
 bool timeout_is_scheduled(Timeout*);
 bool timeout_cancel(Timeout*);
-bool timeout_handle(TimeoutQueue*, struct io_uring*, int32_t status);
+bool timeout_event_handle(TimeoutQueue*, struct io_uring*, int32_t status);
 
 H_END
