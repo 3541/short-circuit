@@ -27,16 +27,19 @@
 #include "forward.h"
 
 struct Event {
+    SLL_NODE(Event);
+
+private:
     EventType type { EVENT_INVALID };
     int32_t   status { 0 };
     uintptr_t target_ptr { 0 };
-    SLL_NODE(Event);
 
     // For access to the target.
     friend void event_handle_all(EventQueue* queue, struct io_uring* uring);
 
-private:
     Event(EventTarget*, EventType, bool chain, bool ignore);
+    Event(const Event&) = delete;
+    Event(Event&&)      = delete;
 
     static void* operator new(size_t size) noexcept;
 
@@ -64,5 +67,3 @@ public:
     void cancel() { target_ptr = 0; }
     bool canceled() { return !target_ptr; }
 };
-
-SLL_DECLARE_METHODS(Event);
