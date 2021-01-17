@@ -83,6 +83,23 @@ void Event::handle(struct io_uring& uring) {
     UNREACHABLE();
 }
 
+// Handle all events pending on the queue.
+void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
+    assert(queue);
+    assert(uring);
+
+    if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
+        return;
+
+    auto* event = SLL_PEEK(Event)(queue);
+    while (event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE) {
+        event = SLL_DEQUEUE(Event)(queue);
+        event->handle(*uring);
+
+        event = SLL_PEEK(Event)(queue);
+    }
+}
+
 // Dequeue all CQEs and handle as many as possible.
 void event_handle_all(EventQueue* queue, struct io_uring* uring) {
     assert(queue);
@@ -120,12 +137,5 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
     // Now, handle as many of the queued CQEs as possible without filling the
     // SQ.
-    if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
-        return;
-    for (auto* event = SLL_DEQUEUE(Event)(queue);
-         event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE;
-         event = SLL_POP(Event)(queue))
-        event->handle(*uring);
-
-    return;
+    event_queue_handle_all(queue, uring);
 }
