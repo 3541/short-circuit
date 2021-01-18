@@ -295,6 +295,9 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring,
 
     conn->state        = CONNECTION_RESPONDING;
     resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
+    if (conn->version == HTTP_VERSION_INVALID ||
+        conn->version == HTTP_VERSION_UNKNOWN)
+        conn->version = HTTP_VERSION_11;
 
     CString body = http_response_error_make_body(resp, status);
     TRYB(body.ptr);

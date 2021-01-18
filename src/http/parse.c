@@ -119,7 +119,6 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
         (conn->version == HTCPCP_VERSION_10 &&
          conn->method != HTTP_METHOD_BREW)) {
         log_msg(TRACE, "Got a bad HTTP version.");
-        conn->version = HTTP_VERSION_11;
         RET_MAP(
             http_response_error_submit(resp, uring,
                                        (conn->version == HTTP_VERSION_INVALID)
