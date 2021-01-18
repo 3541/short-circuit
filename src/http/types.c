@@ -34,7 +34,8 @@ HttpMethod http_request_method_parse(CString str) {
     } HTTP_METHOD_NAMES[] = { HTTP_METHOD_ENUM };
 #undef _METHOD
 
-    assert(str.ptr && *str.ptr);
+    if (!str.ptr || !*str.ptr)
+        return HTTP_METHOD_INVALID;
 
     TRYB_MAP(str.ptr && string_isascii(str), HTTP_METHOD_INVALID);
 
@@ -56,7 +57,8 @@ CString http_version_string(HttpVersion version) {
 }
 
 HttpVersion http_version_parse(CString str) {
-    assert(str.ptr && *str.ptr);
+    if (!str.ptr || !*str.ptr)
+        return HTTP_VERSION_INVALID;
 
     TRYB_MAP(str.ptr && string_isascii(str), HTTP_VERSION_INVALID);
 
