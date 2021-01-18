@@ -67,7 +67,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
     }
 
     conn->method =
-        http_request_method_parse(S_CONST(buf_token_next(buf, CS(" "))));
+        http_request_method_parse(S_CONST(buf_token_next(buf, CS(" \r\n"))));
     switch (conn->method) {
     case HTTP_METHOD_INVALID:
         log_msg(TRACE, "Got an invalid method.");
@@ -85,7 +85,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
         break;
     }
 
-    String target_str = buf_token_next(buf, CS(" "));
+    String target_str = buf_token_next(buf, CS(" \r\n"));
     if (!target_str.ptr)
         RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
                                            HTTP_RESPONSE_CLOSE),
@@ -110,11 +110,11 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
                                            HTTP_RESPONSE_ALLOW),
                 HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
+    // Need to only eat one "\r\n".
     conn->version = http_version_parse(
         S_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
-    // Need to only eat one "\r\n".
-    TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
-    if (conn->version == HTTP_VERSION_INVALID ||
+    if (!buf_consume(buf, HTTP_NEWLINE) ||
+        conn->version == HTTP_VERSION_INVALID ||
         conn->version == HTTP_VERSION_UNKNOWN ||
         (conn->version == HTCPCP_VERSION_10 &&
          conn->method != HTTP_METHOD_BREW)) {
