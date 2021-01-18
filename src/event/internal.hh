@@ -34,8 +34,11 @@ private:
     int32_t   status { 0 };
     uintptr_t target_ptr { 0 };
 
-    // For access to the target.
-    friend void event_handle_all(EventQueue* queue, struct io_uring* uring);
+    // For access to the status.
+    friend void event_synth_deliver(EventQueue*, struct io_uring*,
+                                    int32_t status);
+    // For access to the target and status.
+    friend void event_handle_all(EventQueue*, struct io_uring*);
     // For initialization.
     friend Event* event_create(EventTarget*, EventType);
 

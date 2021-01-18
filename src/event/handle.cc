@@ -100,6 +100,19 @@ void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
     }
 }
 
+// Deliver a queue of synthetic events with a given status.
+void event_synth_deliver(EventQueue* queue, struct io_uring* uring,
+                         int32_t status) {
+    assert(queue);
+    assert(uring);
+
+    for (auto* event = SLL_PEEK(Event)(queue); event;
+         event       = SLL_NEXT(Event)(event))
+        event->status = status;
+
+    event_queue_handle_all(queue, uring);
+}
+
 // Dequeue all CQEs and handle as many as possible.
 void event_handle_all(EventQueue* queue, struct io_uring* uring) {
     assert(queue);

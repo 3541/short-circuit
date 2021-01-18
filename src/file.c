@@ -209,5 +209,5 @@ void file_handle_event_handle(FileHandle* handle, struct io_uring* uring,
 
     handle->file = status;
 
-    event_queue_handle_all(&handle->waiting, uring);
+    event_synth_deliver(&handle->waiting, uring, status);
 }
