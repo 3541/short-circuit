@@ -173,8 +173,10 @@ UriParseResult uri_parse(Uri* ret, String str) {
     }
 
     // <path>[query][fragment]
-    ret->path = buf_token_next_copy(buf, CS("#?"));
+    ret->path = buf_token_next_copy(buf, CS("#?\r\n"));
     TRYB_MAP(ret->path.ptr, URI_PARSE_BAD_URI);
+    if (ret->path.len == 0)
+        return URI_PARSE_BAD_URI;
     TRYB_MAP(uri_normalize_path(ret->path), URI_PARSE_BAD_URI);
     if (buf_len(buf) == 0)
         return URI_PARSE_SUCCESS;
@@ -195,8 +197,8 @@ UriParseResult uri_parse(Uri* ret, String str) {
     return URI_PARSE_SUCCESS;
 }
 
-// Return the path to the pointed-to file if it exists and is a child of the
-// given root path.
+// Return the path to the pointed-to file if it is a child of the given root
+// path.
 String uri_path_if_contained(Uri* this, CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
