@@ -18,3 +18,27 @@
  */
 
 #include "http/headers.h"
+
+#include <a3/ht.h>
+#include <a3/str.h>
+
+HT_DEFINE_STRUCTS(CString, CString);
+HT_DECLARE_METHODS(CString, CString);
+HT_DEFINE_METHODS(CString, CString, CS_PTR, S_LEN, string_cmp);
+
+struct HttpHeaders {
+    HT(CString, CString) headers;
+};
+
+bool http_header_add(HttpHeaders* headers, CString name, CString value) {
+    assert(headers);
+    assert(name.ptr);
+    assert(value.ptr);
+
+    if (HT_FIND(CString, CString)(&headers->headers, name))
+        return false;
+    HT_INSERT(CString, CString)
+    (&headers->headers, S_CONST(string_clone(name)),
+     S_CONST(string_clone(value)));
+    return true;
+}
