@@ -33,7 +33,7 @@
 
 #include "forward.h"
 
-H_BEGIN
+A3_H_BEGIN
 
 #define EVENT_CHAIN           (1ULL)
 #define EVENT_IGNORE          (1ULL << 1)
@@ -60,17 +60,17 @@ typedef enum EventType {
 
 typedef struct Event Event;
 
-SLL_DEFINE_STRUCTS(Event);
-SLL_DECLARE_METHODS(Event);
+A3_SLL_DEFINE_STRUCTS(Event);
+A3_SLL_DECLARE_METHODS(Event);
 
-typedef SLL(Event) EventTarget;
+typedef A3_SLL(Event) EventTarget;
 
 // Include this as a member to make an object a viable event target.
 #define EVENT_TARGET   EventTarget _events_queued
 #define EVT(O)         (&(O)->_events_queued)
-#define EVT_PTR(T, TY) CONTAINER_OF((T), TY, _events_queued)
+#define EVT_PTR(T, TY) A3_CONTAINER_OF((T), TY, _events_queued)
 
-CString event_type_name(EventType);
+A3CString event_type_name(EventType);
 
 struct io_uring event_init(void);
 
@@ -79,14 +79,15 @@ bool event_accept_submit(EventTarget*, struct io_uring*, fd socket,
                          socklen_t*          inout_addr_len);
 bool event_close_submit(EventTarget*, struct io_uring*, fd file,
                         uint32_t sqe_flags, bool fallback_sync);
-bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, CString path,
+bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, A3CString path,
                          int32_t open_flags, mode_t mode);
-bool event_read_submit(EventTarget*, struct io_uring*, fd file, String out_data,
-                       size_t nbytes, off_t offset, uint32_t sqe_flags);
+bool event_read_submit(EventTarget*, struct io_uring*, fd file,
+                       A3String out_data, size_t nbytes, off_t offset,
+                       uint32_t sqe_flags);
 bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
-                       String out_data);
-bool event_send_submit(EventTarget*, struct io_uring*, fd socket, CString data,
-                       uint32_t send_flags, uint32_t sqe_flags);
+                       A3String out_data);
+bool event_send_submit(EventTarget*, struct io_uring*, fd socket,
+                       A3CString data, uint32_t send_flags, uint32_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
                          fd out, size_t len, uint32_t splice_flags,
                          uint32_t sqe_flags, bool ignore);
@@ -100,4 +101,4 @@ Event* event_create(EventTarget*, EventType);
 
 bool event_cancel_all(EventTarget*);
 
-H_END
+A3_H_END

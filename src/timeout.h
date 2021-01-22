@@ -28,24 +28,24 @@
 #include "event.h"
 #include "forward.h"
 
-H_BEGIN
+A3_H_BEGIN
 
 struct Timeout;
 typedef struct Timeout Timeout;
 
 typedef bool (*TimeoutExec)(Timeout*, struct io_uring*);
 
-LL_DEFINE_STRUCTS(Timeout)
+A3_LL_DEFINE_STRUCTS(Timeout)
 
 struct Timeout {
     Timespec    threshold;
     TimeoutExec fire;
-    LL_NODE(Timeout);
+    A3_LL_NODE(Timeout);
 };
 
 typedef struct TimeoutQueue {
     EVENT_TARGET;
-    LL(Timeout) queue;
+    A3_LL(Timeout) queue;
 } TimeoutQueue;
 
 void timeout_queue_init(TimeoutQueue*);
@@ -54,4 +54,4 @@ bool timeout_is_scheduled(Timeout*);
 bool timeout_cancel(Timeout*);
 bool timeout_event_handle(TimeoutQueue*, struct io_uring*, int32_t status);
 
-H_END
+A3_H_END

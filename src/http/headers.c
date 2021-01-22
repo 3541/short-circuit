@@ -22,23 +22,23 @@
 #include <a3/ht.h>
 #include <a3/str.h>
 
-HT_DEFINE_STRUCTS(CString, CString);
-HT_DECLARE_METHODS(CString, CString);
-HT_DEFINE_METHODS(CString, CString, CS_PTR, S_LEN, string_cmp);
+A3_HT_DEFINE_STRUCTS(A3CString, A3CString);
+A3_HT_DECLARE_METHODS(A3CString, A3CString);
+A3_HT_DEFINE_METHODS(A3CString, A3CString, A3_CS_PTR, A3_S_LEN, a3_string_cmp);
 
 struct HttpHeaders {
-    HT(CString, CString) headers;
+    A3_HT(A3CString, A3CString) headers;
 };
 
-bool http_header_add(HttpHeaders* headers, CString name, CString value) {
+bool http_header_add(HttpHeaders* headers, A3CString name, A3CString value) {
     assert(headers);
     assert(name.ptr);
     assert(value.ptr);
 
-    if (HT_FIND(CString, CString)(&headers->headers, name))
+    if (A3_HT_FIND(A3CString, A3CString)(&headers->headers, name))
         return false;
-    HT_INSERT(CString, CString)
-    (&headers->headers, S_CONST(string_clone(name)),
-     S_CONST(string_clone(value)));
+    A3_HT_INSERT(A3CString, A3CString)
+    (&headers->headers, A3_S_CONST(a3_string_clone(name)),
+     A3_S_CONST(a3_string_clone(value)));
     return true;
 }

@@ -26,10 +26,10 @@
 #include "forward.h"
 
 typedef struct FileHandle {
-    CString  path;
-    fd       file;
-    uint32_t open_count;
-    int32_t  flags;
-    SLL(Event) waiting;
+    A3CString  path;
+    fd         file;
+    uint32_t   open_count;
+    int32_t    flags;
+    EventQueue waiting;
     EVENT_TARGET;
 } FileHandle;

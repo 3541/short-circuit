@@ -32,7 +32,7 @@
 #include "event.h"
 #include "forward.h"
 
-LL_DECLARE_METHODS(Timeout)
+A3_LL_DECLARE_METHODS(Timeout)
 
 // Compare a kernel timespec and libc timespec.
 static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
@@ -40,18 +40,18 @@ static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
                                       : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-LL_DEFINE_METHODS(Timeout)
+A3_LL_DEFINE_METHODS(Timeout)
 
 void timeout_queue_init(TimeoutQueue* this) {
     assert(this);
-    LL_INIT(Timeout)(&this->queue);
+    A3_LL_INIT(Timeout)(&this->queue);
 }
 
 static bool timeout_schedule_next(TimeoutQueue* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    Timeout* next = LL_PEEK(Timeout)(&this->queue);
+    Timeout* next = A3_LL_PEEK(Timeout)(&this->queue);
     if (!next)
         return true;
 
@@ -64,10 +64,10 @@ bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
     assert(this);
     assert(timeout);
     assert(uring);
-    assert(!timeout->_ll_ptr.next && !timeout->_ll_ptr.prev);
+    assert(!timeout->_a3_ll_ptr.next && !timeout->_a3_ll_ptr.prev);
 
-    LL_ENQUEUE(Timeout)(&this->queue, timeout);
-    if (LL_PEEK(Timeout)(&this->queue) == timeout)
+    A3_LL_ENQUEUE(Timeout)(&this->queue, timeout);
+    if (A3_LL_PEEK(Timeout)(&this->queue) == timeout)
         return timeout_schedule_next(this, uring);
 
     return true;
@@ -76,15 +76,15 @@ bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
 bool timeout_is_scheduled(Timeout* this) {
     assert(this);
 
-    return LL_IS_INSERTED(Timeout)(this);
+    return A3_LL_IS_INSERTED(Timeout)(this);
 }
 
 bool timeout_cancel(Timeout* this) {
     assert(this);
-    assert(this->_ll_ptr.next && this->_ll_ptr.prev);
+    assert(this->_a3_ll_ptr.next && this->_a3_ll_ptr.prev);
 
     // There is no need to actually fiddle with events here.
-    LL_REMOVE(Timeout)(this);
+    A3_LL_REMOVE(Timeout)(this);
 
     return true;
 }
@@ -96,16 +96,16 @@ bool timeout_event_handle(TimeoutQueue* this, struct io_uring* uring,
     assert(status > 0 || status == -ETIME);
     (void)status;
 
-    log_msg(TRACE, "Timeout firing.");
+    a3_log_msg(TRACE, "Timeout firing.");
 
     struct timespec current;
-    UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
+    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
 
     Timeout* peek;
-    while ((peek = LL_PEEK(Timeout)(&this->queue)) &&
+    while ((peek = A3_LL_PEEK(Timeout)(&this->queue)) &&
            timespec_compare(peek->threshold, current) <= 0) {
-        Timeout* timeout = LL_DEQUEUE(Timeout)(&this->queue);
-        TRYB(timeout->fire(timeout, uring));
+        Timeout* timeout = A3_LL_DEQUEUE(Timeout)(&this->queue);
+        A3_TRYB(timeout->fire(timeout, uring));
     }
 
     return timeout_schedule_next(this, uring);

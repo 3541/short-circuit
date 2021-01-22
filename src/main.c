@@ -44,7 +44,7 @@
 #include "http/connection.h"
 #include "listen.h"
 
-Config CONFIG = { CS_NULL,
+Config CONFIG = { A3_CS_NULL,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
                   TRACE
 #else
@@ -63,9 +63,9 @@ static void check_webroot_exists(const char* root) {
     struct stat s;
 
     if (stat(root, &s) < 0)
-        PANIC_FMT("Web root %s is inaccessible.", root);
+        A3_PANIC_FMT("Web root %s is inaccessible.", root);
     if (!S_ISDIR(s.st_mode))
-        PANIC_FMT("Web root %s is not a directory.", root);
+        A3_PANIC_FMT("Web root %s is not a directory.", root);
 }
 
 static void usage_print_and_die(void) {
@@ -107,10 +107,10 @@ int main(int argc, char** argv) {
     (void)argv;
 
     config_parse(argc, argv);
-    log_init(stderr, CONFIG.log_level);
+    a3_log_init(stderr, CONFIG.log_level);
 
     check_webroot_exists(DEFAULT_WEB_ROOT);
-    CONFIG.web_root = CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
+    CONFIG.web_root = A3_CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
     http_connection_pool_init();
     file_cache_init();
     connection_timeout_init();
@@ -122,15 +122,15 @@ int main(int argc, char** argv) {
 
     // TODO: Support multiple listeners.
     n_listeners = 1;
-    UNWRAPN(listeners, calloc(1, sizeof(Listener)));
+    A3_UNWRAPN(listeners, calloc(1, sizeof(Listener)));
     listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
 
     listener_accept_all(listeners, n_listeners, &uring);
-    UNWRAPND(io_uring_submit(&uring));
+    A3_UNWRAPND(io_uring_submit(&uring));
 
-    UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
-    UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
-    log_msg(TRACE, "Entering event loop.");
+    A3_UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
+    A3_UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
+    a3_log_msg(TRACE, "Entering event loop.");
 
 #ifdef PROFILE
     time_t init_time = time(NULL);
@@ -147,12 +147,12 @@ int main(int argc, char** argv) {
              rc != -ETIME) ||
             time(NULL) > init_time + 20) {
             if (rc < 0)
-                log_error(-rc, "Breaking event loop.");
+                a3_log_error(-rc, "Breaking event loop.");
             break;
         }
 #else
         if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0 && rc != -ETIME) {
-            log_error(-rc, "Breaking event loop.");
+            a3_log_error(-rc, "Breaking event loop.");
             break;
         }
 #endif
@@ -163,11 +163,11 @@ int main(int argc, char** argv) {
 
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
-            log_fmt(TRACE, "Submitted %d event(s).", ev);
+            a3_log_fmt(TRACE, "Submitted %d event(s).", ev);
         }
     }
 
-    http_connection_pool_free();
+    http_connection_a3_pool_free();
     free(listeners);
     file_cache_destroy(&uring);
 

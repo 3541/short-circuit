@@ -23,7 +23,7 @@
 
 #include <a3/str.h>
 
-#define HTTP_NEWLINE CS("\r\n")
+#define HTTP_NEWLINE A3_CS("\r\n")
 
 #define HTTP_METHOD_ENUM                                                       \
     _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
@@ -129,12 +129,12 @@ typedef enum HttpRequestStateResult {
     HTTP_REQUEST_STATE_DONE
 } HttpRequestStateResult;
 
-HttpMethod           http_request_method_parse(CString str);
-HttpVersion          http_version_parse(CString str);
-HttpContentType      http_content_type_from_path(CString);
-HttpTransferEncoding http_transfer_encoding_parse(CString value);
+HttpMethod           http_request_method_parse(A3CString str);
+HttpVersion          http_version_parse(A3CString str);
+HttpContentType      http_content_type_from_path(A3CString);
+HttpTransferEncoding http_transfer_encoding_parse(A3CString value);
 
-CString  http_version_string(HttpVersion);
-CString  http_status_reason(HttpStatus);
-uint16_t http_status_code(HttpStatus status);
-CString  http_content_type_name(HttpContentType);
+A3CString http_version_string(HttpVersion);
+A3CString http_status_reason(HttpStatus);
+uint16_t  http_status_code(HttpStatus status);
+A3CString http_content_type_name(HttpContentType);

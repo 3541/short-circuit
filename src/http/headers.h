@@ -19,5 +19,9 @@
 
 #pragma once
 
+#include <a3/str.h>
+
 struct HttpHeaders;
 typedef struct HttpHeaders HttpHeaders;
+
+bool http_header_add(HttpHeaders*, A3CString name, A3CString value);

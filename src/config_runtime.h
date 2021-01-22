@@ -23,8 +23,8 @@
 #include <a3/str.h>
 
 typedef struct Config {
-    CString  web_root;
-    LogLevel log_level;
+    A3CString  web_root;
+    A3LogLevel log_level;
 } Config;
 
 extern Config CONFIG;

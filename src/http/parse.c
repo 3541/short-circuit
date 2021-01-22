@@ -40,7 +40,7 @@
 #include "http/types.h"
 #include "uri.h"
 
-static inline Buffer* http_request_recv_buf(HttpRequest* req) {
+static inline A3Buffer* http_request_recv_buf(HttpRequest* req) {
     assert(req);
 
     return &http_request_connection(req)->conn.recv_buf;
@@ -52,74 +52,79 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest*     req,
     assert(req);
     assert(uring);
 
-    Buffer*         buf  = http_request_recv_buf(req);
+    A3Buffer*       buf  = http_request_recv_buf(req);
     HttpConnection* conn = http_request_connection(req);
     HttpResponse*   resp = http_request_response(req);
 
     // If no CRLF has appeared so far, and the length of the data is
     // permissible, bail and wait for more.
-    if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
-        if (buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
+    if (!a3_buf_memmem(buf, HTTP_NEWLINE).ptr) {
+        if (a3_buf_len(buf) < HTTP_REQUEST_LINE_MAX_LENGTH)
             return HTTP_REQUEST_STATE_NEED_DATA;
-        RET_MAP(http_response_error_submit(
-                    resp, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_URI_TOO_LONG,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
-    conn->method =
-        http_request_method_parse(S_CONST(buf_token_next(buf, CS(" \r\n"))));
+    conn->method = http_request_method_parse(
+        A3_S_CONST(a3_buf_token_next(buf, A3_CS(" \r\n"))));
     switch (conn->method) {
     case HTTP_METHOD_INVALID:
-        log_msg(TRACE, "Got an invalid method.");
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        a3_log_msg(TRACE, "Got an invalid method.");
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_BAD_REQUEST,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_UNKNOWN:
-        log_msg(TRACE, "Got an unknown method.");
-        RET_MAP(http_response_error_submit(resp, uring,
-                                           HTTP_STATUS_NOT_IMPLEMENTED,
-                                           HTTP_RESPONSE_ALLOW),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        a3_log_msg(TRACE, "Got an unknown method.");
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_NOT_IMPLEMENTED,
+                                              HTTP_RESPONSE_ALLOW),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
         // Valid methods.
         break;
     }
 
-    String target_str = buf_token_next(buf, CS(" \r\n"));
+    A3String target_str = a3_buf_token_next(buf, A3_CS(" \r\n"));
     if (!target_str.ptr)
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_BAD_REQUEST,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     switch (uri_parse(&req->target, target_str)) {
     case URI_PARSE_ERROR:
     case URI_PARSE_BAD_URI:
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_ALLOW),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_BAD_REQUEST,
+                                              HTTP_RESPONSE_ALLOW),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case URI_PARSE_TOO_LONG:
-        RET_MAP(http_response_error_submit(
-                    resp, uring, HTTP_STATUS_URI_TOO_LONG, HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_URI_TOO_LONG,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     default:
         break;
     }
 
     req->target_path = uri_path_if_contained(&req->target, CONFIG.web_root);
     if (!req->target_path.ptr)
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
-                                           HTTP_RESPONSE_ALLOW),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(
+                       resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // Need to only eat one "\r\n".
     conn->version = http_version_parse(
-        S_CONST(buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
-    if (!buf_consume(buf, HTTP_NEWLINE) ||
+        A3_S_CONST(a3_buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
+    if (!a3_buf_consume(buf, HTTP_NEWLINE) ||
         conn->version == HTTP_VERSION_INVALID ||
         conn->version == HTTP_VERSION_UNKNOWN ||
         (conn->version == HTCPCP_VERSION_10 &&
          conn->method != HTTP_METHOD_BREW)) {
-        log_msg(TRACE, "Got a bad HTTP version.");
-        RET_MAP(
+        a3_log_msg(TRACE, "Got a bad HTTP version.");
+        A3_RET_MAP(
             http_response_error_submit(resp, uring,
                                        (conn->version == HTTP_VERSION_INVALID)
                                            ? HTTP_STATUS_BAD_REQUEST
@@ -142,58 +147,62 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
     assert(req);
     assert(uring);
 
-    Buffer*         buf  = http_request_recv_buf(req);
+    A3Buffer*       buf  = http_request_recv_buf(req);
     HttpConnection* conn = http_request_connection(req);
     HttpResponse*   resp = http_request_response(req);
 
-    if (!buf_memmem(buf, HTTP_NEWLINE).ptr) {
-        if (buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
+    if (!a3_buf_memmem(buf, HTTP_NEWLINE).ptr) {
+        if (a3_buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
             return HTTP_REQUEST_STATE_NEED_DATA;
-        RET_MAP(http_response_error_submit(resp, uring,
-                                           HTTP_STATUS_HEADER_TOO_LARGE,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_HEADER_TOO_LARGE,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
-    if (!buf_consume(buf, HTTP_NEWLINE)) {
+    if (!a3_buf_consume(buf, HTTP_NEWLINE)) {
         while (buf->data.ptr[buf->head] != '\r' && buf->head != buf->tail) {
-            if (!buf_memmem(buf, HTTP_NEWLINE).ptr)
+            if (!a3_buf_memmem(buf, HTTP_NEWLINE).ptr)
                 return HTTP_REQUEST_STATE_NEED_DATA;
 
-            CString name  = S_CONST(buf_token_next(buf, CS(": ")));
-            CString value = S_CONST(
-                buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true));
-            TRYB_MAP(buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
+            A3CString name  = A3_S_CONST(a3_buf_token_next(buf, A3_CS(": ")));
+            A3CString value = A3_S_CONST(
+                a3_buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true));
+            A3_TRYB_MAP(a3_buf_consume(buf, HTTP_NEWLINE),
+                        HTTP_REQUEST_STATE_ERROR);
 
             // RFC7230 § 5.4: Invalid field-value -> 400.
             if (!name.ptr || !value.ptr)
-                RET_MAP(http_response_error_submit(resp, uring,
-                                                   HTTP_STATUS_BAD_REQUEST,
-                                                   HTTP_RESPONSE_CLOSE),
-                        HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                A3_RET_MAP(http_response_error_submit(resp, uring,
+                                                      HTTP_STATUS_BAD_REQUEST,
+                                                      HTTP_RESPONSE_CLOSE),
+                           HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
             // TODO: Handle general headers.
-            if (string_cmpi(name, CS("Connection")) == 0)
-                conn->keep_alive = string_cmpi(value, CS("Keep-Alive")) == 0;
-            else if (string_cmpi(name, CS("Host")) == 0) {
+            if (a3_string_cmpi(name, A3_CS("Connection")) == 0)
+                conn->keep_alive =
+                    a3_string_cmpi(value, A3_CS("Keep-Alive")) == 0;
+            else if (a3_string_cmpi(name, A3_CS("Host")) == 0) {
                 // ibid. >1 Host header -> 400.
                 if (req->host.ptr)
-                    RET_MAP(http_response_error_submit(resp, uring,
-                                                       HTTP_STATUS_BAD_REQUEST,
-                                                       HTTP_RESPONSE_CLOSE),
-                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                    A3_RET_MAP(http_response_error_submit(
+                                   resp, uring, HTTP_STATUS_BAD_REQUEST,
+                                   HTTP_RESPONSE_CLOSE),
+                               HTTP_REQUEST_STATE_BAIL,
+                               HTTP_REQUEST_STATE_ERROR);
 
-                req->host = string_clone(value);
-            } else if (string_cmpi(name, CS("Transfer-Encoding")) == 0) {
+                req->host = a3_string_clone(value);
+            } else if (a3_string_cmpi(name, A3_CS("Transfer-Encoding")) == 0) {
                 req->transfer_encodings |= http_transfer_encoding_parse(value);
                 if (req->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
-                    RET_MAP(http_response_error_submit(resp, uring,
-                                                       HTTP_STATUS_BAD_REQUEST,
-                                                       HTTP_RESPONSE_CLOSE),
-                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-            } else if (string_cmpi(name, CS("Content-Length")) == 0) {
+                    A3_RET_MAP(http_response_error_submit(
+                                   resp, uring, HTTP_STATUS_BAD_REQUEST,
+                                   HTTP_RESPONSE_CLOSE),
+                               HTTP_REQUEST_STATE_BAIL,
+                               HTTP_REQUEST_STATE_ERROR);
+            } else if (a3_string_cmpi(name, A3_CS("Content-Length")) == 0) {
                 char* endptr = NULL;
-                // NOTE: This depends on the fact that the buf_token_next
+                // NOTE: This depends on the fact that the a3_buf_token_next
                 // null-terminates strings.
                 ssize_t new_length =
                     strtol((const char*)value.ptr, &endptr, 10);
@@ -203,22 +212,24 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
                 // -> 400.
                 if (*endptr != '\0' || (req->content_length != -1 &&
                                         req->content_length != new_length))
-                    RET_MAP(http_response_error_submit(resp, uring,
-                                                       HTTP_STATUS_BAD_REQUEST,
-                                                       HTTP_RESPONSE_CLOSE),
-                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                    A3_RET_MAP(http_response_error_submit(
+                                   resp, uring, HTTP_STATUS_BAD_REQUEST,
+                                   HTTP_RESPONSE_CLOSE),
+                               HTTP_REQUEST_STATE_BAIL,
+                               HTTP_REQUEST_STATE_ERROR);
 
                 if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
-                    RET_MAP(http_response_error_submit(
-                                resp, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
-                                HTTP_RESPONSE_CLOSE),
-                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+                    A3_RET_MAP(http_response_error_submit(
+                                   resp, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                                   HTTP_RESPONSE_CLOSE),
+                               HTTP_REQUEST_STATE_BAIL,
+                               HTTP_REQUEST_STATE_ERROR);
 
                 req->content_length = new_length;
             }
         }
 
-        if (!buf_consume(buf, HTTP_NEWLINE))
+        if (!a3_buf_consume(buf, HTTP_NEWLINE))
             return HTTP_REQUEST_STATE_NEED_DATA;
     }
 
@@ -226,9 +237,10 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
     // a request, and the server MUST respond with a 400.
     if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) &&
         !(req->transfer_encodings & HTTP_TRANSFER_ENCODING_CHUNKED))
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_BAD_REQUEST,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // ibid. Transfer-Encoding overrides Content-Length.
     if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) &&
@@ -237,10 +249,10 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
 
     // TODO: Support other transfer encodings.
     if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY))
-        RET_MAP(http_response_error_submit(resp, uring,
-                                           HTTP_STATUS_NOT_IMPLEMENTED,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_NOT_IMPLEMENTED,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     // RFC7230 § 3.3.3, step 6: default to Content-Length of 0.
     if (req->content_length == -1 &&
@@ -250,9 +262,10 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest*     req,
 
     // RFC7230 § 5.4: HTTP/1.1 messages must have a Host header.
     if (conn->version == HTTP_VERSION_11 && !req->host.ptr)
-        RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                           HTTP_RESPONSE_CLOSE),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(resp, uring,
+                                              HTTP_STATUS_BAD_REQUEST,
+                                              HTTP_RESPONSE_CLOSE),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     conn->state = CONNECTION_PARSED_HEADERS;
 

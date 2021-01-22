@@ -29,7 +29,7 @@
 #define DEFAULT_LISTEN_PORT 8000
 #define LISTEN_BACKLOG      1024
 #define DEFAULT_WEB_ROOT    "."
-#define INDEX_FILENAME      CS("index.html")
+#define INDEX_FILENAME      A3_CS("index.html")
 
 #define PROFILE_DURATION 20
 

@@ -29,28 +29,28 @@
 #include <a3/str.h>
 #include <a3/util.h>
 
-static UriScheme uri_scheme_parse(CString name) {
-#define _SCHEME(SCHEME, S) { SCHEME, CS(S) },
+static UriScheme uri_scheme_parse(A3CString name) {
+#define _SCHEME(SCHEME, S) { SCHEME, A3_CS(S) },
     static const struct {
         UriScheme scheme;
-        CString   name;
+        A3CString name;
     } URI_SCHEMES[] = { URI_SCHEME_ENUM };
 #undef _SCHEME
     assert(name.ptr && *name.ptr);
 
-    TRYB_MAP(name.ptr && string_isascii(name), URI_SCHEME_INVALID);
+    A3_TRYB_MAP(name.ptr && a3_string_isascii(name), URI_SCHEME_INVALID);
 
     for (size_t i = 0; i < sizeof(URI_SCHEMES) / sizeof(URI_SCHEMES[0]); i++) {
-        if (string_cmpi(name, URI_SCHEMES[i].name) == 0)
+        if (a3_string_cmpi(name, URI_SCHEMES[i].name) == 0)
             return URI_SCHEMES[i].scheme;
     }
 
     return URI_SCHEME_INVALID;
 }
 
-static bool uri_decode(String str) {
+static bool uri_decode(A3String str) {
     assert(str.ptr);
-    const uint8_t* end = S_END(S_CONST(str));
+    const uint8_t* end = A3_S_END(A3_S_CONST(str));
 
     for (uint8_t *wp, *rp = wp = str.ptr; wp < end && rp < end && *wp && *rp;
          wp++) {
@@ -89,7 +89,7 @@ static bool uri_decode(String str) {
     return true;
 }
 
-static void uri_collapse_dot_segments(String str) {
+static void uri_collapse_dot_segments(A3String str) {
     assert(str.ptr);
     assert(*str.ptr == '/');
 
@@ -99,7 +99,7 @@ static void uri_collapse_dot_segments(String str) {
     if (!segments)
         return;
     size_t* segment_indices = calloc(segments, sizeof(size_t));
-    UNWRAPND(segment_indices);
+    A3_UNWRAPND(segment_indices);
 
     size_t segment_index = 0;
     for (size_t ri, wi = ri = 0; ri < str.len && wi < str.len;) {
@@ -136,30 +136,31 @@ static void uri_collapse_dot_segments(String str) {
     free(segment_indices);
 }
 
-static bool uri_normalize_path(String str) {
+static bool uri_normalize_path(A3String str) {
     assert(str.ptr);
 
-    TRYB(uri_decode(str));
+    A3_TRYB(uri_decode(str));
     uri_collapse_dot_segments(str);
 
     return true;
 }
 
-UriParseResult uri_parse(Uri* ret, String str) {
+UriParseResult uri_parse(Uri* ret, A3String str) {
     assert(ret);
     assert(str.ptr);
 
-    Buffer buf_ = {
+    A3Buffer buf_ = {
         .data = str, .tail = str.len, .head = 0, .max_cap = str.len
     };
-    Buffer* buf = &buf_;
+    A3Buffer* buf = &buf_;
 
     memset(ret, 0, sizeof(Uri));
     ret->scheme = URI_SCHEME_UNSPECIFIED;
 
     // [scheme]://[authority]<path>[query][fragment]
-    if (buf_memmem(buf, CS("://")).ptr) {
-        ret->scheme = uri_scheme_parse(S_CONST(buf_token_next(buf, CS("://"))));
+    if (a3_buf_memmem(buf, A3_CS("://")).ptr) {
+        ret->scheme =
+            uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"))));
         if (ret->scheme == URI_SCHEME_INVALID)
             return URI_PARSE_BAD_URI;
     }
@@ -167,39 +168,40 @@ UriParseResult uri_parse(Uri* ret, String str) {
     // [authority]<path>[query][fragment]
     if (buf->data.ptr[buf->head] != '/' &&
         ret->scheme != URI_SCHEME_UNSPECIFIED) {
-        ret->authority = string_clone(S_CONST(buf_token_next(buf, CS("/"))));
-        TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
+        ret->authority =
+            a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"))));
+        A3_TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }
 
     // <path>[query][fragment]
-    ret->path = buf_token_next_copy(buf, CS("#?\r\n"));
-    TRYB_MAP(ret->path.ptr, URI_PARSE_BAD_URI);
+    ret->path = a3_buf_token_next_copy(buf, A3_CS("#?\r\n"));
+    A3_TRYB_MAP(ret->path.ptr, URI_PARSE_BAD_URI);
     if (ret->path.len == 0)
         return URI_PARSE_BAD_URI;
-    TRYB_MAP(uri_normalize_path(ret->path), URI_PARSE_BAD_URI);
-    if (buf_len(buf) == 0)
+    A3_TRYB_MAP(uri_normalize_path(ret->path), URI_PARSE_BAD_URI);
+    if (a3_buf_len(buf) == 0)
         return URI_PARSE_SUCCESS;
 
     // [query][fragment]
-    ret->query = buf_token_next_copy(buf, CS("?"));
-    TRYB_MAP(ret->query.ptr, URI_PARSE_BAD_URI);
-    TRYB_MAP(uri_decode(ret->query), URI_PARSE_BAD_URI);
-    if (buf_len(buf) == 0)
+    ret->query = a3_buf_token_next_copy(buf, A3_CS("?"));
+    A3_TRYB_MAP(ret->query.ptr, URI_PARSE_BAD_URI);
+    A3_TRYB_MAP(uri_decode(ret->query), URI_PARSE_BAD_URI);
+    if (a3_buf_len(buf) == 0)
         return URI_PARSE_SUCCESS;
 
     // [fragment]
-    ret->fragment = buf_token_next_copy(buf, CS(""));
-    TRYB_MAP(ret->fragment.ptr, URI_PARSE_BAD_URI);
+    ret->fragment = a3_buf_token_next_copy(buf, A3_CS(""));
+    A3_TRYB_MAP(ret->fragment.ptr, URI_PARSE_BAD_URI);
     uri_decode(ret->fragment);
-    assert(buf_len(buf) == 0);
+    assert(a3_buf_len(buf) == 0);
 
     return URI_PARSE_SUCCESS;
 }
 
 // Return the path to the pointed-to file if it is a child of the given root
 // path.
-String uri_path_if_contained(Uri* this, CString real_root) {
+A3String uri_path_if_contained(Uri* this, A3CString real_root) {
     assert(this);
     assert(real_root.ptr && *real_root.ptr);
 
@@ -210,13 +212,13 @@ String uri_path_if_contained(Uri* this, CString real_root) {
     // which are used by an endpoint are perfectly allowed to contain "..".
     for (size_t i = 0; i < this->path.len - 1; i++)
         if (this->path.ptr[i] == '.' && this->path.ptr[i + 1] == '.')
-            return S_NULL;
+            return A3_S_NULL;
 
     if (this->path.len == 1 && *this->path.ptr == '/')
-        return string_clone(real_root);
+        return a3_string_clone(real_root);
 
-    String ret = string_alloc(real_root.len + this->path.len);
-    string_concat(ret, 2, real_root, this->path);
+    A3String ret = a3_string_alloc(real_root.len + this->path.len);
+    a3_string_concat(ret, 2, real_root, this->path);
     return ret;
 }
 
@@ -230,11 +232,11 @@ void uri_free(Uri* this) {
     assert(uri_is_initialized(this));
 
     if (this->authority.ptr)
-        string_free(&this->authority);
+        a3_string_free(&this->authority);
     if (this->path.ptr)
-        string_free(&this->path);
+        a3_string_free(&this->path);
     if (this->query.ptr)
-        string_free(&this->query);
+        a3_string_free(&this->query);
     if (this->fragment.ptr)
-        string_free(&this->fragment);
+        a3_string_free(&this->fragment);
 }

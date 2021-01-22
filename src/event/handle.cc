@@ -39,7 +39,7 @@
 void event_queue_init(EventQueue* queue) {
     assert(queue);
 
-    SLL_INIT(Event)(queue);
+    A3_SLL_INIT(Event)(queue);
 }
 
 void Event::handle(struct io_uring& uring) {
@@ -53,7 +53,7 @@ void Event::handle(struct io_uring& uring) {
 
     if (ignore) {
         if (status_code < 0)
-            log_error(-status_code, "ignored event failed");
+            a3_log_error(-status_code, "ignored event failed");
         return;
     }
 
@@ -80,7 +80,7 @@ void Event::handle(struct io_uring& uring) {
         return;
     }
 
-    UNREACHABLE();
+    A3_UNREACHABLE();
 }
 
 // Handle all events pending on the queue.
@@ -91,12 +91,12 @@ void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
     if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
         return;
 
-    auto* event = SLL_PEEK(Event)(queue);
+    auto* event = A3_SLL_PEEK(Event)(queue);
     while (event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE) {
-        event = SLL_DEQUEUE(Event)(queue);
+        event = A3_SLL_DEQUEUE(Event)(queue);
         event->handle(*uring);
 
-        event = SLL_PEEK(Event)(queue);
+        event = A3_SLL_PEEK(Event)(queue);
     }
 }
 
@@ -106,8 +106,8 @@ void event_synth_deliver(EventQueue* queue, struct io_uring* uring,
     assert(queue);
     assert(uring);
 
-    for (auto* event = SLL_PEEK(Event)(queue); event;
-         event       = SLL_NEXT(Event)(event))
+    for (auto* event = A3_SLL_PEEK(Event)(queue); event;
+         event       = A3_SLL_NEXT(Event)(event))
         event->status = status;
 
     event_queue_handle_all(queue, uring);
@@ -128,7 +128,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
         if (!event) {
             if (status < 0)
-                log_error(-status, "event without target failed");
+                a3_log_error(-status, "event without target failed");
             continue;
         }
 
@@ -142,10 +142,10 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         auto* target = event->target();
 
         // Remove from the in-flight list.
-        SLL_REMOVE(Event)(target, event);
+        A3_SLL_REMOVE(Event)(target, event);
 
         // Add to the to-process queue.
-        SLL_ENQUEUE(Event)(queue, event);
+        A3_SLL_ENQUEUE(Event)(queue, event);
     }
 
     // Now, handle as many of the queued CQEs as possible without filling the

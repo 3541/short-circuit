@@ -41,25 +41,27 @@
 
 typedef FileHandle* FileHandlePtr;
 
-CACHE_DEFINE_STRUCTS(CString, FileHandlePtr);
-CACHE_DECLARE_METHODS(CString, FileHandlePtr);
-CACHE_DEFINE_METHODS(CString, FileHandlePtr, CS_PTR, S_LEN, string_cmp);
-typedef CACHE(CString, FileHandlePtr) FileCache;
+A3_CACHE_DEFINE_STRUCTS(A3CString, FileHandlePtr);
+A3_CACHE_DECLARE_METHODS(A3CString, FileHandlePtr);
+A3_CACHE_DEFINE_METHODS(A3CString, FileHandlePtr, A3_CS_PTR, A3_S_LEN,
+                        a3_string_cmp);
+typedef A3_CACHE(A3CString, FileHandlePtr) FileCache;
 
 static FileCache FILE_CACHE;
 
-static void file_evict_callback(void* uring, CString* key, FileHandle** value) {
+static void file_evict_callback(void* uring, A3CString* key,
+                                FileHandle** value) {
     assert(uring);
     assert(key);
     assert(key->ptr);
     assert(value);
 
-    log_fmt(TRACE, "Evicting file " S_F ".", S_FA(*key));
+    a3_log_fmt(TRACE, "Evicting file " A3_S_F ".", A3_S_FA(*key));
     file_close(*value, uring);
 }
 
 void file_cache_init() {
-    CACHE_INIT(CString, FileHandlePtr)
+    A3_CACHE_INIT(A3CString, FileHandlePtr)
     (&FILE_CACHE, FD_CACHE_SIZE, file_evict_callback);
 }
 
@@ -68,100 +70,102 @@ static void file_handle_wait(EventTarget* target, FileHandle* handle) {
     assert(handle);
 
     Event* event = event_create(target, EVENT_OPENAT_SYNTH);
-    SLL_PUSH(Event)(&handle->waiting, event);
+    A3_SLL_PUSH(Event)(&handle->waiting, event);
 }
 
-FileHandle* file_open(EventTarget* target, struct io_uring* uring, CString path,
-                      int32_t flags) {
+FileHandle* file_open(EventTarget* target, struct io_uring* uring,
+                      A3CString path, int32_t flags) {
     assert(target);
     assert(uring);
     assert(path.ptr);
     assert(flags == O_RDONLY);
 
     FileHandle** handle_ptr =
-        CACHE_FIND(CString, FileHandlePtr)(&FILE_CACHE, path);
+        A3_CACHE_FIND(A3CString, FileHandlePtr)(&FILE_CACHE, path);
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        log_fmt(TRACE, "File cache hit on " S_F ".", S_FA(path));
+        a3_log_fmt(TRACE, "File cache hit on " A3_S_F ".", A3_S_FA(path));
         handle->open_count++;
 
         // The handle is not ready, but an open request is in flight. Synthesize
         // an event so the caller is notified when the file is opened.
         if (file_handle_waiting(handle)) {
-            log_msg(TRACE, "  Open in-flight. Waiting.");
+            a3_log_msg(TRACE, "  Open in-flight. Waiting.");
             file_handle_wait(target, handle);
         }
 
         return handle;
     }
 
-    log_fmt(TRACE, "File cache miss on " S_F ".", S_FA(path));
+    a3_log_fmt(TRACE, "File cache miss on " A3_S_F ".", A3_S_FA(path));
     FileHandle* handle = NULL;
-    UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
-    handle->path       = S_CONST(string_clone(path));
+    A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
+    handle->path       = A3_S_CONST(a3_string_clone(path));
     handle->open_count = 2;
     handle->file       = FILE_HANDLE_WAITING;
 
     if (!event_openat_submit(EVT(handle), uring, -1, handle->path, flags, 0)) {
-        log_msg(WARN, "Unable to submit OPENAT event.");
-        string_free((String*)&handle->path);
+        a3_log_msg(WARN, "Unable to submit OPENAT event.");
+        a3_string_free((A3String*)&handle->path);
         free(handle);
         return NULL;
     }
 
     file_handle_wait(target, handle);
-    CACHE_INSERT(CString, FileHandlePtr)
+    A3_CACHE_INSERT(A3CString, FileHandlePtr)
     (&FILE_CACHE, handle->path, handle, uring);
 
     return handle;
 }
 
 FileHandle* file_openat(EventTarget* target, struct io_uring* uring,
-                        FileHandle* dir, CString name, int32_t flags) {
+                        FileHandle* dir, A3CString name, int32_t flags) {
     assert(target);
     assert(uring);
     assert(dir);
     assert(name.ptr);
     assert(flags == O_RDONLY);
 
-    String full_path = string_alloc(dir->path.len + name.len + 1);
+    A3String full_path = a3_string_alloc(dir->path.len + name.len + 1);
     if (dir->path.ptr[dir->path.len - 1] == '/')
-        string_concat(full_path, 2, dir->path, name);
+        a3_string_concat(full_path, 2, dir->path, name);
     else
-        string_concat(full_path, 3, dir->path, CS("/"), name);
+        a3_string_concat(full_path, 3, dir->path, A3_CS("/"), name);
 
-    FileHandle** handle_ptr =
-        CACHE_FIND(CString, FileHandlePtr)(&FILE_CACHE, S_CONST(full_path));
+    FileHandle** handle_ptr = A3_CACHE_FIND(A3CString, FileHandlePtr)(
+        &FILE_CACHE, A3_S_CONST(full_path));
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        log_fmt(TRACE, "File cache hit (openat) on " S_F ".", S_FA(full_path));
+        a3_log_fmt(TRACE, "File cache hit (openat) on " A3_S_F ".",
+                   A3_S_FA(full_path));
         handle->open_count++;
-        string_free(&full_path);
+        a3_string_free(&full_path);
 
         file_handle_wait(target, handle);
 
         return handle;
     }
 
-    log_fmt(TRACE, "File cache miss (openat) on " S_F ".", S_FA(full_path));
+    a3_log_fmt(TRACE, "File cache miss (openat) on " A3_S_F ".",
+               A3_S_FA(full_path));
     FileHandle* handle = NULL;
-    UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
-    handle->path       = S_CONST(full_path);
+    A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
+    handle->path       = A3_S_CONST(full_path);
     handle->open_count = 2;
     handle->file       = FILE_HANDLE_WAITING;
 
     if (!event_openat_submit(EVT(handle), uring, file_handle_fd(dir),
                              handle->path, flags, 0)) {
-        log_msg(WARN, "Unable to submit OPENAT event.");
-        string_free(&full_path);
+        a3_log_msg(WARN, "Unable to submit OPENAT event.");
+        a3_string_free(&full_path);
         free(handle);
         return NULL;
     }
 
     file_handle_wait(target, handle);
-    CACHE_INSERT(CString, FileHandlePtr)
+    A3_CACHE_INSERT(A3CString, FileHandlePtr)
     (&FILE_CACHE, handle->path, handle, uring);
 
     return handle;
@@ -191,14 +195,14 @@ void file_close(FileHandle* handle, struct io_uring* uring) {
 
     if (handle->file >= 0)
         event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
-    string_free((String*)&handle->path);
+    a3_string_free((A3String*)&handle->path);
     free(handle);
 }
 
 void file_cache_destroy(struct io_uring* uring) {
     assert(uring);
 
-    CACHE_CLEAR(CString, FileHandlePtr)(&FILE_CACHE, uring);
+    A3_CACHE_CLEAR(A3CString, FileHandlePtr)(&FILE_CACHE, uring);
 }
 
 void file_handle_event_handle(FileHandle* handle, struct io_uring* uring,

@@ -34,7 +34,7 @@
 #include "forward.h"
 #include "timeout.h"
 
-H_BEGIN
+A3_H_BEGIN
 
 // Callback types to submit events.
 typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*,
@@ -65,8 +65,8 @@ typedef struct Connection {
 
     ConnectionSubmit send_submit;
 
-    Buffer recv_buf;
-    Buffer send_buf;
+    A3Buffer recv_buf;
+    A3Buffer send_buf;
 
     Timeout timeout;
 } Connection;
@@ -86,4 +86,4 @@ bool connection_close_submit(Connection*, struct io_uring*);
 void connection_event_handle(Connection*, struct io_uring*, EventType,
                              int32_t status, bool chain);
 
-H_END
+A3_H_END

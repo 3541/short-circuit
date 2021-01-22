@@ -27,15 +27,15 @@
 
 #include "forward.h"
 
-H_BEGIN
+A3_H_BEGIN
 
 typedef struct FileHandle FileHandle;
 
 void        file_cache_init(void);
-FileHandle* file_open(EventTarget*, struct io_uring*, CString path,
+FileHandle* file_open(EventTarget*, struct io_uring*, A3CString path,
                       int32_t flags);
 FileHandle* file_openat(EventTarget*, struct io_uring*, FileHandle* dir,
-                        CString name, int32_t flags);
+                        A3CString name, int32_t flags);
 fd          file_handle_fd(FileHandle*);
 fd          file_handle_fd_unchecked(FileHandle*);
 bool        file_handle_waiting(FileHandle*);
@@ -43,4 +43,4 @@ void        file_close(FileHandle*, struct io_uring*);
 void        file_cache_destroy(struct io_uring*);
 void file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status);
 
-H_END
+A3_H_END

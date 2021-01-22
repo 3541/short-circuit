@@ -26,10 +26,6 @@ struct io_uring_cqe;
 // netinet/in.h
 struct sockaddr_in;
 
-// buffer.h
-struct Buffer;
-typedef struct Buffer Buffer;
-
 // connection.h
 struct Connection;
 typedef struct Connection Connection;
@@ -38,8 +34,8 @@ typedef struct Connection Connection;
 struct Event;
 typedef struct Event Event;
 
-typedef struct EventSLL EventTarget;
-typedef struct EventSLL EventQueue;
+typedef struct EventA3SLL EventTarget;
+typedef struct EventA3SLL EventQueue;
 
 // http_connection.h
 struct HttpConnection;

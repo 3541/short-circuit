@@ -37,10 +37,10 @@ typedef enum UriScheme {
 
 typedef struct Uri {
     UriScheme scheme;
-    String    authority;
-    String    path;
-    String    query;
-    String    fragment;
+    A3String  authority;
+    A3String  path;
+    A3String  query;
+    A3String  fragment;
 } Uri;
 
 typedef enum UriParseResult {
@@ -50,7 +50,7 @@ typedef enum UriParseResult {
     URI_PARSE_SUCCESS
 } UriParseResult;
 
-UriParseResult uri_parse(Uri*, String);
-String         uri_path_if_contained(Uri*, CString real_root);
+UriParseResult uri_parse(Uri*, A3String);
+A3String       uri_path_if_contained(Uri*, A3CString real_root);
 bool           uri_is_initialized(Uri*);
 void           uri_free(Uri*);

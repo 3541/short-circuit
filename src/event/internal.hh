@@ -27,7 +27,7 @@
 #include "forward.h"
 
 struct Event {
-    SLL_NODE(Event);
+    A3_SLL_NODE(Event);
 
 private:
     EventType type { EVENT_INVALID };

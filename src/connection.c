@@ -60,7 +60,7 @@ static TimeoutQueue connection_timeout_queue;
 static inline HttpConnection* connection_http(Connection* conn) {
     assert(conn);
 
-    return CONTAINER_OF(conn, HttpConnection, conn);
+    return A3_CONTAINER_OF(conn, HttpConnection, conn);
 }
 
 void connection_timeout_init() {
@@ -70,20 +70,20 @@ void connection_timeout_init() {
 bool connection_init(Connection* this) {
     assert(this);
 
-    TRYB(buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
-                  RECV_BUF_MAX_CAPACITY));
-    return buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
-                    SEND_BUF_MAX_CAPACITY);
+    A3_TRYB(a3_buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
+                        RECV_BUF_MAX_CAPACITY));
+    return a3_buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
+                       SEND_BUF_MAX_CAPACITY);
 }
 
 bool connection_reset(Connection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    if (buf_initialized(&this->recv_buf))
-        buf_reset(&this->recv_buf);
-    if (buf_initialized(&this->recv_buf))
-        buf_reset(&this->send_buf);
+    if (a3_buf_initialized(&this->recv_buf))
+        a3_buf_reset(&this->recv_buf);
+    if (a3_buf_initialized(&this->recv_buf))
+        a3_buf_reset(&this->send_buf);
     if (timeout_is_scheduled(&this->timeout)) {
         timeout_cancel(&this->timeout);
         return connection_timeout_submit(this, uring, CONNECTION_TIMEOUT);
@@ -113,9 +113,9 @@ Connection* connection_accept_submit(Listener*        listener,
         ret->send_submit = connection_send_submit;
         break;
     case TLS:
-        PANIC("TODO: TLS");
+        A3_PANIC("TODO: TLS");
     default:
-        PANIC("Invalid transport.");
+        A3_PANIC("Invalid transport.");
     }
 
     ret->addr_len = sizeof(ret->client_addr);
@@ -138,7 +138,7 @@ static bool connection_recv_submit(Connection* this, struct io_uring* uring,
     (void)sqe_flags;
 
     return event_recv_submit(EVT(this), uring, this->socket,
-                             buf_write_ptr(&this->recv_buf));
+                             a3_buf_write_ptr(&this->recv_buf));
 }
 
 bool connection_send_submit(Connection* this, struct io_uring* uring,
@@ -146,9 +146,9 @@ bool connection_send_submit(Connection* this, struct io_uring* uring,
     assert(this);
     assert(uring);
 
-    Buffer* buf = &this->send_buf;
-    return event_send_submit(EVT(this), uring, this->socket, buf_read_ptr(buf),
-                             send_flags, sqe_flags);
+    A3Buffer* buf = &this->send_buf;
+    return event_send_submit(EVT(this), uring, this->socket,
+                             a3_buf_read_ptr(buf), send_flags, sqe_flags);
 }
 
 #define PIPE_BUF_SIZE 65536ULL
@@ -160,9 +160,9 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     assert(uring);
 
     if (!this->pipe[0] && !this->pipe[1]) {
-        log_msg(TRACE, "Opening pipe.");
+        a3_log_msg(TRACE, "Opening pipe.");
         if (pipe(this->pipe) < 0) {
-            log_error(errno, "unable to open pipe");
+            a3_log_error(errno, "unable to open pipe");
             return false;
         }
     }
@@ -179,7 +179,7 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
                 to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
                 sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
-            ERR("Failed to submit splice.");
+            A3_ERR("Failed to submit splice.");
             return false;
         }
     }
@@ -221,15 +221,15 @@ static bool connection_accept_handle(Connection* this, struct io_uring* uring,
     assert(!chain);
     (void)chain;
 
-    log_msg(TRACE, "Accept connection.");
+    a3_log_msg(TRACE, "Accept connection.");
     this->listener->accept_queued = false;
     if (status < 0) {
-        log_error(-status, "accept failed");
+        a3_log_error(-status, "accept failed");
         return false;
     }
     this->socket = (fd)status;
 
-    TRYB(connection_timeout_submit(this, uring, CONNECTION_TIMEOUT));
+    A3_TRYB(connection_timeout_submit(this, uring, CONNECTION_TIMEOUT));
 
     return this->recv_submit(this, uring, 0, 0);
 }
@@ -243,7 +243,7 @@ static bool connection_close_handle(Connection* this, struct io_uring* uring,
 
     this->socket = -1;
     if (status < 0)
-        log_error(-status, "close failed");
+        a3_log_error(-status, "close failed");
     http_connection_free((HttpConnection*)this, uring);
 
     return true;
@@ -270,11 +270,11 @@ static bool connection_read_handle(Connection* this, struct io_uring* uring,
     (void)chain;
 
     if (status < 0) {
-        log_error(-status, "read failed");
+        a3_log_error(-status, "read failed");
         return false;
     }
 
-    buf_wrote(&this->send_buf, (size_t)status);
+    a3_buf_wrote(&this->send_buf, (size_t)status);
     return true;
 }
 
@@ -288,11 +288,11 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring,
     if (status == 0 || -status == ECONNRESET)
         return connection_close_submit(this, uring);
     if (status < 0) {
-        log_error(-status, "recv failed");
+        a3_log_error(-status, "recv failed");
         return false;
     }
 
-    buf_wrote(&this->recv_buf, (size_t)status);
+    a3_buf_wrote(&this->recv_buf, (size_t)status);
 
     HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
     if (rc == HTTP_REQUEST_ERROR) {
@@ -311,11 +311,11 @@ static bool connection_send_handle(Connection* this, struct io_uring* uring,
     assert(uring);
 
     if (status < 0) {
-        log_error(-status, "send failed");
+        a3_log_error(-status, "send failed");
         return false;
     }
 
-    buf_read(&this->send_buf, (size_t)status);
+    a3_buf_read(&this->send_buf, (size_t)status);
 
     if (chain)
         return true;
@@ -332,7 +332,7 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring,
     // will nearly always be in a chain with the closure of a pipe.
 
     if (status < 0) {
-        log_error(-status, "splice failed");
+        a3_log_error(-status, "splice failed");
         return false;
     }
 
@@ -344,7 +344,7 @@ static bool connection_timeout_handle(Timeout*         timeout,
     assert(timeout);
     assert(uring);
 
-    Connection* conn = CONTAINER_OF(timeout, Connection, timeout);
+    Connection* conn = A3_CONTAINER_OF(timeout, Connection, timeout);
 
     return http_response_error_submit(&connection_http(conn)->response, uring,
                                       HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
@@ -382,11 +382,11 @@ void connection_event_handle(Connection* conn, struct io_uring* uring,
     case EVENT_INVALID:
     case EVENT_OPENAT:
     case EVENT_TIMEOUT:
-        PANIC_FMT("Invalid event %d.", type);
+        A3_PANIC_FMT("Invalid event %d.", type);
     }
 
     if (!rc) {
-        log_msg(WARN, "Connection failure. Closing.");
+        a3_log_msg(WARN, "Connection failure. Closing.");
         http_connection_free((HttpConnection*)conn, uring);
     }
 }

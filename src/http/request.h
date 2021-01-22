@@ -31,9 +31,9 @@ typedef struct HttpRequest {
     HttpTransferEncoding transfer_encodings;
     ssize_t              content_length;
 
-    String host;
-    Uri    target;
-    String target_path;
+    A3String host;
+    Uri      target;
+    A3String target_path;
 } HttpRequest;
 
 HttpConnection* http_request_connection(HttpRequest*);

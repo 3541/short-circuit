@@ -34,12 +34,12 @@
 
 static fd socket_listen(in_port_t port) {
     fd ret;
-    UNWRAPS(ret, socket(AF_INET, SOCK_STREAM, 0));
+    A3_UNWRAPS(ret, socket(AF_INET, SOCK_STREAM, 0));
 
     const int enable = 1;
-    UNWRAPSD(
+    A3_UNWRAPSD(
         setsockopt(ret, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
-    UNWRAPSD(
+    A3_UNWRAPSD(
         setsockopt(ret, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)));
 
     struct sockaddr_in addr;
@@ -48,8 +48,8 @@ static fd socket_listen(in_port_t port) {
     addr.sin_port        = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    UNWRAPSD(bind(ret, (struct sockaddr*)&addr, sizeof(addr)));
-    UNWRAPSD(listen(ret, LISTEN_BACKLOG));
+    A3_UNWRAPSD(bind(ret, (struct sockaddr*)&addr, sizeof(addr)));
+    A3_UNWRAPSD(listen(ret, LISTEN_BACKLOG));
 
     return ret;
 }

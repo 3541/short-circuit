@@ -46,9 +46,9 @@
 using std::move;
 using std::unique_ptr;
 
-SLL_DEFINE_METHODS(Event);
+A3_SLL_DEFINE_METHODS(Event);
 
-static Pool* EVENT_POOL = nullptr;
+static A3Pool* EVENT_POOL = nullptr;
 
 Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore,
              bool queue) :
@@ -56,16 +56,16 @@ Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore,
     target_ptr = reinterpret_cast<uintptr_t>(tgt) | (chain ? EVENT_CHAIN : 0) |
                  (ignore ? EVENT_IGNORE : 0);
     if (queue)
-        SLL_PUSH(Event)(tgt, this);
+        A3_SLL_PUSH(Event)(tgt, this);
 }
 
 void* Event::operator new(size_t size) noexcept {
     assert(size == sizeof(Event));
     (void)size;
 
-    void* ret = pool_alloc_block(EVENT_POOL);
+    void* ret = a3_pool_alloc_block(EVENT_POOL);
     if (!ret) {
-        log_msg(WARN, "Event pool exhausted.");
+        a3_log_msg(WARN, "Event pool exhausted.");
         return nullptr;
     }
 
@@ -75,17 +75,17 @@ void* Event::operator new(size_t size) noexcept {
 void Event::operator delete(void* event) {
     assert(event);
 
-    pool_free_block(EVENT_POOL, event);
+    a3_pool_free_block(EVENT_POOL, event);
 }
 
-CString event_type_name(EventType ty) {
-#define _EVENT_TYPE(E) [E] = CS(#E),
-    static const CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
+A3CString event_type_name(EventType ty) {
+#define _EVENT_TYPE(E) [E] = A3_CS(#E),
+    static const A3CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
     if (!(0 <= ty && static_cast<size_t>(ty) <
                          sizeof(EVENT_NAMES) / sizeof(EVENT_NAMES[0])))
-        return CS("INVALID");
+        return A3_CS("INVALID");
 
     return EVENT_NAMES[ty];
 }
@@ -94,7 +94,7 @@ CString event_type_name(EventType ty) {
 // io_uring_probe.
 static void event_check_kver(void) {
     struct utsname info;
-    UNWRAPSD(uname(&info));
+    A3_UNWRAPSD(uname(&info));
 
     char* release = strdup(info.release);
 
@@ -104,7 +104,7 @@ static void event_check_kver(void) {
     if (version_major < MIN_KERNEL_VERSION_MAJOR ||
         (version_major == MIN_KERNEL_VERSION_MAJOR &&
          version_minor < MIN_KERNEL_VERSION_MINOR))
-        PANIC_FMT(
+        A3_PANIC_FMT(
             "Kernel version %s is not supported. At least %d.%d is required.",
             release, MIN_KERNEL_VERSION_MAJOR, MIN_KERNEL_VERSION_MINOR);
 
@@ -114,7 +114,7 @@ static void event_check_kver(void) {
 #define REQUIRE_OP(P, OP)                                                      \
     do {                                                                       \
         if (!io_uring_opcode_supported(P, OP))                                 \
-            PANIC_FMT(                                                         \
+            A3_PANIC_FMT(                                                      \
                 "Required io_uring op %s is not supported by the kernel.",     \
                 #OP);                                                          \
     } while (0)
@@ -139,9 +139,9 @@ static void event_check_ops(struct io_uring* uring) {
 static struct rlimit rlimit_maximize(int resource) {
     struct rlimit lim;
 
-    UNWRAPSD(getrlimit(resource, &lim));
+    A3_UNWRAPSD(getrlimit(resource, &lim));
     lim.rlim_cur = lim.rlim_max;
-    UNWRAPSD(setrlimit(resource, &lim));
+    A3_UNWRAPSD(setrlimit(resource, &lim));
     return lim;
 }
 
@@ -151,7 +151,7 @@ static void event_check_rlimits(void) {
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
     if (lim_memlock.rlim_cur <= 96 * URING_ENTRIES)
-        log_fmt(
+        a3_log_fmt(
             WARN,
             "The memlock limit (%d) is too low. The queue will probably "
             "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
@@ -159,7 +159,7 @@ static void event_check_rlimits(void) {
 
     struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
     if (lim_nofile.rlim_cur <= CONNECTION_POOL_SIZE * 3)
-        log_fmt(
+        a3_log_fmt(
             WARN,
             "The open file limit (%d) is low. Large numbers of concurrent "
             "connections will probably cause \"too many open files\" errors.",
@@ -181,11 +181,13 @@ struct io_uring event_init() {
         }
     }
     if (!opened)
-        PANIC("Unable to open queue. The memlock limit is probably too low.");
+        A3_PANIC(
+            "Unable to open queue. The memlock limit is probably too low.");
 
     event_check_ops(&ret);
 
-    EVENT_POOL = POOL_OF(Event, EVENT_POOL_SIZE, POOL_ZERO_BLOCKS, nullptr);
+    EVENT_POOL =
+        A3_POOL_OF(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
 
     return ret;
 }
@@ -202,7 +204,7 @@ static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
         if (io_uring_submit(&uring) < 0)
             break;
     if (!ret)
-        log_msg(WARN, "SQ full.");
+        a3_log_msg(WARN, "SQ full.");
     return unique_ptr<struct io_uring_sqe> { ret };
 }
 
@@ -221,10 +223,10 @@ bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
     assert(out_client_addr);
 
     auto event = Event::create(target, EVENT_ACCEPT);
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_accept(sqe.get(), socket,
                          reinterpret_cast<struct sockaddr*>(out_client_addr),
@@ -279,16 +281,16 @@ bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file,
 }
 
 bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir,
-                         CString path, int32_t open_flags, mode_t mode) {
+                         A3CString path, int32_t open_flags, mode_t mode) {
     assert(target);
     assert(uring);
     assert(path.ptr);
 
     auto event = Event::create(target, EVENT_OPENAT);
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_openat(sqe.get(), dir,
                          reinterpret_cast<const char*>(path.ptr), open_flags,
@@ -299,7 +301,7 @@ bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir,
 }
 
 bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
-                       String out_data, size_t nbytes, off_t offset,
+                       A3String out_data, size_t nbytes, off_t offset,
                        uint32_t sqe_flags) {
     assert(target);
     assert(uring);
@@ -308,10 +310,10 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
 
     auto event = Event::create(target, EVENT_READ,
                                sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_read(sqe.get(), file, out_data.ptr,
                        static_cast<uint32_t>(MIN(out_data.len, nbytes)),
@@ -322,16 +324,16 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file,
 }
 
 bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket,
-                       String data) {
+                       A3String data) {
     assert(target);
     assert(uring);
     assert(data.ptr);
 
     auto event = Event::create(target, EVENT_RECV);
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_recv(sqe.get(), socket, data.ptr, data.len, 0);
     event_sqe_fill(move(event), move(sqe));
@@ -340,17 +342,18 @@ bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket,
 }
 
 bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket,
-                       CString data, uint32_t send_flags, uint32_t sqe_flags) {
+                       A3CString data, uint32_t send_flags,
+                       uint32_t sqe_flags) {
     assert(target);
     assert(uring);
     assert(data.ptr);
 
     auto event = Event::create(target, EVENT_SEND,
                                sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, (int)send_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
@@ -370,10 +373,10 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in,
     auto event =
         Event::create(target, EVENT_SPLICE,
                       sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), ignore);
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_splice(sqe.get(), in, off_in, out, (uint64_t)-1,
                          (unsigned)len, SPLICE_F_MOVE | splice_flags);
@@ -389,10 +392,10 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring,
     assert(threshold);
 
     auto event = Event::create(target, EVENT_TIMEOUT);
-    TRYB(event);
+    A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
-    TRYB(sqe);
+    A3_TRYB(sqe);
 
     io_uring_prep_timeout(sqe.get(), threshold, 0, timeout_flags);
     event_sqe_fill(move(event), move(sqe), 0);
@@ -403,8 +406,8 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring,
 bool event_cancel_all(EventTarget* target) {
     assert(target);
 
-    for (Event* victim = SLL_POP(Event)(target); victim;
-         victim        = SLL_POP(Event)(target))
+    for (Event* victim = A3_SLL_POP(Event)(target); victim;
+         victim        = A3_SLL_POP(Event)(target))
         victim->cancel();
 
     return true;

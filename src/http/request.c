@@ -37,7 +37,7 @@
 HttpConnection* http_request_connection(HttpRequest* req) {
     assert(req);
 
-    return CONTAINER_OF(req, HttpConnection, request);
+    return A3_CONTAINER_OF(req, HttpConnection, request);
 }
 
 HttpResponse* http_request_response(HttpRequest* req) {
@@ -51,8 +51,8 @@ http_request_get_head_handle(HttpRequest* req, struct io_uring* uring) {
     assert(uring);
 
     // TODO: GET things other than static files.
-    RET_MAP(http_response_file_submit(http_request_response(req), uring),
-            HTTP_REQUEST_STATE_DONE, HTTP_REQUEST_STATE_ERROR);
+    A3_RET_MAP(http_response_file_submit(http_request_response(req), uring),
+               HTTP_REQUEST_STATE_DONE, HTTP_REQUEST_STATE_ERROR);
 }
 
 // Do whatever is appropriate for the parsed method.
@@ -69,16 +69,16 @@ http_request_method_handle(HttpRequest* req, struct io_uring* uring) {
         return http_request_get_head_handle(req, uring);
     case HTTP_METHOD_BREW:
         conn->version = HTCPCP_VERSION_10;
-        RET_MAP(http_response_error_submit(http_request_response(req), uring,
-                                           HTTP_STATUS_IM_A_TEAPOT,
-                                           HTTP_RESPONSE_ALLOW),
-                HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        A3_RET_MAP(http_response_error_submit(http_request_response(req), uring,
+                                              HTTP_STATUS_IM_A_TEAPOT,
+                                              HTTP_RESPONSE_ALLOW),
+                   HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_INVALID:
     case HTTP_METHOD_UNKNOWN:
-        UNREACHABLE();
+        A3_UNREACHABLE();
     }
 
-    UNREACHABLE();
+    A3_UNREACHABLE();
 }
 
 void http_request_init(HttpRequest* req) {
@@ -94,11 +94,11 @@ void http_request_reset(HttpRequest* req) {
     assert(req);
 
     if (req->host.ptr)
-        string_free(&req->host);
+        a3_string_free(&req->host);
     if (uri_is_initialized(&req->target))
         uri_free(&req->target);
     if (req->target_path.ptr)
-        string_free(&req->target_path);
+        a3_string_free(&req->target_path);
 
     A3_STRUCT_ZERO(req);
 }
@@ -135,6 +135,6 @@ HttpRequestResult http_request_handle(HttpConnection* this,
         return HTTP_REQUEST_COMPLETE;
     }
 
-    log_fmt(TRACE, "State: %d", this->state);
-    PANIC("TODO: Handle whatever request did this.");
+    a3_log_fmt(TRACE, "State: %d", this->state);
+    A3_PANIC("TODO: Handle whatever request did this.");
 }

@@ -56,7 +56,7 @@ typedef struct HttpConnection {
 void            http_connection_pool_init(void);
 HttpConnection* http_connection_new(void);
 void            http_connection_free(HttpConnection*, struct io_uring*);
-void            http_connection_pool_free(void);
+void            http_connection_a3_pool_free(void);
 
 bool http_connection_init(HttpConnection*);
 bool http_connection_close_submit(HttpConnection*, struct io_uring*);
