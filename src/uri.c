@@ -157,7 +157,7 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
     memset(ret, 0, sizeof(Uri));
     ret->scheme = URI_SCHEME_UNSPECIFIED;
 
-    // [scheme]://[authority]<path>[query][fragment]
+    // [<scheme>://][authority]<path>[query][fragment]
     if (a3_buf_memmem(buf, A3_CS("://")).ptr) {
         ret->scheme =
             uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"))));
