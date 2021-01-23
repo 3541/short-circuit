@@ -1,6 +1,7 @@
 image: alpine/edge
 packages:
   - cmake
+  - ninja
   - liburing-dev
   - linux-headers
   - gtest-dev
@@ -12,7 +13,7 @@ tasks:
       git submodule update --init --recursive
   - setup: |
       mkdir -p short-circuit/build
-      cmake -S short-circuit -B short-circuit/build -DCMAKE_BUILD_TYPE=Release -DUSE_WERROR=1
+      cmake -GNinja -S short-circuit -B short-circuit/build -DCMAKE_BUILD_TYPE=Release -DUSE_WERROR=1
   - build: |
       cmake --build short-circuit/build
   - test: |
