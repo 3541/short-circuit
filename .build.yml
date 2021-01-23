@@ -3,6 +3,7 @@ packages:
   - cmake
   - liburing-dev
   - linux-headers
+  - gtest-dev
 sources:
   - https://github.com/3541/short-circuit
 tasks:
@@ -14,3 +15,5 @@ tasks:
       cmake -S short-circuit -B short-circuit/build -DCMAKE_BUILD_TYPE=Release -DUSE_WERROR=1
   - build: |
       cmake --build short-circuit/build
+  - test: |
+      cmake --build short-circuit/build --target test
