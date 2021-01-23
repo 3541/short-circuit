@@ -33,8 +33,7 @@ pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing)
 
 add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
-add_executable(sc
-  src/main.c
+set(SC_SRC
   src/event/mod.cc
   src/event/handle.cc
   src/file.c
@@ -49,8 +48,16 @@ add_executable(sc
   src/timeout.c
   src/uri.c
 )
+
+set(SC_LIB
+  a3
+  a3hash
+  PkgConfig::liburing
+)
+
+add_executable(sc src/main.c ${SC_SRC})
 target_include_directories(sc PRIVATE src)
-target_link_libraries(sc a3 a3hash PkgConfig::liburing)
+target_link_libraries(sc ${SC_LIB})
 
 include(DisableExceptions)
 include(DisableRTTI)
@@ -95,3 +102,59 @@ endif()
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(sc PRIVATE DEBUG_BUILD)
 endif()
+
+# Testing
+
+include(CTest)
+find_package(GTest)
+
+if (GTest_FOUND)
+  set(GTEST_LIB GTest::gtest_main)
+else()
+  set(INSTALL_GTEST FALSE CACHE BOOL "Don't install GTest.")
+  add_subdirectory(extern/googletest EXCLUDE_FROM_ALL)
+  set(GTEST_LIB gtest_main)
+
+  if (WIN32 AND NOT MSVC)
+    target_add_warning(gtest "no-language-extension-token" FALSE)
+  endif()
+endif()
+
+add_library(sc_lib ${SC_SRC})
+target_include_directories(sc_lib PUBLIC src)
+target_link_libraries(sc_lib PUBLIC ${SC_LIB})
+target_disable_exceptions(sc_lib)
+target_disable_rtti(sc_lib)
+target_add_warning_cxx(sc_lib "no-c99-designator" FALSE)
+target_add_sanitizers(sc_lib TRUE)
+set_target_properties(sc_lib PROPERTIES
+  C_STANDARD 11
+  C_EXTENSIONS FALSE
+  C_STANDARD_REQUIRED TRUE
+  CXX_STANDARD 11
+  CXX_EXTENSIONS FALSE
+  CXX_STANDARD_REQUIRED TRUE
+  C_VISIBILITY_PRESET default
+  CXX_VISIBILITY_PRESET default
+)
+target_compile_definitions(sc_lib PRIVATE
+  typeof=__typeof__
+  _XOPEN_SOURCE=700
+)
+
+add_executable(sc_test
+  test/uri.cc
+)
+target_disable_exceptions(sc_test)
+target_disable_rtti(sc_test)
+set_target_properties(sc_test PROPERTIES
+  C_EXTENSIONS FALSE
+  CXX_EXTENSIONS FALSE
+)
+target_add_sanitizers(sc_test TRUE)
+target_add_extra_warnings(sc_test FALSE)
+target_link_libraries(sc_test PRIVATE sc_lib)
+target_link_libraries(sc_test PRIVATE ${GTEST_LIB})
+gtest_discover_tests(sc_test)
+
+add_dependencies(sc_test a3_test)
