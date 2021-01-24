@@ -84,6 +84,7 @@ set_target_properties(sc PROPERTIES
   CXX_STANDARD_REQUIRED TRUE
 )
 target_compile_definitions(sc PRIVATE
+  SC_VERSION="${PROJECT_VERSION}"
   typeof=__typeof__ # For liburing, since it assumes GNU extensions.
   _XOPEN_SOURCE=700
 )

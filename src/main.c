@@ -22,6 +22,7 @@
  */
 
 #include <errno.h>
+#include <getopt.h>
 #include <liburing.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -68,36 +69,81 @@ static void check_webroot_exists(const char* root) {
         A3_PANIC_FMT("Web root %s is not a directory.", root);
 }
 
-static void usage_print_and_die(void) {
+static void usage(void) {
     fprintf(stderr,
-            "USAGE:\n"
+            "USAGE:\n\n"
             "sc [options]\n"
             "Options:\n"
-            "\t-h\tShow this message and exit.\n"
-            "\t-v\tPrint verbose output (more 'v's for even more output).\n"
-            "\t-q\tBe quieter (more 'q's for more silence).\n");
+            "\t-h, --help\tShow this message and exit.\n"
+            "\t-v, --verbose\tPrint verbose output (more 'v's for even more output).\n"
+            "\t    --version\tPrint version information.\n"
+            "\t-q, --quiet\tBe quieter (more 'q's for more silence).\n");
     exit(EXIT_FAILURE);
 }
 
-static void config_parse(int argc, char** argv) {
-    int opt;
+static void version(void) {
+    printf("Short Circuit (sc) %s\n"
+           "Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>\n\n"
+           "This program is free software: you can redistribute it and/or modify\n"
+           "it under the terms of the GNU Affero General Public License as published\n"
+           "by the Free Software Foundation, either version 3 of the License, or\n"
+           "(at your option) any later version.\n\n"
+           "This program is distributed in the hope that it will be useful,\n"
+           "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+           "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+           "GNU Affero General Public License for more details.\n\n"
+           "You should have received a copy of the GNU Affero General Public License\n"
+           "along with this program.  If not, see <https://www.gnu.org/licenses/>.\n",
+           SC_VERSION);
+    exit(EXIT_SUCCESS);
+}
 
-    while ((opt = getopt(argc, argv, "vq")) != -1) {
+typedef enum {
+    OPT_HELP,
+    OPT_QUIET,
+    OPT_VERBOSE,
+    OPT_VERSION,
+    _OPT_COUNT
+} OptIndex;
+
+static void config_parse(int argc, char** argv) {
+    static struct option options[] = {
+        [OPT_HELP] = { "help", no_argument, NULL, 'h' },
+        [OPT_QUIET] = { "quiet", no_argument, NULL, 'q' },
+        [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
+        [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
+        [_OPT_COUNT] = { 0, 0, 0, 0 }
+    };
+
+    int opt;
+    int longindex;
+    while ((opt = getopt_long(argc, argv, "hqv", options, &longindex)) != -1) {
         switch (opt) {
-        case 'v':
-            if (CONFIG.log_level > TRACE)
-                CONFIG.log_level--;
+        case 'h':
+            usage();
             break;
         case 'q':
             if (CONFIG.log_level < ERROR)
                 CONFIG.log_level++;
             break;
-        case 'h':
-            usage_print_and_die();
+        case 'v':
+            if (CONFIG.log_level > TRACE)
+                CONFIG.log_level--;
             break;
         default:
-            fprintf(stderr, "Unrecognized option '%c'.\n", opt);
-            usage_print_and_die();
+            if (opt == 0) {
+                switch (longindex) {
+                case OPT_VERSION:
+                    version();
+                    break;
+                default:
+                    fprintf(stderr, "Unrecognized long option.\n");
+                    usage();
+                    break;
+                }
+            } else {
+                usage();
+            }
             break;
         }
     }
