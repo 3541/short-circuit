@@ -32,15 +32,14 @@ A3_H_BEGIN
 typedef struct FileHandle FileHandle;
 
 void        file_cache_init(void);
-FileHandle* file_open(EventTarget*, struct io_uring*, A3CString path,
-                      int32_t flags);
-FileHandle* file_openat(EventTarget*, struct io_uring*, FileHandle* dir,
-                        A3CString name, int32_t flags);
+FileHandle* file_open(EventTarget*, struct io_uring*, A3CString path, int32_t flags);
+FileHandle* file_openat(EventTarget*, struct io_uring*, FileHandle* dir, A3CString name,
+                        int32_t flags);
 fd          file_handle_fd(FileHandle*);
 fd          file_handle_fd_unchecked(FileHandle*);
 bool        file_handle_waiting(FileHandle*);
 void        file_close(FileHandle*, struct io_uring*);
 void        file_cache_destroy(struct io_uring*);
-void file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status);
+void        file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status);
 
 A3_H_END

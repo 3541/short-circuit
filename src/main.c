@@ -70,14 +70,13 @@ static void check_webroot_exists(const char* root) {
 }
 
 static void usage(void) {
-    fprintf(stderr,
-            "USAGE:\n\n"
-            "sc [options]\n"
-            "Options:\n"
-            "\t-h, --help\tShow this message and exit.\n"
-            "\t-v, --verbose\tPrint verbose output (more 'v's for even more output).\n"
-            "\t    --version\tPrint version information.\n"
-            "\t-q, --quiet\tBe quieter (more 'q's for more silence).\n");
+    fprintf(stderr, "USAGE:\n\n"
+                    "sc [options]\n"
+                    "Options:\n"
+                    "\t-h, --help\tShow this message and exit.\n"
+                    "\t-v, --verbose\tPrint verbose output (more 'v's for even more output).\n"
+                    "\t    --version\tPrint version information.\n"
+                    "\t-q, --quiet\tBe quieter (more 'q's for more silence).\n");
     exit(EXIT_FAILURE);
 }
 
@@ -98,22 +97,14 @@ static void version(void) {
     exit(EXIT_SUCCESS);
 }
 
-typedef enum {
-    OPT_HELP,
-    OPT_QUIET,
-    OPT_VERBOSE,
-    OPT_VERSION,
-    _OPT_COUNT
-} OptIndex;
+typedef enum { OPT_HELP, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT } OptIndex;
 
 static void config_parse(int argc, char** argv) {
-    static struct option options[] = {
-        [OPT_HELP] = { "help", no_argument, NULL, 'h' },
-        [OPT_QUIET] = { "quiet", no_argument, NULL, 'q' },
-        [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
-        [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
-        [_OPT_COUNT] = { 0, 0, 0, 0 }
-    };
+    static struct option options[] = { [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
+                                       [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
+                                       [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
+                                       [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
+                                       [_OPT_COUNT]  = { 0, 0, 0, 0 } };
 
     int opt;
     int longindex;
@@ -189,8 +180,7 @@ int main(int argc, char** argv) {
         int                  rc;
 #ifdef PROFILE
         struct __kernel_timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
-        if (((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 &&
-             rc != -ETIME) ||
+        if (((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 && rc != -ETIME) ||
             time(NULL) > init_time + 20) {
             if (rc < 0)
                 a3_log_error(-rc, "Breaking event loop.");

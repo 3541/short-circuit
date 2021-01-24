@@ -52,8 +52,7 @@ static bool uri_decode(A3String str) {
     assert(str.ptr);
     const uint8_t* end = A3_S_END(A3_S_CONST(str));
 
-    for (uint8_t *wp, *rp = wp = str.ptr; wp < end && rp < end && *wp && *rp;
-         wp++) {
+    for (uint8_t *wp, *rp = wp = str.ptr; wp < end && rp < end && *wp && *rp; wp++) {
         switch (*rp) {
         case '%':
             if (isxdigit(rp[1]) && isxdigit(rp[2])) {
@@ -149,27 +148,22 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
     assert(ret);
     assert(str.ptr);
 
-    A3Buffer buf_ = {
-        .data = str, .tail = str.len, .head = 0, .max_cap = str.len
-    };
-    A3Buffer* buf = &buf_;
+    A3Buffer  buf_ = { .data = str, .tail = str.len, .head = 0, .max_cap = str.len };
+    A3Buffer* buf  = &buf_;
 
     memset(ret, 0, sizeof(Uri));
     ret->scheme = URI_SCHEME_UNSPECIFIED;
 
     // [<scheme>://][authority]<path>[query][fragment]
     if (a3_buf_memmem(buf, A3_CS("://")).ptr) {
-        ret->scheme =
-            uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"))));
+        ret->scheme = uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"))));
         if (ret->scheme == URI_SCHEME_INVALID)
             return URI_PARSE_BAD_URI;
     }
 
     // [authority]<path>[query][fragment]
-    if (buf->data.ptr[buf->head] != '/' &&
-        ret->scheme != URI_SCHEME_UNSPECIFIED) {
-        ret->authority =
-            a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"))));
+    if (buf->data.ptr[buf->head] != '/' && ret->scheme != URI_SCHEME_UNSPECIFIED) {
+        ret->authority = a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"))));
         A3_TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }

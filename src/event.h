@@ -40,16 +40,16 @@ A3_H_BEGIN
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
 
-#define EVENT_TYPE_ENUM                                                        \
-    _EVENT_TYPE(EVENT_ACCEPT)                                                  \
-    _EVENT_TYPE(EVENT_CLOSE)                                                   \
-    _EVENT_TYPE(EVENT_OPENAT)                                                  \
-    _EVENT_TYPE(EVENT_OPENAT_SYNTH)                                            \
-    _EVENT_TYPE(EVENT_READ)                                                    \
-    _EVENT_TYPE(EVENT_RECV)                                                    \
-    _EVENT_TYPE(EVENT_SEND)                                                    \
-    _EVENT_TYPE(EVENT_SPLICE)                                                  \
-    _EVENT_TYPE(EVENT_TIMEOUT)                                                 \
+#define EVENT_TYPE_ENUM                                                                            \
+    _EVENT_TYPE(EVENT_ACCEPT)                                                                      \
+    _EVENT_TYPE(EVENT_CLOSE)                                                                       \
+    _EVENT_TYPE(EVENT_OPENAT)                                                                      \
+    _EVENT_TYPE(EVENT_OPENAT_SYNTH)                                                                \
+    _EVENT_TYPE(EVENT_READ)                                                                        \
+    _EVENT_TYPE(EVENT_RECV)                                                                        \
+    _EVENT_TYPE(EVENT_SEND)                                                                        \
+    _EVENT_TYPE(EVENT_SPLICE)                                                                      \
+    _EVENT_TYPE(EVENT_TIMEOUT)                                                                     \
     _EVENT_TYPE(EVENT_INVALID)
 
 typedef enum EventType {
@@ -75,24 +75,19 @@ A3CString event_type_name(EventType);
 struct io_uring event_init(void);
 
 bool event_accept_submit(EventTarget*, struct io_uring*, fd socket,
-                         struct sockaddr_in* out_client_addr,
-                         socklen_t*          inout_addr_len);
-bool event_close_submit(EventTarget*, struct io_uring*, fd file,
-                        uint32_t sqe_flags, bool fallback_sync);
-bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, A3CString path,
-                         int32_t open_flags, mode_t mode);
-bool event_read_submit(EventTarget*, struct io_uring*, fd file,
-                       A3String out_data, size_t nbytes, off_t offset,
-                       uint32_t sqe_flags);
-bool event_recv_submit(EventTarget*, struct io_uring*, fd socket,
-                       A3String out_data);
-bool event_send_submit(EventTarget*, struct io_uring*, fd socket,
-                       A3CString data, uint32_t send_flags, uint32_t sqe_flags);
-bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in,
-                         fd out, size_t len, uint32_t splice_flags,
-                         uint32_t sqe_flags, bool ignore);
-bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*,
-                          uint32_t timeout_flags);
+                         struct sockaddr_in* out_client_addr, socklen_t* inout_addr_len);
+bool event_close_submit(EventTarget*, struct io_uring*, fd file, uint32_t sqe_flags,
+                        bool fallback_sync);
+bool event_openat_submit(EventTarget*, struct io_uring*, fd dir, A3CString path, int32_t open_flags,
+                         mode_t mode);
+bool event_read_submit(EventTarget*, struct io_uring*, fd file, A3String out_data, size_t nbytes,
+                       off_t offset, uint32_t sqe_flags);
+bool event_recv_submit(EventTarget*, struct io_uring*, fd socket, A3String out_data);
+bool event_send_submit(EventTarget*, struct io_uring*, fd socket, A3CString data,
+                       uint32_t send_flags, uint32_t sqe_flags);
+bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in, fd out, size_t len,
+                         uint32_t splice_flags, uint32_t sqe_flags, bool ignore);
+bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*, uint32_t timeout_flags);
 
 // Synthesize an event. This Event is _not_ queued, but is useful for situations
 // in which one completion from the uring must notify multiple targets. See

@@ -65,16 +65,13 @@ void Event::handle(struct io_uring& uring) {
     case EVENT_RECV:
     case EVENT_SEND:
     case EVENT_SPLICE:
-        connection_event_handle(EVT_PTR(target, Connection), &uring, ty,
-                                status_code, chain);
+        connection_event_handle(EVT_PTR(target, Connection), &uring, ty, status_code, chain);
         return;
     case EVENT_OPENAT:
-        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring,
-                                 status_code);
+        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring, status_code);
         return;
     case EVENT_TIMEOUT:
-        timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring,
-                             status_code);
+        timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring, status_code);
         return;
     case EVENT_INVALID:
         return;
@@ -101,13 +98,11 @@ void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
 }
 
 // Deliver a queue of synthetic events with a given status.
-void event_synth_deliver(EventQueue* queue, struct io_uring* uring,
-                         int32_t status) {
+void event_synth_deliver(EventQueue* queue, struct io_uring* uring, int32_t status) {
     assert(queue);
     assert(uring);
 
-    for (auto* event = A3_SLL_PEEK(Event)(queue); event;
-         event       = A3_SLL_NEXT(Event)(event))
+    for (auto* event = A3_SLL_PEEK(Event)(queue); event; event = A3_SLL_NEXT(Event)(event))
         event->status = status;
 
     event_queue_handle_all(queue, uring);

@@ -36,8 +36,7 @@ A3_LL_DECLARE_METHODS(Timeout)
 
 // Compare a kernel timespec and libc timespec.
 static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
-    return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec
-                                      : lhs.tv_nsec - rhs.tv_nsec;
+    return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec : lhs.tv_nsec - rhs.tv_nsec;
 }
 
 A3_LL_DEFINE_METHODS(Timeout)
@@ -55,12 +54,10 @@ static bool timeout_schedule_next(TimeoutQueue* this, struct io_uring* uring) {
     if (!next)
         return true;
 
-    return event_timeout_submit(EVT(this), uring, &next->threshold,
-                                IORING_TIMEOUT_ABS);
+    return event_timeout_submit(EVT(this), uring, &next->threshold, IORING_TIMEOUT_ABS);
 }
 
-bool timeout_schedule(TimeoutQueue* this, Timeout* timeout,
-                      struct io_uring* uring) {
+bool timeout_schedule(TimeoutQueue* this, Timeout* timeout, struct io_uring* uring) {
     assert(this);
     assert(timeout);
     assert(uring);
@@ -89,8 +86,7 @@ bool timeout_cancel(Timeout* this) {
     return true;
 }
 
-bool timeout_event_handle(TimeoutQueue* this, struct io_uring* uring,
-                          int32_t status) {
+bool timeout_event_handle(TimeoutQueue* this, struct io_uring* uring, int32_t status) {
     assert(this);
     assert(uring);
     assert(status > 0 || status == -ETIME);

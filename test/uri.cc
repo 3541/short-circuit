@@ -31,8 +31,7 @@ TEST_F(UriTest, parse_scheme_authority) {
 
     EXPECT_EQ(uri_parse(&uri, s1), URI_PARSE_SUCCESS);
     EXPECT_EQ(uri.scheme, URI_SCHEME_HTTP);
-    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.authority), A3_CS("example.com")),
-              0);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.authority), A3_CS("example.com")), 0);
     EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.path), A3_CS("/test.txt")), 0);
     EXPECT_FALSE(uri.query.ptr);
     EXPECT_FALSE(uri.fragment.ptr);
@@ -40,8 +39,7 @@ TEST_F(UriTest, parse_scheme_authority) {
 
     EXPECT_EQ(uri_parse(&uri, s2), URI_PARSE_SUCCESS);
     EXPECT_EQ(uri.scheme, URI_SCHEME_HTTPS);
-    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.authority), A3_CS("example.com")),
-              0);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.authority), A3_CS("example.com")), 0);
     EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.path), A3_CS("/asdf.txt")), 0);
     EXPECT_FALSE(uri.query.ptr);
     EXPECT_FALSE(uri.fragment.ptr);

@@ -37,10 +37,8 @@ static fd socket_listen(in_port_t port) {
     A3_UNWRAPS(ret, socket(AF_INET, SOCK_STREAM, 0));
 
     const int enable = 1;
-    A3_UNWRAPSD(
-        setsockopt(ret, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
-    A3_UNWRAPSD(
-        setsockopt(ret, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)));
+    A3_UNWRAPSD(setsockopt(ret, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
+    A3_UNWRAPSD(setsockopt(ret, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)));
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -54,8 +52,7 @@ static fd socket_listen(in_port_t port) {
     return ret;
 }
 
-void listener_init(Listener* this, in_port_t port,
-                   ConnectionTransport transport) {
+void listener_init(Listener* this, in_port_t port, ConnectionTransport transport) {
     assert(this);
 
     this->socket        = socket_listen(port);
@@ -75,8 +72,7 @@ Connection* listener_accept_submit(Listener* this, struct io_uring* uring) {
     return ret;
 }
 
-void listener_accept_all(Listener* listeners, size_t n_listeners,
-                         struct io_uring* uring) {
+void listener_accept_all(Listener* listeners, size_t n_listeners, struct io_uring* uring) {
     assert(listeners);
     assert(uring);
 

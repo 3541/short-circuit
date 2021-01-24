@@ -38,7 +38,6 @@ bool http_header_add(HttpHeaders* headers, A3CString name, A3CString value) {
     if (A3_HT_FIND(A3CString, A3CString)(&headers->headers, name))
         return false;
     A3_HT_INSERT(A3CString, A3CString)
-    (&headers->headers, A3_S_CONST(a3_string_clone(name)),
-     A3_S_CONST(a3_string_clone(value)));
+    (&headers->headers, A3_S_CONST(a3_string_clone(name)), A3_S_CONST(a3_string_clone(value)));
     return true;
 }

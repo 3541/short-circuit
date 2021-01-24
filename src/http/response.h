@@ -36,7 +36,6 @@ bool http_response_handle(HttpConnection*, struct io_uring*);
 
 #define HTTP_RESPONSE_CLOSE true
 #define HTTP_RESPONSE_ALLOW false
-bool http_response_error_submit(HttpResponse*, struct io_uring*, HttpStatus,
-                                bool close);
+bool http_response_error_submit(HttpResponse*, struct io_uring*, HttpStatus, bool close);
 
 bool http_response_file_submit(HttpResponse*, struct io_uring*);

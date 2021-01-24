@@ -25,11 +25,11 @@
 
 #define HTTP_NEWLINE A3_CS("\r\n")
 
-#define HTTP_METHOD_ENUM                                                       \
-    _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                  \
-    _METHOD(HTTP_METHOD_BREW, "BREW")                                          \
-    _METHOD(HTTP_METHOD_GET, "GET")                                            \
-    _METHOD(HTTP_METHOD_HEAD, "HEAD")                                          \
+#define HTTP_METHOD_ENUM                                                                           \
+    _METHOD(HTTP_METHOD_INVALID, "__INVALID")                                                      \
+    _METHOD(HTTP_METHOD_BREW, "BREW")                                                              \
+    _METHOD(HTTP_METHOD_GET, "GET")                                                                \
+    _METHOD(HTTP_METHOD_HEAD, "HEAD")                                                              \
     _METHOD(HTTP_METHOD_UNKNOWN, "__UNKNOWN")
 
 typedef enum HttpMethod {
@@ -38,11 +38,11 @@ typedef enum HttpMethod {
 #undef _METHOD
 } HttpMethod;
 
-#define HTTP_VERSION_ENUM                                                      \
-    _VERSION(HTTP_VERSION_INVALID, "")                                         \
-    _VERSION(HTTP_VERSION_10, "HTTP/1.0")                                      \
-    _VERSION(HTTP_VERSION_11, "HTTP/1.1")                                      \
-    _VERSION(HTCPCP_VERSION_10, "HTCPCP/1.0")                                  \
+#define HTTP_VERSION_ENUM                                                                          \
+    _VERSION(HTTP_VERSION_INVALID, "")                                                             \
+    _VERSION(HTTP_VERSION_10, "HTTP/1.0")                                                          \
+    _VERSION(HTTP_VERSION_11, "HTTP/1.1")                                                          \
+    _VERSION(HTCPCP_VERSION_10, "HTCPCP/1.0")                                                      \
     _VERSION(HTTP_VERSION_UNKNOWN, "")
 
 typedef enum HttpVersion {
@@ -51,22 +51,21 @@ typedef enum HttpVersion {
 #undef _VERSION
 } HttpVersion;
 
-#define HTTP_CONTENT_TYPE_ENUM                                                 \
-    _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                      \
-    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM,                         \
-           "application/octet-stream")                                         \
-    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_JSON, "application/json")             \
-    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_PDF, "application/pdf")               \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_BMP, "image/bmp")                           \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_GIF, "image/gif")                           \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_ICO, "image/x-icon")                        \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_JPEG, "image/jpeg")                         \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_PNG, "image/png")                           \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_SVG, "image/svg+xml")                       \
-    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_WEBP, "image/webp")                         \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_CSS, "text/css")                             \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT, "text/javascript")               \
-    _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")                         \
+#define HTTP_CONTENT_TYPE_ENUM                                                                     \
+    _CTYPE(HTTP_CONTENT_TYPE_INVALID, "")                                                          \
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_OCTET_STREAM, "application/octet-stream")                 \
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_JSON, "application/json")                                 \
+    _CTYPE(HTTP_CONTENT_TYPE_APPLICATION_PDF, "application/pdf")                                   \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_BMP, "image/bmp")                                               \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_GIF, "image/gif")                                               \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_ICO, "image/x-icon")                                            \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_JPEG, "image/jpeg")                                             \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_PNG, "image/png")                                               \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_SVG, "image/svg+xml")                                           \
+    _CTYPE(HTTP_CONTENT_TYPE_IMAGE_WEBP, "image/webp")                                             \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_CSS, "text/css")                                                 \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT, "text/javascript")                                   \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")                                             \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")
 
 typedef enum HttpContentType {
@@ -75,21 +74,19 @@ typedef enum HttpContentType {
 #undef _CTYPE
 } HttpContentType;
 
-#define HTTP_STATUS_ENUM                                                       \
-    _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                           \
-    _STATUS(200, HTTP_STATUS_OK, "OK")                                         \
-    _STATUS(400, HTTP_STATUS_BAD_REQUEST, "Bad Request")                       \
-    _STATUS(404, HTTP_STATUS_NOT_FOUND, "Not Found")                           \
-    _STATUS(408, HTTP_STATUS_TIMEOUT, "Request Timeout")                       \
-    _STATUS(413, HTTP_STATUS_PAYLOAD_TOO_LARGE, "Payload Too Large")           \
-    _STATUS(414, HTTP_STATUS_URI_TOO_LONG, "URI Too Long")                     \
-    _STATUS(418, HTTP_STATUS_IM_A_TEAPOT, "I'm a teapot")                      \
-    _STATUS(431, HTTP_STATUS_HEADER_TOO_LARGE,                                 \
-            "Request Header Fields Too Large")                                 \
-    _STATUS(500, HTTP_STATUS_SERVER_ERROR, "Internal Server Error")            \
-    _STATUS(501, HTTP_STATUS_NOT_IMPLEMENTED, "Not Implemented")               \
-    _STATUS(505, HTTP_STATUS_VERSION_NOT_SUPPORTED,                            \
-            "HTTP Version Not Supported")
+#define HTTP_STATUS_ENUM                                                                           \
+    _STATUS(0, HTTP_STATUS_INVALID, "Invalid error")                                               \
+    _STATUS(200, HTTP_STATUS_OK, "OK")                                                             \
+    _STATUS(400, HTTP_STATUS_BAD_REQUEST, "Bad Request")                                           \
+    _STATUS(404, HTTP_STATUS_NOT_FOUND, "Not Found")                                               \
+    _STATUS(408, HTTP_STATUS_TIMEOUT, "Request Timeout")                                           \
+    _STATUS(413, HTTP_STATUS_PAYLOAD_TOO_LARGE, "Payload Too Large")                               \
+    _STATUS(414, HTTP_STATUS_URI_TOO_LONG, "URI Too Long")                                         \
+    _STATUS(418, HTTP_STATUS_IM_A_TEAPOT, "I'm a teapot")                                          \
+    _STATUS(431, HTTP_STATUS_HEADER_TOO_LARGE, "Request Header Fields Too Large")                  \
+    _STATUS(500, HTTP_STATUS_SERVER_ERROR, "Internal Server Error")                                \
+    _STATUS(501, HTTP_STATUS_NOT_IMPLEMENTED, "Not Implemented")                                   \
+    _STATUS(505, HTTP_STATUS_VERSION_NOT_SUPPORTED, "HTTP Version Not Supported")
 
 typedef enum HttpStatus {
 #define _STATUS(CODE, TYPE, REASON) TYPE,
@@ -97,8 +94,8 @@ typedef enum HttpStatus {
 #undef _STATUS
 } HttpStatus;
 
-#define HTTP_TRANSFER_ENCODING_ENUM                                            \
-    _TENCODING(TRANSFER_ENCODING_IDENTITY, "identity")                         \
+#define HTTP_TRANSFER_ENCODING_ENUM                                                                \
+    _TENCODING(TRANSFER_ENCODING_IDENTITY, "identity")                                             \
     _TENCODING(TRANSFER_ENCODING_CHUNKED, "chunked")
 
 enum HttpTransferBits {
@@ -108,8 +105,7 @@ enum HttpTransferBits {
 };
 
 typedef uint8_t HttpTransferEncoding;
-#define _TENCODING(E, S)                                                       \
-    static const HttpTransferEncoding HTTP_##E = 1 << (_HTTP_##E);
+#define _TENCODING(E, S) static const HttpTransferEncoding HTTP_##E = 1 << (_HTTP_##E);
 HTTP_TRANSFER_ENCODING_ENUM
 #undef _TENCODING
 static const HttpTransferEncoding HTTP_TRANSFER_ENCODING_INVALID = 0;

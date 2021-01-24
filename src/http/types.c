@@ -39,8 +39,7 @@ HttpMethod http_request_method_parse(A3CString str) {
 
     A3_TRYB_MAP(str.ptr && a3_string_isascii(str), HTTP_METHOD_INVALID);
 
-    for (size_t i = 0;
-         i < sizeof(HTTP_METHOD_NAMES) / sizeof(HTTP_METHOD_NAMES[0]); i++) {
+    for (size_t i = 0; i < sizeof(HTTP_METHOD_NAMES) / sizeof(HTTP_METHOD_NAMES[0]); i++) {
         if (a3_string_cmpi(str, HTTP_METHOD_NAMES[i].name) == 0)
             return HTTP_METHOD_NAMES[i].method;
     }
@@ -52,9 +51,7 @@ HttpMethod http_request_method_parse(A3CString str) {
 static const A3CString HTTP_VERSION_STRINGS[] = { HTTP_VERSION_ENUM };
 #undef _VERSION
 
-A3CString http_version_string(HttpVersion version) {
-    return HTTP_VERSION_STRINGS[version];
-}
+A3CString http_version_string(HttpVersion version) { return HTTP_VERSION_STRINGS[version]; }
 
 HttpVersion http_version_parse(A3CString str) {
     if (!str.ptr || !*str.ptr)
@@ -62,8 +59,7 @@ HttpVersion http_version_parse(A3CString str) {
 
     A3_TRYB_MAP(str.ptr && a3_string_isascii(str), HTTP_VERSION_INVALID);
 
-    for (HttpVersion v = HTTP_VERSION_INVALID + 1; v < HTTP_VERSION_UNKNOWN;
-         v++)
+    for (HttpVersion v = HTTP_VERSION_INVALID + 1; v < HTTP_VERSION_UNKNOWN; v++)
         if (a3_string_cmpi(str, HTTP_VERSION_STRINGS[v]) == 0)
             return v;
 
@@ -77,19 +73,13 @@ static const struct {
 } HTTP_STATUSES[] = { HTTP_STATUS_ENUM };
 #undef STATUS
 
-A3CString http_status_reason(HttpStatus status) {
-    return HTTP_STATUSES[status].reason;
-}
+A3CString http_status_reason(HttpStatus status) { return HTTP_STATUSES[status].reason; }
 
-uint16_t http_status_code(HttpStatus status) {
-    return HTTP_STATUSES[status].code;
-}
+uint16_t http_status_code(HttpStatus status) { return HTTP_STATUSES[status].code; }
 
 A3CString http_content_type_name(HttpContentType type) {
 #define _CTYPE(T, S) [T] = A3_CS(S),
-    static const A3CString HTTP_CONTENT_TYPE_NAMES[] = {
-        HTTP_CONTENT_TYPE_ENUM
-    };
+    static const A3CString HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 
     return HTTP_CONTENT_TYPE_NAMES[type];
@@ -146,11 +136,10 @@ HttpTransferEncoding http_transfer_encoding_parse(A3CString value) {
 
     assert(value.ptr && *value.ptr);
 
-    A3_TRYB_MAP(value.ptr && a3_string_isascii(value),
-                HTTP_TRANSFER_ENCODING_INVALID);
+    A3_TRYB_MAP(value.ptr && a3_string_isascii(value), HTTP_TRANSFER_ENCODING_INVALID);
 
-    for (size_t i = 0; i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) /
-                               sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
+    for (size_t i = 0;
+         i < sizeof(HTTP_TRANSFER_ENCODING_VALUES) / sizeof(HTTP_TRANSFER_ENCODING_VALUES[0]);
          i++) {
         if (a3_string_cmpi(value, HTTP_TRANSFER_ENCODING_VALUES[i].value) == 0)
             return HTTP_TRANSFER_ENCODING_VALUES[i].encoding;

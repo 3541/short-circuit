@@ -45,8 +45,8 @@ HttpResponse* http_request_response(HttpRequest* req) {
 }
 
 // TODO: Perhaps handle things other than static files.
-static HttpRequestStateResult
-http_request_get_head_handle(HttpRequest* req, struct io_uring* uring) {
+static HttpRequestStateResult http_request_get_head_handle(HttpRequest*     req,
+                                                           struct io_uring* uring) {
     assert(req);
     assert(uring);
 
@@ -56,8 +56,7 @@ http_request_get_head_handle(HttpRequest* req, struct io_uring* uring) {
 }
 
 // Do whatever is appropriate for the parsed method.
-static HttpRequestStateResult
-http_request_method_handle(HttpRequest* req, struct io_uring* uring) {
+static HttpRequestStateResult http_request_method_handle(HttpRequest* req, struct io_uring* uring) {
     assert(req);
     assert(uring);
 
@@ -70,8 +69,7 @@ http_request_method_handle(HttpRequest* req, struct io_uring* uring) {
     case HTTP_METHOD_BREW:
         conn->version = HTCPCP_VERSION_10;
         A3_RET_MAP(http_response_error_submit(http_request_response(req), uring,
-                                              HTTP_STATUS_IM_A_TEAPOT,
-                                              HTTP_RESPONSE_ALLOW),
+                                              HTTP_STATUS_IM_A_TEAPOT, HTTP_RESPONSE_ALLOW),
                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_INVALID:
     case HTTP_METHOD_UNKNOWN:
@@ -104,8 +102,7 @@ void http_request_reset(HttpRequest* req) {
 }
 
 // Try to parse as much of the HTTP request as possible.
-HttpRequestResult http_request_handle(HttpConnection* this,
-                                      struct io_uring* uring) {
+HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
@@ -115,18 +112,15 @@ HttpRequestResult http_request_handle(HttpConnection* this,
     switch (this->state) {
     case CONNECTION_INIT:
         http_connection_init(this);
-        if ((rc = http_request_first_line_parse(&this->request, uring)) !=
-            HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_first_line_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case CONNECTION_PARSED_FIRST_LINE:
-        if ((rc = http_request_headers_parse(&this->request, uring)) !=
-            HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_headers_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case CONNECTION_PARSED_HEADERS:
-        if ((rc = http_request_method_handle(&this->request, uring)) !=
-            HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_method_handle(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case CONNECTION_OPENING_FILE:

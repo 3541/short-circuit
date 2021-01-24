@@ -35,8 +35,7 @@ private:
     uintptr_t target_ptr { 0 };
 
     // For access to the status.
-    friend void event_synth_deliver(EventQueue*, struct io_uring*,
-                                    int32_t status);
+    friend void event_synth_deliver(EventQueue*, struct io_uring*, int32_t status);
     // For access to the target and status.
     friend void event_handle_all(EventQueue*, struct io_uring*);
     // For initialization.
@@ -49,8 +48,7 @@ private:
     static void* operator new(size_t size) noexcept;
 
     EventTarget* target() {
-        return reinterpret_cast<EventTarget*>(target_ptr &
-                                              ~(EVENT_CHAIN | EVENT_IGNORE));
+        return reinterpret_cast<EventTarget*>(target_ptr & ~(EVENT_CHAIN | EVENT_IGNORE));
     }
 
     bool chain() { return target_ptr & EVENT_CHAIN; }
@@ -59,14 +57,11 @@ private:
 public:
     static void operator delete(void*);
 
-    static std::unique_ptr<Event> create(EventTarget* target, EventType ty,
-                                         bool chain  = false,
-                                         bool ignore = false,
-                                         bool queue  = true) {
+    static std::unique_ptr<Event> create(EventTarget* target, EventType ty, bool chain = false,
+                                         bool ignore = false, bool queue = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, chain, ignore,
-                                                    queue } };
+        return std::unique_ptr<Event> { new Event { target, ty, chain, ignore, queue } };
     }
 
     void handle(struct io_uring&);

@@ -26,10 +26,10 @@
 
 A3_H_BEGIN
 
-#define URI_SCHEME_ENUM                                                        \
-    _SCHEME(URI_SCHEME_UNSPECIFIED, "")                                        \
-    _SCHEME(URI_SCHEME_HTTP, "http")                                           \
-    _SCHEME(URI_SCHEME_HTTPS, "https")                                         \
+#define URI_SCHEME_ENUM                                                                            \
+    _SCHEME(URI_SCHEME_UNSPECIFIED, "")                                                            \
+    _SCHEME(URI_SCHEME_HTTP, "http")                                                               \
+    _SCHEME(URI_SCHEME_HTTPS, "https")                                                             \
     _SCHEME(URI_SCHEME_INVALID, "")
 
 typedef enum UriScheme {

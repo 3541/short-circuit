@@ -46,13 +46,12 @@
 #include "listen.h"
 #include "timeout.h"
 
-static bool connection_recv_submit(Connection*, struct io_uring*,
-                                   uint32_t recv_flags, uint8_t sqe_flags);
-static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
-                                      time_t delay);
+static bool connection_recv_submit(Connection*, struct io_uring*, uint32_t recv_flags,
+                                   uint8_t sqe_flags);
+static bool connection_timeout_submit(Connection* this, struct io_uring* uring, time_t delay);
 
-static bool connection_recv_handle(Connection* this, struct io_uring* uring,
-                                   int32_t status, bool chain);
+static bool connection_recv_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                   bool chain);
 static bool connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
@@ -63,17 +62,13 @@ static inline HttpConnection* connection_http(Connection* conn) {
     return A3_CONTAINER_OF(conn, HttpConnection, conn);
 }
 
-void connection_timeout_init() {
-    timeout_queue_init(&connection_timeout_queue);
-}
+void connection_timeout_init() { timeout_queue_init(&connection_timeout_queue); }
 
 bool connection_init(Connection* this) {
     assert(this);
 
-    A3_TRYB(a3_buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY,
-                        RECV_BUF_MAX_CAPACITY));
-    return a3_buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY,
-                       SEND_BUF_MAX_CAPACITY);
+    A3_TRYB(a3_buf_init(&this->recv_buf, RECV_BUF_INITIAL_CAPACITY, RECV_BUF_MAX_CAPACITY));
+    return a3_buf_init(&this->send_buf, SEND_BUF_INITIAL_CAPACITY, SEND_BUF_MAX_CAPACITY);
 }
 
 bool connection_reset(Connection* this, struct io_uring* uring) {
@@ -93,8 +88,7 @@ bool connection_reset(Connection* this, struct io_uring* uring) {
 }
 
 // Submit an ACCEPT on the uring.
-Connection* connection_accept_submit(Listener*        listener,
-                                     struct io_uring* uring) {
+Connection* connection_accept_submit(Listener* listener, struct io_uring* uring) {
     assert(listener);
     assert(uring);
 
@@ -120,8 +114,8 @@ Connection* connection_accept_submit(Listener*        listener,
 
     ret->addr_len = sizeof(ret->client_addr);
 
-    if (!event_accept_submit(EVT(ret), uring, listener->socket,
-                             &ret->client_addr, &ret->addr_len)) {
+    if (!event_accept_submit(EVT(ret), uring, listener->socket, &ret->client_addr,
+                             &ret->addr_len)) {
         http_connection_free((HttpConnection*)ret, uring);
         return NULL;
     }
@@ -130,32 +124,31 @@ Connection* connection_accept_submit(Listener*        listener,
 }
 
 // Submit a request to receive as much data as the buffer can handle.
-static bool connection_recv_submit(Connection* this, struct io_uring* uring,
-                                   uint32_t recv_flags, uint8_t sqe_flags) {
+static bool connection_recv_submit(Connection* this, struct io_uring* uring, uint32_t recv_flags,
+                                   uint8_t sqe_flags) {
     assert(this);
     assert(uring);
     (void)recv_flags;
     (void)sqe_flags;
 
-    return event_recv_submit(EVT(this), uring, this->socket,
-                             a3_buf_write_ptr(&this->recv_buf));
+    return event_recv_submit(EVT(this), uring, this->socket, a3_buf_write_ptr(&this->recv_buf));
 }
 
-bool connection_send_submit(Connection* this, struct io_uring* uring,
-                            uint32_t send_flags, uint8_t sqe_flags) {
+bool connection_send_submit(Connection* this, struct io_uring* uring, uint32_t send_flags,
+                            uint8_t sqe_flags) {
     assert(this);
     assert(uring);
 
     A3Buffer* buf = &this->send_buf;
-    return event_send_submit(EVT(this), uring, this->socket,
-                             a3_buf_read_ptr(buf), send_flags, sqe_flags);
+    return event_send_submit(EVT(this), uring, this->socket, a3_buf_read_ptr(buf), send_flags,
+                             sqe_flags);
 }
 
 #define PIPE_BUF_SIZE 65536ULL
 
 // Wraps splice so it can be used without a pipe.
-bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
-                              size_t len, uint8_t sqe_flags) {
+bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, size_t len,
+                              uint8_t sqe_flags) {
     assert(this);
     assert(uring);
 
@@ -168,17 +161,14 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     }
 
     // TODO: This is horrendous. Clean it up.
-    for (size_t sent = 0, remaining = len,
-                to_send = MIN(PIPE_BUF_SIZE, remaining);
-         sent < len; sent += to_send, remaining -= to_send,
-                to_send = MIN(PIPE_BUF_SIZE, remaining)) {
-        if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1],
-                                 to_send, 0, sqe_flags | IOSQE_IO_LINK, true) ||
-            !event_splice_submit(
-                EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
-                to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
-                sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
-                (remaining > PIPE_BUF_SIZE) ? true : false)) {
+    for (size_t sent = 0, remaining = len, to_send      = MIN(PIPE_BUF_SIZE, remaining); sent < len;
+         sent += to_send, remaining -= to_send, to_send = MIN(PIPE_BUF_SIZE, remaining)) {
+        if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1], to_send, 0,
+                                 sqe_flags | IOSQE_IO_LINK, true) ||
+            !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
+                                 to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
+                                 sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
+                                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
             A3_ERR("Failed to submit splice.");
             return false;
         }
@@ -187,8 +177,7 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src,
     return true;
 }
 
-static bool connection_timeout_submit(Connection* this, struct io_uring* uring,
-                                      time_t delay) {
+static bool connection_timeout_submit(Connection* this, struct io_uring* uring, time_t delay) {
     assert(this);
     assert(uring);
 
@@ -209,13 +198,12 @@ bool connection_close_submit(Connection* this, struct io_uring* uring) {
     if (timeout_is_scheduled(&this->timeout))
         timeout_cancel(&this->timeout);
 
-    return event_close_submit(EVT(this), uring, this->socket, 0,
-                              EVENT_FALLBACK_FORBID);
+    return event_close_submit(EVT(this), uring, this->socket, 0, EVENT_FALLBACK_FORBID);
 }
 
 // Handle the completion of an ACCEPT event.
-static bool connection_accept_handle(Connection* this, struct io_uring* uring,
-                                     int32_t status, bool chain) {
+static bool connection_accept_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                     bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -234,8 +222,8 @@ static bool connection_accept_handle(Connection* this, struct io_uring* uring,
     return this->recv_submit(this, uring, 0, 0);
 }
 
-static bool connection_close_handle(Connection* this, struct io_uring* uring,
-                                    int32_t status, bool chain) {
+static bool connection_close_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                    bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -249,8 +237,8 @@ static bool connection_close_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-static bool connection_openat_handle(Connection* conn, struct io_uring* uring,
-                                     int32_t status, bool chain) {
+static bool connection_openat_handle(Connection* conn, struct io_uring* uring, int32_t status,
+                                     bool chain) {
     assert(conn);
     assert(uring);
     assert(!chain);
@@ -261,8 +249,8 @@ static bool connection_openat_handle(Connection* conn, struct io_uring* uring,
     return http_response_handle((HttpConnection*)conn, uring);
 }
 
-static bool connection_read_handle(Connection* this, struct io_uring* uring,
-                                   int32_t status, bool chain) {
+static bool connection_read_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                   bool chain) {
     assert(this);
     assert(uring);
     assert(chain);
@@ -278,8 +266,8 @@ static bool connection_read_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-static bool connection_recv_handle(Connection* this, struct io_uring* uring,
-                                   int32_t status, bool chain) {
+static bool connection_recv_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                   bool chain) {
     assert(this);
     assert(uring);
     assert(!chain);
@@ -305,8 +293,8 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring,
     return true;
 }
 
-static bool connection_send_handle(Connection* this, struct io_uring* uring,
-                                   int32_t status, bool chain) {
+static bool connection_send_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                   bool chain) {
     assert(this);
     assert(uring);
 
@@ -323,8 +311,8 @@ static bool connection_send_handle(Connection* this, struct io_uring* uring,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-static bool connection_splice_handle(Connection* this, struct io_uring* uring,
-                                     int32_t status, bool chain) {
+static bool connection_splice_handle(Connection* this, struct io_uring* uring, int32_t status,
+                                     bool chain) {
     assert(this);
     assert(uring);
     (void)chain;
@@ -339,19 +327,18 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring,
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-static bool connection_timeout_handle(Timeout*         timeout,
-                                      struct io_uring* uring) {
+static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) {
     assert(timeout);
     assert(uring);
 
     Connection* conn = A3_CONTAINER_OF(timeout, Connection, timeout);
 
-    return http_response_error_submit(&connection_http(conn)->response, uring,
-                                      HTTP_STATUS_TIMEOUT, HTTP_RESPONSE_CLOSE);
+    return http_response_error_submit(&connection_http(conn)->response, uring, HTTP_STATUS_TIMEOUT,
+                                      HTTP_RESPONSE_CLOSE);
 }
 
-void connection_event_handle(Connection* conn, struct io_uring* uring,
-                             EventType type, int32_t status, bool chain) {
+void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type,
+                             int32_t status, bool chain) {
     assert(conn);
     assert(uring);
 

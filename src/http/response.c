@@ -97,16 +97,14 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
 }
 
 // Write the status line to the send buffer.
-static bool http_response_prep_status_line(HttpResponse* resp,
-                                           HttpStatus    status) {
+static bool http_response_prep_status_line(HttpResponse* resp, HttpStatus status) {
     assert(resp);
     assert(status != HTTP_STATUS_INVALID);
 
     A3Buffer* buf         = http_response_send_buf(resp);
     uint16_t  status_code = http_status_code(status);
 
-    A3_TRYB(a3_buf_write_str(
-        buf, http_version_string(http_response_connection(resp)->version)));
+    A3_TRYB(a3_buf_write_str(buf, http_version_string(http_response_connection(resp)->version)));
     A3_TRYB(a3_buf_write_byte(buf, ' '));
     A3_TRYB(a3_buf_write_num(buf, status_code));
     A3_TRYB(a3_buf_write_byte(buf, ' '));
@@ -120,8 +118,7 @@ static bool http_response_prep_status_line(HttpResponse* resp,
     return a3_buf_write_str(buf, HTTP_NEWLINE);
 }
 
-static bool http_response_prep_header(HttpResponse* resp, A3CString name,
-                                      A3CString value) {
+static bool http_response_prep_header(HttpResponse* resp, A3CString name, A3CString value) {
     assert(resp);
     assert(name.ptr);
     assert(value.ptr);
@@ -135,8 +132,8 @@ static bool http_response_prep_header(HttpResponse* resp, A3CString name,
 }
 
 A3_FORMAT_FN(3, 4)
-static bool http_response_prep_header_fmt(HttpResponse* resp, A3CString name,
-                                          const char* fmt, ...) {
+static bool http_response_prep_header_fmt(HttpResponse* resp, A3CString name, const char* fmt,
+                                          ...) {
     assert(resp);
     assert(name.ptr);
     assert(fmt);
@@ -155,8 +152,7 @@ static bool http_response_prep_header_fmt(HttpResponse* resp, A3CString name,
     return ret;
 }
 
-static bool http_response_prep_header_num(HttpResponse* resp, A3CString name,
-                                          size_t value) {
+static bool http_response_prep_header_num(HttpResponse* resp, A3CString name, size_t value) {
     assert(resp);
     assert(name.ptr);
 
@@ -168,8 +164,7 @@ static bool http_response_prep_header_num(HttpResponse* resp, A3CString name,
     return a3_buf_write_str(buf, HTTP_NEWLINE);
 }
 
-static bool http_response_prep_header_timestamp(HttpResponse* resp,
-                                                A3CString name, time_t tv) {
+static bool http_response_prep_header_timestamp(HttpResponse* resp, A3CString name, time_t tv) {
     assert(resp);
 
     static THREAD_LOCAL struct {
@@ -180,12 +175,11 @@ static bool http_response_prep_header_timestamp(HttpResponse* resp,
 
     size_t i = (size_t)tv % HTTP_TIME_CACHE;
     if (TIMES[i].tv != tv)
-        A3_UNWRAPN(TIMES[i].len,
-                   strftime((char*)TIMES[i].buf, HTTP_TIME_BUF_LENGTH,
-                            HTTP_TIME_FORMAT, gmtime(&tv)));
+        A3_UNWRAPN(TIMES[i].len, strftime((char*)TIMES[i].buf, HTTP_TIME_BUF_LENGTH,
+                                          HTTP_TIME_FORMAT, gmtime(&tv)));
 
-    return http_response_prep_header(
-        resp, name, (A3CString) { .ptr = TIMES[i].buf, .len = TIMES[i].len });
+    return http_response_prep_header(resp, name,
+                                     (A3CString) { .ptr = TIMES[i].buf, .len = TIMES[i].len });
 }
 
 static bool http_response_prep_header_date(HttpResponse* resp) {
@@ -197,8 +191,8 @@ static bool http_response_prep_header_date(HttpResponse* resp) {
 
     time_t current = time(NULL);
     if (current - LAST_TIME > 2 || !DATE.ptr) {
-        A3_UNWRAPN(DATE.len, strftime((char*)DATE_BUF, HTTP_TIME_BUF_LENGTH,
-                                      HTTP_TIME_FORMAT, gmtime(&current)));
+        A3_UNWRAPN(DATE.len, strftime((char*)DATE_BUF, HTTP_TIME_BUF_LENGTH, HTTP_TIME_FORMAT,
+                                      gmtime(&current)));
         DATE.ptr  = DATE_BUF;
         LAST_TIME = current;
     }
@@ -207,10 +201,8 @@ static bool http_response_prep_header_date(HttpResponse* resp) {
 }
 
 // Write the default status line and headers to the send buffer.
-static bool http_response_prep_default_headers(HttpResponse* resp,
-                                               HttpStatus    status,
-                                               ssize_t       content_length,
-                                               bool          close) {
+static bool http_response_prep_default_headers(HttpResponse* resp, HttpStatus status,
+                                               ssize_t content_length, bool close) {
     assert(resp);
 
     HttpConnection* conn = http_response_connection(resp);
@@ -219,18 +211,15 @@ static bool http_response_prep_default_headers(HttpResponse* resp,
     A3_TRYB(http_response_prep_header_date(resp));
     if (close || !conn->keep_alive || content_length < 0) {
         conn->keep_alive = false;
-        A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"),
-                                          A3_CS("Close")));
+        A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"), A3_CS("Close")));
     } else {
-        A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"),
-                                          A3_CS("Keep-Alive")));
+        A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"), A3_CS("Keep-Alive")));
     }
     if (content_length >= 0)
-        A3_TRYB(http_response_prep_header_num(resp, A3_CS("Content-Length"),
-                                              (size_t)content_length));
-    A3_TRYB(
-        http_response_prep_header(resp, A3_CS("Content-Type"),
-                                  http_content_type_name(resp->content_type)));
+        A3_TRYB(
+            http_response_prep_header_num(resp, A3_CS("Content-Length"), (size_t)content_length));
+    A3_TRYB(http_response_prep_header(resp, A3_CS("Content-Type"),
+                                      http_content_type_name(resp->content_type)));
 
     return true;
 }
@@ -249,15 +238,14 @@ static bool http_response_prep_body(HttpResponse* resp, A3CString body) {
     return a3_buf_write_str(http_response_send_buf(resp), body);
 }
 
-static A3CString http_response_error_make_body(HttpResponse* resp,
-                                               HttpStatus    status) {
+static A3CString http_response_error_make_body(HttpResponse* resp, HttpStatus status) {
     assert(resp);
     assert(status != HTTP_STATUS_INVALID);
 
     static uint8_t  body[HTTP_ERROR_BODY_MAX_LENGTH] = { '\0' };
     ssize_t         len                              = 0;
     uint16_t        status_code                      = http_status_code(status);
-    HttpConnection* conn = http_response_connection(resp);
+    HttpConnection* conn                             = http_response_connection(resp);
 
     // TODO: De-uglify. Probably should load a template from somewhere.
     if ((len = snprintf((char*)body, HTTP_ERROR_BODY_MAX_LENGTH,
@@ -271,9 +259,8 @@ static A3CString http_response_error_make_body(HttpResponse* resp,
                         "<p>%s.</p>\n"
                         "</body>\n"
                         "</html>\n",
-                        status_code, http_version_string(conn->version).ptr,
-                        status_code, http_status_reason(status).ptr)) >
-            HTTP_ERROR_BODY_MAX_LENGTH ||
+                        status_code, http_version_string(conn->version).ptr, status_code,
+                        http_status_reason(status).ptr)) > HTTP_ERROR_BODY_MAX_LENGTH ||
         len < 0)
         return A3_CS_NULL;
 
@@ -281,8 +268,8 @@ static A3CString http_response_error_make_body(HttpResponse* resp,
 }
 
 // Submit a write event for an HTTP error response.
-bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring,
-                                HttpStatus status, bool close) {
+bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, HttpStatus status,
+                                bool close) {
     assert(resp);
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
@@ -297,22 +284,19 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring,
 
     conn->state        = CONNECTION_RESPONDING;
     resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
-    if (conn->version == HTTP_VERSION_INVALID ||
-        conn->version == HTTP_VERSION_UNKNOWN)
+    if (conn->version == HTTP_VERSION_INVALID || conn->version == HTTP_VERSION_UNKNOWN)
         conn->version = HTTP_VERSION_11;
 
     A3CString body = http_response_error_make_body(resp, status);
     A3_TRYB(body.ptr);
 
-    A3_TRYB(http_response_prep_default_headers(resp, status, (ssize_t)body.len,
-                                               close));
+    A3_TRYB(http_response_prep_default_headers(resp, status, (ssize_t)body.len, close));
     A3_TRYB(http_response_prep_headers_done(resp));
 
     if (conn->method != HTTP_METHOD_HEAD)
         A3_TRYB(http_response_prep_body(resp, body));
 
-    A3_TRYB(conn->conn.send_submit(&conn->conn, uring, 0,
-                                   close ? IOSQE_IO_LINK : 0));
+    A3_TRYB(conn->conn.send_submit(&conn->conn, uring, 0, close ? IOSQE_IO_LINK : 0));
     if (close)
         return http_connection_close_submit(conn, uring);
 
@@ -328,8 +312,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     if (!conn->target_file) {
         conn->state = CONNECTION_OPENING_FILE;
         conn->target_file =
-            file_open(EVT(&conn->conn), uring,
-                      A3_S_CONST(conn->request.target_path), O_RDONLY);
+            file_open(EVT(&conn->conn), uring, A3_S_CONST(conn->request.target_path), O_RDONLY);
     }
 
     if (!conn->target_file)
@@ -341,8 +324,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
 
     fd target_file = file_handle_fd_unchecked(conn->target_file);
     if (target_file < 0)
-        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
-                                          HTTP_RESPONSE_ALLOW);
+        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
 
     struct stat res;
     A3_TRYB(fstat(target_file, &res) == 0);
@@ -351,12 +333,11 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
 
     if (S_ISDIR(res.st_mode)) {
         FileHandle* index_file =
-            file_openat(EVT(&conn->conn), uring, conn->target_file,
-                        INDEX_FILENAME, O_RDONLY);
+            file_openat(EVT(&conn->conn), uring, conn->target_file, INDEX_FILENAME, O_RDONLY);
         // TODO: Directory listings.
         if (!index_file)
-            return http_response_error_submit(
-                resp, uring, HTTP_STATUS_SERVER_ERROR, HTTP_RESPONSE_ALLOW);
+            return http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
+                                              HTTP_RESPONSE_ALLOW);
 
         file_close(conn->target_file, uring);
         conn->target_file = index_file;
@@ -368,38 +349,32 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     }
 
     if (!S_ISREG(res.st_mode))
-        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
-                                          HTTP_RESPONSE_ALLOW);
+        return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
 
     conn->state = CONNECTION_RESPONDING;
 
     if (index)
         resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
     else
-        resp->content_type =
-            http_content_type_from_path(A3_S_CONST(conn->request.target_path));
+        resp->content_type = http_content_type_from_path(A3_S_CONST(conn->request.target_path));
 
-    A3_TRYB(http_response_prep_default_headers(
-        resp, HTTP_STATUS_OK, res.st_size, HTTP_RESPONSE_ALLOW));
-    A3_TRYB(http_response_prep_header_timestamp(resp, A3_CS("Last-Modified"),
-                                                res.st_mtim.tv_sec));
-    A3_TRYB(http_response_prep_header_fmt(resp, A3_CS("Etag"), "\"%luX%lX%lX\"",
-                                          res.st_ino, res.st_mtime,
-                                          res.st_size));
+    A3_TRYB(
+        http_response_prep_default_headers(resp, HTTP_STATUS_OK, res.st_size, HTTP_RESPONSE_ALLOW));
+    A3_TRYB(http_response_prep_header_timestamp(resp, A3_CS("Last-Modified"), res.st_mtim.tv_sec));
+    A3_TRYB(http_response_prep_header_fmt(resp, A3_CS("Etag"), "\"%luX%lX%lX\"", res.st_ino,
+                                          res.st_mtime, res.st_size));
     A3_TRYB(http_response_prep_headers_done(resp));
 
     // Perhaps instead of just sending here, it would be better to write into
     // the same pipe that is used for splice.
     A3_TRYB(conn->conn.send_submit(
         &conn->conn, uring, (conn->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
-        (!conn->keep_alive || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK
-                                                                : 0));
+        (!conn->keep_alive || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK : 0));
     if (conn->method == HTTP_METHOD_HEAD)
         goto done;
 
     // TODO: This will not work for TLS.
-    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file,
-                                     (size_t)res.st_size,
+    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, (size_t)res.st_size,
                                      !conn->keep_alive ? IOSQE_IO_LINK : 0));
 
 done:
