@@ -47,3 +47,16 @@ TEST_F(UriTest, parse_scheme_authority) {
     a3_string_free(&s1);
     a3_string_free(&s2);
 }
+
+TEST_F(UriTest, parse_components) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/test.txt?query=1#fragment"));
+
+    EXPECT_EQ(uri_parse(&uri, s), URI_PARSE_SUCCESS);
+    EXPECT_EQ(uri.scheme, URI_SCHEME_HTTP);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.authority), A3_CS("example.com")), 0);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.path), A3_CS("/test.txt")), 0);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.query), A3_CS("query=1")), 0);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.fragment), A3_CS("fragment")), 0);
+
+    a3_string_free(&s);
+}

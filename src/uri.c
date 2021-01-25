@@ -178,7 +178,7 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
         return URI_PARSE_SUCCESS;
 
     // [query][fragment]
-    ret->query = a3_buf_token_next_copy(buf, A3_CS("?"));
+    ret->query = a3_buf_token_next_copy(buf, A3_CS("#"));
     A3_TRYB_MAP(ret->query.ptr, URI_PARSE_BAD_URI);
     A3_TRYB_MAP(uri_decode(ret->query), URI_PARSE_BAD_URI);
     if (a3_buf_len(buf) == 0)
