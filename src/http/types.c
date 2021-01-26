@@ -104,6 +104,7 @@ HttpContentType http_content_type_from_path(A3CString path) {
         { A3_CS("webp"), HTTP_CONTENT_TYPE_IMAGE_WEBP },
         { A3_CS("css"), HTTP_CONTENT_TYPE_TEXT_CSS },
         { A3_CS("js"), HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT },
+        { A3_CS("md"), HTTP_CONTENT_TYPE_TEXT_MARKDOWN },
         { A3_CS("txt"), HTTP_CONTENT_TYPE_TEXT_PLAIN },
         { A3_CS("htm"), HTTP_CONTENT_TYPE_TEXT_HTML },
         { A3_CS("html"), HTTP_CONTENT_TYPE_TEXT_HTML },

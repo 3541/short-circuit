@@ -65,6 +65,7 @@ typedef enum HttpVersion {
     _CTYPE(HTTP_CONTENT_TYPE_IMAGE_WEBP, "image/webp")                                             \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_CSS, "text/css")                                                 \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_JAVASCRIPT, "text/javascript")                                   \
+    _CTYPE(HTTP_CONTENT_TYPE_TEXT_MARKDOWN, "text/markdown")                                       \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_PLAIN, "text/plain")                                             \
     _CTYPE(HTTP_CONTENT_TYPE_TEXT_HTML, "text/html")
 
