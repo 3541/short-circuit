@@ -45,11 +45,11 @@
 #include "http/connection.h"
 #include "listen.h"
 
-Config CONFIG = { A3_CS_NULL,
+Config CONFIG = { .web_root = DEFAULT_WEB_ROOT,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
-                  TRACE
+                  .log_level = TRACE
 #else
-                  WARN
+                  .log_level = WARN
 #endif
 };
 
@@ -60,10 +60,10 @@ static void sigint_handle(int no) {
     cont = false;
 }
 
-static void check_webroot_exists(const char* root) {
+static void check_webroot_exists(A3CString root) {
     struct stat s;
 
-    if (stat(root, &s) < 0)
+    if (stat(A3_S_AS_C_STR(root), &s) < 0)
         A3_PANIC_FMT("Web root %s is inaccessible.", root);
     if (!S_ISDIR(s.st_mode))
         A3_PANIC_FMT("Web root %s is not a directory.", root);
@@ -71,7 +71,7 @@ static void check_webroot_exists(const char* root) {
 
 static void usage(void) {
     fprintf(stderr, "USAGE:\n\n"
-                    "sc [options]\n"
+                    "sc [options] [web root]\n"
                     "Options:\n"
                     "\t-h, --help\tShow this message and exit.\n"
                     "\t-v, --verbose\tPrint verbose output (more 'v's for even more output).\n"
@@ -138,16 +138,27 @@ static void config_parse(int argc, char** argv) {
             break;
         }
     }
+
+    // Non-option parameters to parse.
+    if (optind < argc) {
+        if (argc - optind > 1) {
+            a3_log_msg(ERROR, "Too many parameters.");
+            usage();
+        }
+
+        CONFIG.web_root = A3_CS_OF(argv[optind]);
+    }
+
+    CONFIG.web_root = A3_CS_OF(realpath(A3_S_AS_C_STR(CONFIG.web_root), NULL));
 }
 
 int main(int argc, char** argv) {
     (void)argv;
 
-    config_parse(argc, argv);
     a3_log_init(stderr, CONFIG.log_level);
+    config_parse(argc, argv);
 
-    check_webroot_exists(DEFAULT_WEB_ROOT);
-    CONFIG.web_root = A3_CS_OF(realpath(DEFAULT_WEB_ROOT, NULL));
+    check_webroot_exists(CONFIG.web_root);
     http_connection_pool_init();
     file_cache_init();
     connection_timeout_init();
