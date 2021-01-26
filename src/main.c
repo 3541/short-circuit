@@ -97,7 +97,7 @@ static void version(void) {
     exit(EXIT_SUCCESS);
 }
 
-typedef enum { OPT_HELP, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT } OptIndex;
+enum { OPT_HELP, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
 
 static void config_parse(int argc, char** argv) {
     static struct option options[] = { [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
