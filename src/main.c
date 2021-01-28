@@ -45,7 +45,8 @@
 #include "http/connection.h"
 #include "listen.h"
 
-Config CONFIG = { .web_root = DEFAULT_WEB_ROOT,
+Config CONFIG = { .web_root    = DEFAULT_WEB_ROOT,
+                  .listen_port = DEFAULT_LISTEN_PORT,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
                   .log_level = TRACE
 #else
@@ -73,10 +74,11 @@ static void usage(void) {
     fprintf(stderr, "USAGE:\n\n"
                     "sc [options] [web root]\n"
                     "Options:\n"
-                    "\t-h, --help\tShow this message and exit.\n"
-                    "\t-v, --verbose\tPrint verbose output (more 'v's for even more output).\n"
-                    "\t    --version\tPrint version information.\n"
-                    "\t-q, --quiet\tBe quieter (more 'q's for more silence).\n");
+                    "\t-h, --help\t\tShow this message and exit.\n"
+                    "\t-p, --port <PORT>\tSpecify the port to listen on. (Default is 8000).\n"
+                    "\t-q, --quiet\t\tBe quieter (more 'q's for more silence).\n"
+                    "\t-v, --verbose\t\tPrint verbose output (more 'v's for even more output).\n"
+                    "\t    --version\t\tPrint version information.\n");
     exit(EXIT_FAILURE);
 }
 
@@ -97,21 +99,32 @@ static void version(void) {
     exit(EXIT_SUCCESS);
 }
 
-enum { OPT_HELP, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
+enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
 
 static void config_parse(int argc, char** argv) {
     static struct option options[] = { [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
+                                       [OPT_PORT]    = { "port", required_argument, NULL, 'p' },
                                        [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
                                        [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
                                        [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
                                        [_OPT_COUNT]  = { 0, 0, 0, 0 } };
 
-    int opt;
-    int longindex;
-    while ((opt = getopt_long(argc, argv, "hqv", options, &longindex)) != -1) {
+    int      opt;
+    int      longindex;
+    uint64_t port_num;
+    while ((opt = getopt_long(argc, argv, "hqvp:", options, &longindex)) != -1) {
         switch (opt) {
         case 'h':
             usage();
+            break;
+        case 'p':
+            port_num = strtoul(optarg, NULL, 10);
+            if (port_num > UINT16_MAX) {
+                a3_log_msg(ERROR, "Invalid port.");
+                exit(EXIT_FAILURE);
+            }
+
+            CONFIG.listen_port = (in_port_t)port_num;
             break;
         case 'q':
             if (CONFIG.log_level < ERROR)
@@ -171,7 +184,7 @@ int main(int argc, char** argv) {
     // TODO: Support multiple listeners.
     n_listeners = 1;
     A3_UNWRAPN(listeners, calloc(1, sizeof(Listener)));
-    listener_init(&listeners[0], DEFAULT_LISTEN_PORT, PLAIN);
+    listener_init(&listeners[0], CONFIG.listen_port, PLAIN);
 
     listener_accept_all(listeners, n_listeners, &uring);
     A3_UNWRAPND(io_uring_submit(&uring));
