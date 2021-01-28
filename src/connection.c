@@ -100,13 +100,13 @@ Connection* connection_accept_submit(Listener* listener, struct io_uring* uring)
 
     ret->transport = listener->transport;
     switch (ret->transport) {
-    case PLAIN:
+    case TRANSPORT_PLAIN:
         ret->recv_submit = connection_recv_submit;
         ret->recv_handle = connection_recv_handle;
 
         ret->send_submit = connection_send_submit;
         break;
-    case TLS:
+    case TRANSPORT_TLS:
         A3_PANIC("TODO: TLS");
     default:
         A3_PANIC("Invalid transport.");

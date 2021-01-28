@@ -41,7 +41,7 @@ typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*, uint32_t event_f
                                  uint8_t sqe_flags);
 typedef bool (*ConnectionHandle)(Connection*, struct io_uring*, int32_t status, bool chain);
 
-typedef enum ConnectionTransport { PLAIN, TLS, NTRANSPORTS } ConnectionTransport;
+typedef enum ConnectionTransport { TRANSPORT_PLAIN, TRANSPORT_TLS } ConnectionTransport;
 
 typedef struct Connection {
     EVENT_TARGET;

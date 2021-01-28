@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
     // TODO: Support multiple listeners.
     n_listeners = 1;
     A3_UNWRAPN(listeners, calloc(1, sizeof(Listener)));
-    listener_init(&listeners[0], CONFIG.listen_port, PLAIN);
+    listener_init(&listeners[0], CONFIG.listen_port, TRANSPORT_PLAIN);
 
     listener_accept_all(listeners, n_listeners, &uring);
     A3_UNWRAPND(io_uring_submit(&uring));
