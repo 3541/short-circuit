@@ -54,7 +54,7 @@ static void file_evict_callback(void* uring, A3CString* key, FileHandle** value)
     assert(key->ptr);
     assert(value);
 
-    a3_log_fmt(TRACE, "Evicting file " A3_S_F ".", A3_S_FA(*key));
+    a3_log_fmt(LOG_TRACE, "Evicting file " A3_S_F ".", A3_S_FA(*key));
     file_close(*value, uring);
 }
 
@@ -81,20 +81,20 @@ FileHandle* file_open(EventTarget* target, struct io_uring* uring, A3CString pat
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        a3_log_fmt(TRACE, "File cache hit on " A3_S_F ".", A3_S_FA(path));
+        a3_log_fmt(LOG_TRACE, "File cache hit on " A3_S_F ".", A3_S_FA(path));
         handle->open_count++;
 
         // The handle is not ready, but an open request is in flight. Synthesize
         // an event so the caller is notified when the file is opened.
         if (file_handle_waiting(handle)) {
-            a3_log_msg(TRACE, "  Open in-flight. Waiting.");
+            a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
             file_handle_wait(target, handle);
         }
 
         return handle;
     }
 
-    a3_log_fmt(TRACE, "File cache miss on " A3_S_F ".", A3_S_FA(path));
+    a3_log_fmt(LOG_TRACE, "File cache miss on " A3_S_F ".", A3_S_FA(path));
     FileHandle* handle = NULL;
     A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     handle->path       = A3_S_CONST(a3_string_clone(path));
@@ -102,7 +102,7 @@ FileHandle* file_open(EventTarget* target, struct io_uring* uring, A3CString pat
     handle->file       = FILE_HANDLE_WAITING;
 
     if (!event_openat_submit(EVT(handle), uring, -1, handle->path, flags, 0)) {
-        a3_log_msg(WARN, "Unable to submit OPENAT event.");
+        a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
         a3_string_free((A3String*)&handle->path);
         free(handle);
         return NULL;
@@ -134,7 +134,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        a3_log_fmt(TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FA(full_path));
+        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FA(full_path));
         handle->open_count++;
         a3_string_free(&full_path);
 
@@ -143,7 +143,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
         return handle;
     }
 
-    a3_log_fmt(TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FA(full_path));
+    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FA(full_path));
     FileHandle* handle = NULL;
     A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     handle->path       = A3_S_CONST(full_path);
@@ -151,7 +151,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
     handle->file       = FILE_HANDLE_WAITING;
 
     if (!event_openat_submit(EVT(handle), uring, file_handle_fd(dir), handle->path, flags, 0)) {
-        a3_log_msg(WARN, "Unable to submit OPENAT event.");
+        a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
         a3_string_free(&full_path);
         free(handle);
         return NULL;

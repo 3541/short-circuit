@@ -68,12 +68,12 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
     conn->method = http_request_method_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS(" \r\n"))));
     switch (conn->method) {
     case HTTP_METHOD_INVALID:
-        a3_log_msg(TRACE, "Got an invalid method.");
+        a3_log_msg(LOG_TRACE, "Got an invalid method.");
         A3_RET_MAP(
             http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_UNKNOWN:
-        a3_log_msg(TRACE, "Got an unknown method.");
+        a3_log_msg(LOG_TRACE, "Got an unknown method.");
         A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_NOT_IMPLEMENTED,
                                               HTTP_RESPONSE_ALLOW),
                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
@@ -113,7 +113,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
     if (!a3_buf_consume(buf, HTTP_NEWLINE) || conn->version == HTTP_VERSION_INVALID ||
         conn->version == HTTP_VERSION_UNKNOWN ||
         (conn->version == HTCPCP_VERSION_10 && conn->method != HTTP_METHOD_BREW)) {
-        a3_log_msg(TRACE, "Got a bad HTTP version.");
+        a3_log_msg(LOG_TRACE, "Got a bad HTTP version.");
         A3_RET_MAP(http_response_error_submit(resp, uring,
                                               (conn->version == HTTP_VERSION_INVALID)
                                                   ? HTTP_STATUS_BAD_REQUEST

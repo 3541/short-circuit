@@ -111,7 +111,7 @@ static bool http_response_prep_status_line(HttpResponse* resp, HttpStatus status
 
     A3CString reason = http_status_reason(status);
     if (!reason.ptr) {
-        a3_log_fmt(WARN, "Invalid HTTP status %d.", status_code);
+        a3_log_fmt(LOG_WARN, "Invalid HTTP status %d.", status_code);
         return false;
     }
     A3_TRYB(a3_buf_write_str(buf, reason));
@@ -274,7 +274,7 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, Http
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
 
-    a3_log_fmt(DEBUG, "HTTP error %d. %s", http_status_code(status),
+    a3_log_fmt(LOG_DEBUG, "HTTP error %d. %s", http_status_code(status),
                close ? "Closing connection." : "");
 
     // Clear any previously written data.

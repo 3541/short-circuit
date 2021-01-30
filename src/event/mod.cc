@@ -63,7 +63,7 @@ void* Event::operator new(size_t size) noexcept {
 
     void* ret = a3_pool_alloc_block(EVENT_POOL);
     if (!ret) {
-        a3_log_msg(WARN, "Event pool exhausted.");
+        a3_log_msg(LOG_WARN, "Event pool exhausted.");
         return nullptr;
     }
 
@@ -144,14 +144,14 @@ static void event_check_rlimits(void) {
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
     if (lim_memlock.rlim_cur <= 96 * URING_ENTRIES)
-        a3_log_fmt(WARN,
+        a3_log_fmt(LOG_WARN,
                    "The memlock limit (%d) is too low. The queue will probably "
                    "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
                    lim_memlock.rlim_cur);
 
     struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
     if (lim_nofile.rlim_cur <= CONNECTION_POOL_SIZE * 3)
-        a3_log_fmt(WARN,
+        a3_log_fmt(LOG_WARN,
                    "The open file limit (%d) is low. Large numbers of concurrent "
                    "connections will probably cause \"too many open files\" errors.",
                    lim_nofile.rlim_cur);
@@ -192,7 +192,7 @@ static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
         if (io_uring_submit(&uring) < 0)
             break;
     if (!ret)
-        a3_log_msg(WARN, "SQ full.");
+        a3_log_msg(LOG_WARN, "SQ full.");
     return unique_ptr<struct io_uring_sqe> { ret };
 }
 

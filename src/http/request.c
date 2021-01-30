@@ -129,6 +129,6 @@ HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uri
         return HTTP_REQUEST_COMPLETE;
     }
 
-    a3_log_fmt(TRACE, "State: %d", this->state);
+    a3_log_fmt(LOG_TRACE, "State: %d", this->state);
     A3_PANIC("TODO: Handle whatever request did this.");
 }

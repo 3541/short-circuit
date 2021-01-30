@@ -153,7 +153,7 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, 
     assert(uring);
 
     if (!this->pipe[0] && !this->pipe[1]) {
-        a3_log_msg(TRACE, "Opening pipe.");
+        a3_log_msg(LOG_TRACE, "Opening pipe.");
         if (pipe(this->pipe) < 0) {
             a3_log_error(errno, "unable to open pipe");
             return false;
@@ -209,7 +209,7 @@ static bool connection_accept_handle(Connection* this, struct io_uring* uring, i
     assert(!chain);
     (void)chain;
 
-    a3_log_msg(TRACE, "Accept connection.");
+    a3_log_msg(LOG_TRACE, "Accept connection.");
     this->listener->accept_queued = false;
     if (status < 0) {
         a3_log_error(-status, "accept failed");
@@ -373,7 +373,7 @@ void connection_event_handle(Connection* conn, struct io_uring* uring, EventType
     }
 
     if (!rc) {
-        a3_log_msg(WARN, "Connection failure. Closing.");
+        a3_log_msg(LOG_WARN, "Connection failure. Closing.");
         http_connection_free((HttpConnection*)conn, uring);
     }
 }

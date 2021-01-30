@@ -48,9 +48,9 @@
 Config CONFIG = { .web_root    = DEFAULT_WEB_ROOT,
                   .listen_port = DEFAULT_LISTEN_PORT,
 #if defined(DEBUG_BUILD) && !defined(PROFILE)
-                  .log_level = TRACE
+                  .log_level = LOG_TRACE
 #else
-                  .log_level = WARN
+                  .log_level = LOG_WARN
 #endif
 };
 
@@ -120,18 +120,18 @@ static void config_parse(int argc, char** argv) {
         case 'p':
             port_num = strtoul(optarg, NULL, 10);
             if (port_num > UINT16_MAX) {
-                a3_log_msg(ERROR, "Invalid port.");
+                a3_log_msg(LOG_ERROR, "Invalid port.");
                 exit(EXIT_FAILURE);
             }
 
             CONFIG.listen_port = (in_port_t)port_num;
             break;
         case 'q':
-            if (CONFIG.log_level < ERROR)
+            if (CONFIG.log_level < LOG_ERROR)
                 CONFIG.log_level++;
             break;
         case 'v':
-            if (CONFIG.log_level > TRACE)
+            if (CONFIG.log_level > LOG_TRACE)
                 CONFIG.log_level--;
             break;
         default:
@@ -155,7 +155,7 @@ static void config_parse(int argc, char** argv) {
     // Non-option parameters to parse.
     if (optind < argc) {
         if (argc - optind > 1) {
-            a3_log_msg(ERROR, "Too many parameters.");
+            a3_log_msg(LOG_ERROR, "Too many parameters.");
             usage();
         }
 
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
 
     A3_UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
     A3_UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
-    a3_log_msg(TRACE, "Entering event loop.");
+    a3_log_msg(LOG_TRACE, "Entering event loop.");
 
 #ifdef PROFILE
     time_t init_time = time(NULL);
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
 
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
-            a3_log_fmt(TRACE, "Submitted %d event(s).", ev);
+            a3_log_fmt(LOG_TRACE, "Submitted %d event(s).", ev);
         }
     }
 

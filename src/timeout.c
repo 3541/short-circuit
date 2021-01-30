@@ -92,7 +92,7 @@ bool timeout_event_handle(TimeoutQueue* this, struct io_uring* uring, int32_t st
     assert(status > 0 || status == -ETIME);
     (void)status;
 
-    a3_log_msg(TRACE, "Timeout firing.");
+    a3_log_msg(LOG_TRACE, "Timeout firing.");
 
     struct timespec current;
     A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
