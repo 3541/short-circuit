@@ -159,5 +159,5 @@ target_link_libraries(sc_test PRIVATE ${GTEST_LIB})
 gtest_discover_tests(sc_test)
 
 add_custom_target(sc_check COMMAND ${CMAKE_CTEST_COMMAND}
-  DEPENDS sc_test
+  DEPENDS sc_test a3_check
 )
