@@ -121,7 +121,7 @@ else()
   endif()
 endif()
 
-add_library(sc_lib ${SC_SRC})
+add_library(sc_lib EXCLUDE_FROM_ALL ${SC_SRC})
 target_include_directories(sc_lib PUBLIC src)
 target_link_libraries(sc_lib PUBLIC ${SC_LIB})
 target_disable_exceptions(sc_lib)
@@ -143,7 +143,7 @@ target_compile_definitions(sc_lib PRIVATE
   _XOPEN_SOURCE=700
 )
 
-add_executable(sc_test
+add_executable(sc_test EXCLUDE_FROM_ALL
   test/uri.cc
 )
 target_disable_exceptions(sc_test)
@@ -158,4 +158,6 @@ target_link_libraries(sc_test PRIVATE sc_lib)
 target_link_libraries(sc_test PRIVATE ${GTEST_LIB})
 gtest_discover_tests(sc_test)
 
-add_dependencies(sc_test a3_test)
+add_custom_target(sc_check COMMAND ${CMAKE_CTEST_COMMAND}
+  DEPENDS sc_test
+)
