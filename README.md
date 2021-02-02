@@ -49,3 +49,21 @@ lower than the hard limit), or in `/etc/security/limits.conf` for a permanent
 change. A good number is a bit over three times the maximum expected number of
 concurrent connections, since each connection requires an open file for the
 socket and two for the pipe.
+
+## Licensing
+
+Short Circuit is licensed under the GNU Affero GPL, the terms of which are
+described [here](https://github.com/3541/short-circuit/blob/trunk/LICENSE).
+
+Short Circuit depends on the following other projects:
+
+### liba3
+[liba3](https://github.com/3541/liba3) is licensed under the [3-clause BSD
+license](https://github.com/3541/liba3/blob/trunk/LICENSE).
+
+`liba3` also links with and otherwise uses other software projects, as detailed
+[here](https://github.com/3541/liba3/blog/trunk/README.md).
+
+### liburing
+[liburing](https://github.com/axboe/liburing) is licensed under the [MIT
+license](https://github.com/axboe/liburing/blob/master/LICENSE).
