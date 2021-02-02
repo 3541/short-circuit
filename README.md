@@ -62,7 +62,7 @@ Short Circuit depends on the following other projects:
 license](https://github.com/3541/liba3/blob/trunk/LICENSE).
 
 `liba3` also links with and otherwise uses other software projects, as detailed
-[here](https://github.com/3541/liba3/blog/trunk/README.md).
+[here](https://github.com/3541/liba3/blob/trunk/README.md#licensing).
 
 ### liburing
 [liburing](https://github.com/axboe/liburing) is licensed under the [MIT
