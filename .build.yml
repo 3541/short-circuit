@@ -17,4 +17,4 @@ tasks:
   - build: |
       cmake --build short-circuit/build
   - test: |
-      cmake --build short-circuit/build --target test
+      cmake --build short-circuit/build --target sc_check
