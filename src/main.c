@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
 
     a3_log_init(stderr, CONFIG.log_level);
     config_parse(argc, argv);
+    // Re-initialize with the potentially changed log level.
+    a3_log_init(stderr, CONFIG.log_level);
 
     check_webroot_exists(CONFIG.web_root);
     http_connection_pool_init();
