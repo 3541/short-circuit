@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <a3/forward.h>
+
 // liburing.h
 struct io_uring;
 struct io_uring_cqe;
