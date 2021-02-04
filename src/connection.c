@@ -283,12 +283,10 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring, int
     a3_buf_wrote(&this->recv_buf, (size_t)status);
 
     HttpRequestResult rc = http_request_handle((HttpConnection*)this, uring);
-    if (rc == HTTP_REQUEST_ERROR) {
+    if (rc == HTTP_REQUEST_ERROR)
         return false;
-    } else if (rc == HTTP_REQUEST_NEED_DATA) {
-        // Need more data.
+    else if (rc == HTTP_REQUEST_NEED_DATA)
         return this->recv_submit(this, uring, 0, 0);
-    }
 
     return true;
 }
