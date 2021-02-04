@@ -125,7 +125,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
         conn->keep_alive = false;
     }
 
-    conn->state = CONNECTION_PARSED_FIRST_LINE;
+    conn->state = HTTP_CONNECTION_PARSED_FIRST_LINE;
 
     return HTTP_REQUEST_STATE_DONE;
 }
@@ -238,7 +238,7 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest* req, struct io_ur
             http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    conn->state = CONNECTION_PARSED_HEADERS;
+    conn->state = HTTP_CONNECTION_PARSED_HEADERS;
 
     return HTTP_REQUEST_STATE_DONE;
 }

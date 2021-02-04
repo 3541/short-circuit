@@ -79,17 +79,17 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
         return true;
 
     switch (this->state) {
-    case CONNECTION_OPENING_FILE:
+    case HTTP_CONNECTION_OPENING_FILE:
         return http_response_file_submit(&this->response, uring);
-    case CONNECTION_RESPONDING:
+    case HTTP_CONNECTION_RESPONDING:
         if (this->keep_alive) {
             A3_TRYB(http_connection_reset(this, uring));
-            this->state = CONNECTION_INIT;
+            this->state = HTTP_CONNECTION_INIT;
             return this->conn.recv_submit(&this->conn, uring, 0, 0);
         }
 
         return http_connection_close_submit(this, uring);
-    case CONNECTION_CLOSING:
+    case HTTP_CONNECTION_CLOSING:
         return true;
     default:
         A3_PANIC_FMT("Invalid state in response_handle: %d.", this->state);
@@ -282,7 +282,7 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, Http
 
     HttpConnection* conn = http_response_connection(resp);
 
-    conn->state        = CONNECTION_RESPONDING;
+    conn->state        = HTTP_CONNECTION_RESPONDING;
     resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
     if (conn->version == HTTP_VERSION_INVALID || conn->version == HTTP_VERSION_UNKNOWN)
         conn->version = HTTP_VERSION_11;
@@ -310,7 +310,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     HttpConnection* conn = http_response_connection(resp);
 
     if (!conn->target_file) {
-        conn->state = CONNECTION_OPENING_FILE;
+        conn->state = HTTP_CONNECTION_OPENING_FILE;
         conn->target_file =
             file_open(EVT(&conn->conn), uring, A3_S_CONST(conn->request.target_path), O_RDONLY);
     }
@@ -351,7 +351,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     if (!S_ISREG(res.st_mode))
         return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
 
-    conn->state = CONNECTION_RESPONDING;
+    conn->state = HTTP_CONNECTION_RESPONDING;
 
     if (index)
         resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;

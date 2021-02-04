@@ -110,22 +110,22 @@ HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uri
 
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
-    case CONNECTION_INIT:
+    case HTTP_CONNECTION_INIT:
         http_connection_init(this);
         if ((rc = http_request_first_line_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
-    case CONNECTION_PARSED_FIRST_LINE:
+    case HTTP_CONNECTION_PARSED_FIRST_LINE:
         if ((rc = http_request_headers_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
-    case CONNECTION_PARSED_HEADERS:
+    case HTTP_CONNECTION_PARSED_HEADERS:
         if ((rc = http_request_method_handle(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
-    case CONNECTION_OPENING_FILE:
-    case CONNECTION_RESPONDING:
-    case CONNECTION_CLOSING:
+    case HTTP_CONNECTION_OPENING_FILE:
+    case HTTP_CONNECTION_RESPONDING:
+    case HTTP_CONNECTION_CLOSING:
         return HTTP_REQUEST_COMPLETE;
     }
 

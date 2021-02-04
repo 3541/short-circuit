@@ -104,7 +104,7 @@ bool http_connection_init(HttpConnection* conn) {
     http_request_init(&conn->request);
     http_response_init(&conn->response);
 
-    conn->state       = CONNECTION_INIT;
+    conn->state       = HTTP_CONNECTION_INIT;
     conn->version     = HTTP_VERSION_11;
     conn->keep_alive  = true;
     conn->target_file = NULL;
@@ -116,7 +116,7 @@ bool http_connection_close_submit(HttpConnection* conn, struct io_uring* uring) 
     assert(conn);
     assert(uring);
 
-    conn->state = CONNECTION_CLOSING;
+    conn->state = HTTP_CONNECTION_CLOSING;
     return connection_close_submit(&conn->conn, uring);
 }
 
