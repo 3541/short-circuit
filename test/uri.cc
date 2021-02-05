@@ -8,7 +8,10 @@ class UriTest : public ::testing::Test {
 protected:
     Uri uri {};
 
-    void TearDown() override { uri_free(&uri); }
+    void TearDown() override {
+        if (uri_is_initialized(&uri))
+            uri_free(&uri);
+    }
 };
 
 TEST_F(UriTest, parse_trivial) {
@@ -59,4 +62,20 @@ TEST_F(UriTest, parse_components) {
     EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.fragment), A3_CS("fragment")), 0);
 
     a3_string_free(&s);
+}
+
+TEST_F(UriTest, path_contained) {
+    uri = { URI_SCHEME_HTTP, A3_S_NULL, a3_string_clone(A3_CS("/index.html")), A3_S_NULL,
+            A3_S_NULL };
+
+    A3String path = uri_path_if_contained(&uri, A3_CS("/var/www"));
+    EXPECT_TRUE(path.ptr);
+    EXPECT_EQ(a3_string_cmp(path, A3_CS("/var/www/index.html")), 0);
+    uri_free(&uri);
+    a3_string_free(&path);
+
+    uri  = { URI_SCHEME_HTTP, A3_S_NULL, a3_string_clone(A3_CS("/../../../etc/passwd")), A3_S_NULL,
+            A3_S_NULL };
+    path = uri_path_if_contained(&uri, A3_CS("/var/www"));
+    EXPECT_FALSE(path.ptr);
 }
