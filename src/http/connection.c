@@ -104,10 +104,10 @@ bool http_connection_init(HttpConnection* conn) {
     http_request_init(&conn->request);
     http_response_init(&conn->response);
 
-    conn->state       = HTTP_CONNECTION_INIT;
-    conn->version     = HTTP_VERSION_11;
-    conn->keep_alive  = true;
-    conn->target_file = NULL;
+    conn->state           = HTTP_CONNECTION_INIT;
+    conn->version         = HTTP_VERSION_11;
+    conn->connection_type = HTTP_CONNECTION_TYPE_KEEP_ALIVE;
+    conn->target_file     = NULL;
 
     return true;
 }

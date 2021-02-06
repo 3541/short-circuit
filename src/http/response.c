@@ -82,7 +82,7 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
     case HTTP_CONNECTION_OPENING_FILE:
         return http_response_file_submit(&this->response, uring);
     case HTTP_CONNECTION_RESPONDING:
-        if (this->keep_alive) {
+        if (http_connection_keep_alive(this)) {
             A3_TRYB(http_connection_reset(this, uring));
             this->state = HTTP_CONNECTION_INIT;
             return this->conn.recv_submit(&this->conn, uring, 0, 0);
@@ -209,8 +209,8 @@ static bool http_response_prep_default_headers(HttpResponse* resp, HttpStatus st
 
     A3_TRYB(http_response_prep_status_line(resp, status));
     A3_TRYB(http_response_prep_header_date(resp));
-    if (close || !conn->keep_alive || content_length < 0) {
-        conn->keep_alive = false;
+    if (close || !http_connection_keep_alive(conn) || content_length < 0) {
+        conn->connection_type = HTTP_CONNECTION_TYPE_CLOSE;
         A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"), A3_CS("Close")));
     } else {
         A3_TRYB(http_response_prep_header(resp, A3_CS("Connection"), A3_CS("Keep-Alive")));
@@ -369,16 +369,16 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     // the same pipe that is used for splice.
     A3_TRYB(conn->conn.send_submit(
         &conn->conn, uring, (conn->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
-        (!conn->keep_alive || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK : 0));
+        (!http_connection_keep_alive(conn) || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK : 0));
     if (conn->method == HTTP_METHOD_HEAD)
         goto done;
 
     // TODO: This will not work for TLS.
     A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, (size_t)res.st_size,
-                                     !conn->keep_alive ? IOSQE_IO_LINK : 0));
+                                     !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
 
 done:
-    if (!conn->keep_alive)
+    if (!http_connection_keep_alive(conn))
         return http_connection_close_submit(conn, uring);
     return true;
 }

@@ -95,6 +95,18 @@ typedef enum HttpStatus {
 #undef _STATUS
 } HttpStatus;
 
+#define HTTP_CONNECTION_TYPE_ENUM                                                                  \
+    _CTYPE(HTTP_CONNECTION_TYPE_CLOSE, "Close")                                                    \
+    _CTYPE(HTTP_CONNECTION_TYPE_KEEP_ALIVE, "Keep-Alive")                                          \
+    _CTYPE(HTTP_CONNECTION_TYPE_UNSPECIFIED, "")                                                   \
+    _CTYPE(HTTP_CONNECTION_TYPE_INVALID, "")
+
+typedef enum HttpConnectionType {
+#define _CTYPE(TYPE, STR) TYPE,
+    HTTP_CONNECTION_TYPE_ENUM
+#undef _CTYPE
+} HttpConnectionType;
+
 #define HTTP_TRANSFER_ENCODING_ENUM                                                                \
     _TENCODING(TRANSFER_ENCODING_IDENTITY, "identity")                                             \
     _TENCODING(TRANSFER_ENCODING_CHUNKED, "chunked")
@@ -109,7 +121,10 @@ typedef uint8_t HttpTransferEncoding;
 #define _TENCODING(E, S) static const HttpTransferEncoding HTTP_##E = 1 << (_HTTP_##E);
 HTTP_TRANSFER_ENCODING_ENUM
 #undef _TENCODING
-static const HttpTransferEncoding HTTP_TRANSFER_ENCODING_INVALID = 0;
+#define HTTP_TRANSFER_ENCODING_INVALID (0U)
+
+#define HTTP_CONTENT_LENGTH_UNSPECIFIED (-1LL)
+#define HTTP_CONTENT_LENGTH_INVALID (-2LL)
 
 typedef enum HttpRequestResult {
     HTTP_REQUEST_ERROR,

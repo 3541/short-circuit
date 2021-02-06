@@ -33,6 +33,7 @@
 typedef enum HttpConnectionState {
     HTTP_CONNECTION_INIT,
     HTTP_CONNECTION_PARSED_FIRST_LINE,
+    HTTP_CONNECTION_ADDED_HEADERS,
     HTTP_CONNECTION_PARSED_HEADERS,
     HTTP_CONNECTION_OPENING_FILE,
     HTTP_CONNECTION_RESPONDING,
@@ -45,7 +46,7 @@ typedef struct HttpConnection {
     HttpConnectionState state;
     HttpVersion         version;
     HttpMethod          method;
-    bool                keep_alive;
+    HttpConnectionType  connection_type;
 
     HttpRequest  request;
     HttpResponse response;
@@ -61,3 +62,9 @@ void            http_connection_a3_pool_free(void);
 bool http_connection_init(HttpConnection*);
 bool http_connection_close_submit(HttpConnection*, struct io_uring*);
 bool http_connection_reset(HttpConnection*, struct io_uring*);
+
+A3_ALWAYS_INLINE bool http_connection_keep_alive(HttpConnection* conn) {
+    if (!conn)
+        return false;
+    return conn->connection_type == HTTP_CONNECTION_TYPE_KEEP_ALIVE;
+}
