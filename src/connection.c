@@ -273,7 +273,7 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring, int
     assert(!chain);
     (void)chain;
 
-    if (status == 0 || -status == ECONNRESET)
+    if (status == 0 || status == -ECONNRESET)
         return connection_close_submit(this, uring);
     if (status < 0) {
         a3_log_error(-status, "recv failed");

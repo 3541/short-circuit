@@ -24,16 +24,18 @@
 #include <a3/str.h>
 
 #include "forward.h"
+#include "http/headers.h"
 #include "http/types.h"
 #include "uri.h"
 
 typedef struct HttpRequest {
+    HttpHeaders headers;
+
     HttpTransferEncoding transfer_encodings;
     ssize_t              content_length;
-
-    A3String host;
-    Uri      target;
-    A3String target_path;
+    A3CString            host;
+    Uri                  target;
+    A3String             target_path;
 } HttpRequest;
 
 HttpConnection* http_request_connection(HttpRequest*);

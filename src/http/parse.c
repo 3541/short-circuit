@@ -34,7 +34,9 @@
 #include "config.h"
 #include "config_runtime.h"
 #include "connection.h"
+#include "forward.h"
 #include "http/connection.h"
+#include "http/headers.h"
 #include "http/request.h"
 #include "http/response.h"
 #include "http/types.h"
@@ -122,7 +124,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     } else if (conn->version == HTTP_VERSION_10) {
         // HTTP/1.0 is 'Connection: Close' by default.
-        conn->keep_alive = false;
+        conn->connection_type = HTTP_CONNECTION_TYPE_CLOSE;
     }
 
     conn->state = HTTP_CONNECTION_PARSED_FIRST_LINE;
@@ -130,14 +132,13 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
     return HTTP_REQUEST_STATE_DONE;
 }
 
-// Try to parse the first line of the HTTP request.
-HttpRequestStateResult http_request_headers_parse(HttpRequest* req, struct io_uring* uring) {
+// Try to ingest all the headers.
+HttpRequestStateResult http_request_headers_add(HttpRequest* req, struct io_uring* uring) {
     assert(req);
     assert(uring);
 
-    A3Buffer*       buf  = http_request_recv_buf(req);
-    HttpConnection* conn = http_request_connection(req);
-    HttpResponse*   resp = http_request_response(req);
+    A3Buffer*     buf  = http_request_recv_buf(req);
+    HttpResponse* resp = http_request_response(req);
 
     if (!a3_buf_memmem(buf, HTTP_NEWLINE).ptr) {
         if (a3_buf_len(buf) < HTTP_REQUEST_HEADER_MAX_LENGTH)
@@ -163,51 +164,63 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest* req, struct io_ur
                                                       HTTP_RESPONSE_CLOSE),
                            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-            // TODO: Handle general headers.
-            if (a3_string_cmpi(name, A3_CS("Connection")) == 0)
-                conn->keep_alive = a3_string_cmpi(value, A3_CS("Keep-Alive")) == 0;
-            else if (a3_string_cmpi(name, A3_CS("Host")) == 0) {
-                // ibid. >1 Host header -> 400.
-                if (req->host.ptr)
-                    A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                                          HTTP_RESPONSE_CLOSE),
-                               HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-                req->host = a3_string_clone(value);
-            } else if (a3_string_cmpi(name, A3_CS("Transfer-Encoding")) == 0) {
-                req->transfer_encodings |= http_transfer_encoding_parse(value);
-                if (req->transfer_encodings & HTTP_TRANSFER_ENCODING_INVALID)
-                    A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                                          HTTP_RESPONSE_CLOSE),
-                               HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-            } else if (a3_string_cmpi(name, A3_CS("Content-Length")) == 0) {
-                char* endptr = NULL;
-                // NOTE: This depends on the fact that the a3_buf_token_next
-                // null-terminates strings.
-                ssize_t new_length = strtol((const char*)value.ptr, &endptr, 10);
-
-                // RFC 7230 § 3.3.3, step 4: Invalid or conflicting
-                // Content-Length
-                // -> 400.
-                if (*endptr != '\0' ||
-                    (req->content_length != -1 && req->content_length != new_length))
-                    A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
-                                                          HTTP_RESPONSE_CLOSE),
-                               HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-                if ((size_t)new_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
-                    A3_RET_MAP(http_response_error_submit(
-                                   resp, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE, HTTP_RESPONSE_CLOSE),
-                               HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-                req->content_length = new_length;
-            }
+            if (!http_header_add(&req->headers, name, value))
+                A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
+                                                      HTTP_RESPONSE_CLOSE),
+                           HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
         }
 
         if (!a3_buf_consume(buf, HTTP_NEWLINE))
             return HTTP_REQUEST_STATE_NEED_DATA;
     }
 
+    http_request_connection(req)->state = HTTP_CONNECTION_ADDED_HEADERS;
+
+    return HTTP_REQUEST_STATE_DONE;
+}
+
+// Parse all the headers.
+HttpRequestStateResult http_request_headers_parse(HttpRequest* req, struct io_uring* uring) {
+    assert(req);
+    assert(uring);
+
+    HttpConnection* conn    = http_request_connection(req);
+    HttpResponse*   resp    = http_request_response(req);
+    HttpHeaders*    headers = &req->headers;
+
+    conn->connection_type = http_header_connection(headers);
+    if (conn->connection_type == HTTP_CONNECTION_TYPE_UNSPECIFIED)
+        conn->connection_type = (conn->version == HTTP_VERSION_10)
+                                    ? HTTP_CONNECTION_TYPE_CLOSE
+                                    : HTTP_CONNECTION_TYPE_KEEP_ALIVE;
+    else if (conn->connection_type == HTTP_CONNECTION_TYPE_INVALID) {
+        conn->connection_type = (conn->version == HTTP_VERSION_10)
+                                    ? HTTP_CONNECTION_TYPE_CLOSE
+                                    : HTTP_CONNECTION_TYPE_KEEP_ALIVE;
+        A3_RET_MAP(
+            http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
+            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+    }
+
+    req->host = A3_S_CONST(http_header_get(headers, A3_CS("Host")));
+    // RFC7230 § 5.4: more than one Host header -> 400.
+    if (req->host.ptr && a3_string_rchr(req->host, ',').ptr) {
+        req->host = A3_CS_NULL;
+        A3_RET_MAP(
+            http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
+            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+    }
+    // ibid. HTTP/1.1 messages must have a Host header.
+    if (conn->version == HTTP_VERSION_11 && !req->host.ptr)
+        A3_RET_MAP(
+            http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
+            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+
+    req->transfer_encodings = http_header_transfer_encodings(headers);
+    if (!req->transfer_encodings)
+        A3_RET_MAP(
+            http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
+            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in
     // a request, and the server MUST respond with a 400.
     if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) &&
@@ -215,28 +228,28 @@ HttpRequestStateResult http_request_headers_parse(HttpRequest* req, struct io_ur
         A3_RET_MAP(
             http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
-
-    // ibid. Transfer-Encoding overrides Content-Length.
-    if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY) && req->content_length >= 0)
-        req->content_length = -1;
-
     // TODO: Support other transfer encodings.
     if ((req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY))
         A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_NOT_IMPLEMENTED,
                                               HTTP_RESPONSE_CLOSE),
                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
-    // RFC7230 § 3.3.3, step 6: default to Content-Length of 0.
-    if (req->content_length == -1 &&
-        !(req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY)) {
-        req->content_length = 0;
+    // ibid. Transfer-Encoding overrides Content-Length.
+    if (!(req->transfer_encodings & ~HTTP_TRANSFER_ENCODING_IDENTITY)) {
+        req->content_length = http_header_content_length(headers);
+        if (req->content_length == HTTP_CONTENT_LENGTH_INVALID)
+            A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST,
+                                                  HTTP_RESPONSE_CLOSE),
+                       HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        if (req->content_length != HTTP_CONTENT_LENGTH_UNSPECIFIED &&
+            (size_t)req->content_length > HTTP_REQUEST_CONTENT_MAX_LENGTH)
+            A3_RET_MAP(http_response_error_submit(resp, uring, HTTP_STATUS_PAYLOAD_TOO_LARGE,
+                                                  HTTP_RESPONSE_CLOSE),
+                       HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
+        // ibid. step 6: default to Content-Length of 0.
+        if (req->content_length == HTTP_CONTENT_LENGTH_UNSPECIFIED)
+            req->content_length = 0;
     }
-
-    // RFC7230 § 5.4: HTTP/1.1 messages must have a Host header.
-    if (conn->version == HTTP_VERSION_11 && !req->host.ptr)
-        A3_RET_MAP(
-            http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
-            HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
 
     conn->state = HTTP_CONNECTION_PARSED_HEADERS;
 

@@ -39,7 +39,7 @@
 
 static A3Pool* HTTP_CONNECTION_POOL = NULL;
 
-static void a3_pool_free_cb(A3PoolSlot* slot) {
+static void connection_pool_free_cb(A3PoolSlot* slot) {
     assert(slot);
 
     HttpConnection* conn = (HttpConnection*)slot;
@@ -50,8 +50,8 @@ static void a3_pool_free_cb(A3PoolSlot* slot) {
 }
 
 void http_connection_pool_init() {
-    HTTP_CONNECTION_POOL =
-        A3_POOL_OF(HttpConnection, CONNECTION_POOL_SIZE, A3_POOL_PRESERVE_BLOCKS, a3_pool_free_cb);
+    HTTP_CONNECTION_POOL = A3_POOL_OF(HttpConnection, CONNECTION_POOL_SIZE, A3_POOL_PRESERVE_BLOCKS,
+                                      connection_pool_free_cb);
 }
 
 HttpConnection* http_connection_new() {
@@ -104,10 +104,10 @@ bool http_connection_init(HttpConnection* conn) {
     http_request_init(&conn->request);
     http_response_init(&conn->response);
 
-    conn->state       = HTTP_CONNECTION_INIT;
-    conn->version     = HTTP_VERSION_11;
-    conn->keep_alive  = true;
-    conn->target_file = NULL;
+    conn->state           = HTTP_CONNECTION_INIT;
+    conn->version         = HTTP_VERSION_11;
+    conn->connection_type = HTTP_CONNECTION_TYPE_KEEP_ALIVE;
+    conn->target_file     = NULL;
 
     return true;
 }

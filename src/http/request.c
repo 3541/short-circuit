@@ -85,18 +85,18 @@ void http_request_init(HttpRequest* req) {
     A3_STRUCT_ZERO(req);
 
     req->transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
-    req->content_length     = -1;
+    req->content_length     = HTTP_CONTENT_LENGTH_UNSPECIFIED;
+    http_headers_init(&req->headers);
 }
 
 void http_request_reset(HttpRequest* req) {
     assert(req);
 
-    if (req->host.ptr)
-        a3_string_free(&req->host);
     if (uri_is_initialized(&req->target))
         uri_free(&req->target);
     if (req->target_path.ptr)
         a3_string_free(&req->target_path);
+    http_headers_destroy(&req->headers);
 
     A3_STRUCT_ZERO(req);
 }
@@ -111,11 +111,14 @@ HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uri
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case HTTP_CONNECTION_INIT:
-        http_connection_init(this);
         if ((rc = http_request_first_line_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case HTTP_CONNECTION_PARSED_FIRST_LINE:
+        if ((rc = http_request_headers_add(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
+            return (HttpRequestResult)rc;
+        // fallthrough
+    case HTTP_CONNECTION_ADDED_HEADERS:
         if ((rc = http_request_headers_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
