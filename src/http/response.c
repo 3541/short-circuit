@@ -369,7 +369,8 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     // the same pipe that is used for splice.
     A3_TRYB(conn->conn.send_submit(
         &conn->conn, uring, (conn->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
-        (!http_connection_keep_alive(conn) || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK : 0));
+        (!http_connection_keep_alive(conn) || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK
+                                                                                : 0));
     if (conn->method == HTTP_METHOD_HEAD)
         goto done;
 
