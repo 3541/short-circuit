@@ -1,4 +1,6 @@
 # Short Circuit
+[![builds.sr.ht status](https://builds.sr.ht/~_3541/short-circuit/commits/.build.yml.svg)](https://builds.sr.ht/~_3541/short-circuit/commits/.build.yml?)
+
 A lightweight and performant web server for Linux, built on top of io_uring.
 Capable of ~~60,000~~ ~~80,000~~ ~~120,000~~ ~~135,000 requests per second on
 static files~~. Suffice it to say, it is fast, and getting faster. Actual, more
