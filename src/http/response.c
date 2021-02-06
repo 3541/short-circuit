@@ -84,7 +84,7 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
     case HTTP_CONNECTION_RESPONDING:
         if (http_connection_keep_alive(this)) {
             A3_TRYB(http_connection_reset(this, uring));
-            this->state = HTTP_CONNECTION_INIT;
+            A3_TRYB(http_connection_init(this));
             return this->conn.recv_submit(&this->conn, uring, 0, 0);
         }
 

@@ -111,7 +111,6 @@ HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uri
     // Go through as many states as possible with the data currently loaded.
     switch (this->state) {
     case HTTP_CONNECTION_INIT:
-        http_connection_init(this);
         if ((rc = http_request_first_line_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough

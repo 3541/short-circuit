@@ -35,7 +35,7 @@ typedef struct HttpHeaders {
 void http_headers_init(HttpHeaders*);
 void http_headers_destroy(HttpHeaders*);
 
-bool      http_header_add(HttpHeaders*, A3CString name, A3CString value);
+bool     http_header_add(HttpHeaders*, A3CString name, A3CString value);
 A3String http_header_get(HttpHeaders*, A3CString name);
 
 HttpConnectionType   http_header_connection(HttpHeaders*);
