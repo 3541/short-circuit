@@ -19,11 +19,15 @@ Dependencies:
 * Linux 5.7 or later.
 
 To build, create a build directory and change into it. Then run `cmake ..
-[-DCMAKE_BUILD_TYPE=<Debug|Release>]` to set up the build system, and `cmake --build .` to build the
-project. This produces a binary `sc`, which can be run directly. By default, the server listens on
-port `8000`.
+[-DCMAKE_BUILD_TYPE=<Debug|Release>]` to set up the build system. If
+[Ninja](https://ninja-build.org/) is installed, specify `-GNinja` for faster builds. Alternatively,
+the provided `configure` script will generate several build configurations under `build/`.
+Afterwards, run `cmake --build .` from the build directory to build the project.
 
-To run the test suite, invoke the `sc_check` target.
+This produces a binary `sc`, which can be run directly. By default, the server listens on port
+`8000`. `sc --help` will show the available options and parameters.
+
+To build and run the test suite, invoke `cmake --build . -t sc_check`.
 
 Note: on most Linux distributions, you may see warnings about the locked memory and open file
 resource limits. See [here](#queue-size) for more information.
