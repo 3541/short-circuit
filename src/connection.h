@@ -46,24 +46,24 @@ typedef enum ConnectionTransport { TRANSPORT_PLAIN, TRANSPORT_TLS } ConnectionTr
 typedef struct Connection {
     EVENT_TARGET;
 
+    A3Buffer recv_buf;
+    A3Buffer send_buf;
+
+    Timeout timeout;
+
     Listener* listener;
-
-    ConnectionTransport transport;
-
-    fd                 socket;
-    struct sockaddr_in client_addr;
-    socklen_t          addr_len;
-    fd                 pipe[2];
 
     ConnectionSubmit recv_submit;
     ConnectionHandle recv_handle;
 
     ConnectionSubmit send_submit;
 
-    A3Buffer recv_buf;
-    A3Buffer send_buf;
+    struct sockaddr_in client_addr;
+    socklen_t          addr_len;
+    fd                 socket;
+    fd                 pipe[2];
 
-    Timeout timeout;
+    ConnectionTransport transport;
 } Connection;
 
 void connection_timeout_init(void);

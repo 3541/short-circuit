@@ -31,11 +31,11 @@
 typedef struct HttpRequest {
     HttpHeaders headers;
 
-    HttpTransferEncoding transfer_encodings;
-    ssize_t              content_length;
-    A3CString            host;
     Uri                  target;
+    A3CString            host;
     A3String             target_path;
+    ssize_t              content_length;
+    HttpTransferEncoding transfer_encodings;
 } HttpRequest;
 
 HttpConnection* http_request_connection(HttpRequest*);
