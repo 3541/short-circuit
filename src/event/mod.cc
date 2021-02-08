@@ -291,8 +291,8 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file, A3S
     assert(file >= 0);
     assert(out_data.ptr);
 
-    auto event =
-        Event::create(target, EVENT_READ, nbytes, sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
+    auto event = Event::create(target, EVENT_READ, (int32_t)nbytes,
+                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -328,7 +328,7 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket, A
     assert(uring);
     assert(data.ptr);
 
-    auto event = Event::create(target, EVENT_SEND, data.len,
+    auto event = Event::create(target, EVENT_SEND, (int32_t)data.len,
                                sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     A3_TRYB(event);
 
@@ -349,7 +349,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uin
     assert(in >= 0);
     assert(out >= 0);
 
-    auto event = Event::create(target, EVENT_SPLICE, len,
+    auto event = Event::create(target, EVENT_SPLICE, (int32_t)len,
                                sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), ignore);
     A3_TRYB(event);
 
