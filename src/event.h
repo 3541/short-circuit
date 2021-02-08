@@ -35,8 +35,6 @@
 
 A3_H_BEGIN
 
-#define EVENT_CHAIN           (1ULL)
-#define EVENT_IGNORE          (1ULL << 1)
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
 

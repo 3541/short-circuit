@@ -46,12 +46,13 @@ void Event::handle(struct io_uring& uring) {
     auto*     target      = this->target();
     bool      chain       = this->chain();
     bool      ignore      = this->ignore();
+    bool      success     = !failed();
     int32_t   status_code = status;
     EventType ty          = type;
 
     delete this;
 
-    if (ignore) {
+    if (ignore && success) {
         if (status_code < 0)
             a3_log_error(-status_code, "ignored event failed");
         return;
@@ -65,7 +66,8 @@ void Event::handle(struct io_uring& uring) {
     case EVENT_RECV:
     case EVENT_SEND:
     case EVENT_SPLICE:
-        connection_event_handle(EVT_PTR(target, Connection), &uring, ty, status_code, chain);
+        connection_event_handle(EVT_PTR(target, Connection), &uring, ty, success, status_code,
+                                chain);
         return;
     case EVENT_OPENAT:
         file_handle_event_handle(EVT_PTR(target, FileHandle), &uring, status_code);
@@ -132,6 +134,19 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
             continue;
         }
 
+        switch (event->status) {
+        case Event::EXPECT_NONE:
+            break;
+        case Event::EXPECT_NONNEGATIVE:
+            event->set_failed(status < 0);
+            break;
+        case Event::EXPECT_POSITIVE:
+            event->set_failed(status <= 0);
+            break;
+        default:
+            event->set_failed(status != event->status);
+            break;
+        }
         event->status = status;
 
         auto* target = event->target();

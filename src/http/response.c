@@ -365,8 +365,8 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
                                           res.st_mtime, res.st_size));
     A3_TRYB(http_response_prep_headers_done(resp));
 
-    // Perhaps instead of just sending here, it would be better to write into
-    // the same pipe that is used for splice.
+    // TODO: Perhaps instead of just sending here, it would be better to write into the same pipe
+    // that is used for splice.
     A3_TRYB(conn->conn.send_submit(
         &conn->conn, uring, (conn->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
         (!http_connection_keep_alive(conn) || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK

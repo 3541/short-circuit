@@ -29,7 +29,15 @@
 struct Event {
     A3_SLL_NODE(Event);
 
+    static constexpr int32_t EXPECT_NONE        = -255;
+    static constexpr int32_t EXPECT_NONNEGATIVE = -254;
+    static constexpr int32_t EXPECT_POSITIVE    = -253;
+
 private:
+    static constexpr uintptr_t FLAG_CHAIN  = 1ULL;
+    static constexpr uintptr_t FLAG_IGNORE = 1ULL << 1;
+    static constexpr uintptr_t FLAG_FAIL   = 1ULL << 2;
+
     EventType type { EVENT_INVALID };
     int32_t   status { 0 };
     uintptr_t target_ptr { 0 };
@@ -41,30 +49,39 @@ private:
     // For initialization.
     friend Event* event_create(EventTarget*, EventType);
 
-    Event(EventTarget*, EventType, bool chain, bool ignore, bool queue);
+    Event(EventTarget*, EventType, int32_t expected_return, bool chain, bool ignore, bool queue);
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
     static void* operator new(size_t size) noexcept;
 
     EventTarget* target() {
-        return reinterpret_cast<EventTarget*>(target_ptr & ~(EVENT_CHAIN | EVENT_IGNORE));
+        return reinterpret_cast<EventTarget*>(target_ptr & ~(FLAG_CHAIN | FLAG_IGNORE | FLAG_FAIL));
     }
 
-    bool chain() { return target_ptr & EVENT_CHAIN; }
-    bool ignore() { return target_ptr & EVENT_IGNORE; }
+    bool chain() const { return target_ptr & FLAG_CHAIN; }
+    bool ignore() const { return target_ptr & FLAG_IGNORE; }
+    bool failed() const { return target_ptr & FLAG_FAIL; }
+    bool canceled() const { return !target_ptr; }
+
+    void set_failed(bool failed) {
+        if (failed) {
+            target_ptr |= FLAG_FAIL;
+        }
+    }
 
 public:
     static void operator delete(void*);
 
-    static std::unique_ptr<Event> create(EventTarget* target, EventType ty, bool chain = false,
-                                         bool ignore = false, bool queue = true) {
+    static std::unique_ptr<Event> create(EventTarget* target, EventType ty, int32_t expected_return,
+                                         bool chain = false, bool ignore = false,
+                                         bool queue = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, chain, ignore, queue } };
+        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain, ignore,
+                                                    queue } };
     }
 
     void handle(struct io_uring&);
     void cancel() { target_ptr = 0; }
-    bool canceled() { return !target_ptr; }
 };

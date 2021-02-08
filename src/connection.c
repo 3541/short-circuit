@@ -249,8 +249,8 @@ static bool connection_openat_handle(Connection* conn, struct io_uring* uring, i
     return http_response_handle((HttpConnection*)conn, uring);
 }
 
-static bool connection_read_handle(Connection* this, struct io_uring* uring, int32_t status,
-                                   bool chain) {
+static bool connection_read_handle(Connection* this, struct io_uring* uring, bool success,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
     assert(chain);
@@ -259,6 +259,11 @@ static bool connection_read_handle(Connection* this, struct io_uring* uring, int
 
     if (status < 0) {
         a3_log_error(-status, "read failed");
+        return false;
+    }
+    if (!success) {
+        // TODO: Handle short reads.
+        a3_log_fmt(LOG_ERROR, "Short read of %d.", status);
         return false;
     }
 
@@ -291,13 +296,17 @@ static bool connection_recv_handle(Connection* this, struct io_uring* uring, int
     return true;
 }
 
-static bool connection_send_handle(Connection* this, struct io_uring* uring, int32_t status,
-                                   bool chain) {
+static bool connection_send_handle(Connection* this, struct io_uring* uring, bool success,
+                                   int32_t status, bool chain) {
     assert(this);
     assert(uring);
 
     if (status < 0) {
         a3_log_error(-status, "send failed");
+        return false;
+    }
+    if (!success) {
+        a3_log_fmt(LOG_ERROR, "Short send of %d.", status);
         return false;
     }
 
@@ -309,8 +318,8 @@ static bool connection_send_handle(Connection* this, struct io_uring* uring, int
     return http_response_handle((HttpConnection*)this, uring);
 }
 
-static bool connection_splice_handle(Connection* this, struct io_uring* uring, int32_t status,
-                                     bool chain) {
+static bool connection_splice_handle(Connection* this, struct io_uring* uring, bool success,
+                                     int32_t status, bool chain) {
     assert(this);
     assert(uring);
     (void)chain;
@@ -319,6 +328,10 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring, i
 
     if (status < 0) {
         a3_log_error(-status, "splice failed");
+        return false;
+    }
+    if (!success) {
+        a3_log_fmt(LOG_ERROR, "Short splice of %d.", status);
         return false;
     }
 
@@ -335,7 +348,7 @@ static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) 
                                       HTTP_RESPONSE_CLOSE);
 }
 
-void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type,
+void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type, bool success,
                              int32_t status, bool chain) {
     assert(conn);
     assert(uring);
@@ -353,16 +366,16 @@ void connection_event_handle(Connection* conn, struct io_uring* uring, EventType
         rc = connection_openat_handle(conn, uring, status, chain);
         break;
     case EVENT_READ:
-        rc = connection_read_handle(conn, uring, status, chain);
+        rc = connection_read_handle(conn, uring, success, status, chain);
         break;
     case EVENT_RECV:
         rc = conn->recv_handle(conn, uring, status, chain);
         break;
     case EVENT_SEND:
-        rc = connection_send_handle(conn, uring, status, chain);
+        rc = connection_send_handle(conn, uring, success, status, chain);
         break;
     case EVENT_SPLICE:
-        rc = connection_splice_handle(conn, uring, status, chain);
+        rc = connection_splice_handle(conn, uring, success, status, chain);
         break;
     case EVENT_INVALID:
     case EVENT_OPENAT:

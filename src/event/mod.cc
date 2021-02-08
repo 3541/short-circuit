@@ -50,9 +50,11 @@ A3_SLL_DEFINE_METHODS(Event);
 
 static A3Pool* EVENT_POOL = nullptr;
 
-Event::Event(EventTarget* tgt, EventType ty, bool chain, bool ignore, bool queue) : type { ty } {
+Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain, bool ignore,
+             bool queue) :
+    type { ty }, status { expected_return } {
     target_ptr =
-        reinterpret_cast<uintptr_t>(tgt) | (chain ? EVENT_CHAIN : 0) | (ignore ? EVENT_IGNORE : 0);
+        reinterpret_cast<uintptr_t>(tgt) | (chain ? FLAG_CHAIN : 0) | (ignore ? FLAG_IGNORE : 0);
     if (queue)
         A3_SLL_PUSH(Event)(tgt, this);
 }
@@ -208,7 +210,7 @@ bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
     assert(uring);
     assert(out_client_addr);
 
-    auto event = Event::create(target, EVENT_ACCEPT);
+    auto event = Event::create(target, EVENT_ACCEPT, Event::EXPECT_NONNEGATIVE);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -241,7 +243,7 @@ bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file, ui
     unique_ptr<Event> event;
 
     if (target) {
-        event = Event::create(target, EVENT_CLOSE);
+        event = Event::create(target, EVENT_CLOSE, Event::EXPECT_NONNEGATIVE);
         if (!event) {
             if (fallback_sync)
                 return event_close_fallback(nullptr, *uring, file);
@@ -270,7 +272,7 @@ bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir, A3
     assert(uring);
     assert(path.ptr);
 
-    auto event = Event::create(target, EVENT_OPENAT);
+    auto event = Event::create(target, EVENT_OPENAT, Event::EXPECT_NONNEGATIVE);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -289,7 +291,8 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file, A3S
     assert(file >= 0);
     assert(out_data.ptr);
 
-    auto event = Event::create(target, EVENT_READ, sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
+    auto event =
+        Event::create(target, EVENT_READ, nbytes, sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -307,7 +310,7 @@ bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket, A
     assert(uring);
     assert(data.ptr);
 
-    auto event = Event::create(target, EVENT_RECV);
+    auto event = Event::create(target, EVENT_RECV, Event::EXPECT_POSITIVE);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -325,7 +328,8 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket, A
     assert(uring);
     assert(data.ptr);
 
-    auto event = Event::create(target, EVENT_SEND, sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
+    auto event = Event::create(target, EVENT_SEND, data.len,
+                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -345,7 +349,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uin
     assert(in >= 0);
     assert(out >= 0);
 
-    auto event = Event::create(target, EVENT_SPLICE,
+    auto event = Event::create(target, EVENT_SPLICE, len,
                                sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), ignore);
     A3_TRYB(event);
 
@@ -365,7 +369,7 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring, Timespec*
     assert(uring);
     assert(threshold);
 
-    auto event = Event::create(target, EVENT_TIMEOUT);
+    auto event = Event::create(target, EVENT_TIMEOUT, Event::EXPECT_NONE);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -388,7 +392,7 @@ bool event_cancel_all(EventTarget* target) {
 
 Event* event_create(EventTarget* target, EventType ty) {
     assert(target);
-    return Event::create(target, ty, /* chain */ false, /* ignore */ false,
+    return Event::create(target, ty, Event::EXPECT_NONE, /* chain */ false, /* ignore */ false,
                          /* queue */ false)
         .release();
 }
