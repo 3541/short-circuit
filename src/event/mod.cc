@@ -46,9 +46,8 @@
 using std::move;
 using std::unique_ptr;
 
+A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
 A3_SLL_DEFINE_METHODS(Event);
-
-static A3Pool* EVENT_POOL = nullptr;
 
 Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain, bool ignore,
              bool queue) :
@@ -57,25 +56,6 @@ Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain
         reinterpret_cast<uintptr_t>(tgt) | (chain ? FLAG_CHAIN : 0) | (ignore ? FLAG_IGNORE : 0);
     if (queue)
         A3_SLL_PUSH(Event)(tgt, this);
-}
-
-void* Event::operator new(size_t size) noexcept {
-    assert(size == sizeof(Event));
-    (void)size;
-
-    void* ret = a3_pool_alloc_block(EVENT_POOL);
-    if (!ret) {
-        a3_log_msg(LOG_WARN, "Event pool exhausted.");
-        return nullptr;
-    }
-
-    return ret;
-}
-
-void Event::operator delete(void* event) {
-    assert(event);
-
-    a3_pool_free_block(EVENT_POOL, event);
 }
 
 A3CString event_type_name(EventType ty) {
@@ -176,8 +156,6 @@ struct io_uring event_init() {
         A3_PANIC("Unable to open queue. The memlock limit is probably too low.");
 
     event_check_ops(&ret);
-
-    EVENT_POOL = A3_POOL_OF(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
 
     return ret;
 }

@@ -22,11 +22,16 @@
 #include <cstdint>
 #include <memory>
 
+#include <a3/pool.h>
+
+#include "config.h"
 #include "event.h"
 #include "event/handle.h"
 #include "forward.h"
 
 struct Event {
+    A3_POOL_ALLOCATED_PRIV_NEW(Event)
+public:
     A3_SLL_NODE(Event);
 
     static constexpr int32_t EXPECT_NONE        = -255;
@@ -53,8 +58,6 @@ private:
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
-    static void* operator new(size_t size) noexcept;
-
     EventTarget* target() {
         return reinterpret_cast<EventTarget*>(target_ptr & ~(FLAG_CHAIN | FLAG_IGNORE | FLAG_FAIL));
     }
@@ -65,14 +68,11 @@ private:
     bool canceled() const { return !target_ptr; }
 
     void set_failed(bool failed) {
-        if (failed) {
+        if (failed)
             target_ptr |= FLAG_FAIL;
-        }
     }
 
 public:
-    static void operator delete(void*);
-
     static std::unique_ptr<Event> create(EventTarget* target, EventType ty, int32_t expected_return,
                                          bool chain = false, bool ignore = false,
                                          bool queue = true) {
