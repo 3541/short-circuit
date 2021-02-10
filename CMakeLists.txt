@@ -150,6 +150,7 @@ target_compile_definitions(sc_lib PRIVATE
 add_executable(sc_test EXCLUDE_FROM_ALL
   test/uri.cc
 )
+target_add_stack_protector(sc_test)
 target_disable_exceptions(sc_test)
 target_disable_rtti(sc_test)
 set_target_properties(sc_test PROPERTIES
