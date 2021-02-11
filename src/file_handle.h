@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <a3/rc.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 
@@ -29,8 +30,9 @@ typedef struct FileHandle {
     EVENT_TARGET;
     EventQueue waiting;
 
+    A3_REFCOUNTED;
+
     A3CString path;
     fd        file;
-    uint32_t  open_count;
     int32_t   flags;
 } FileHandle;
