@@ -39,9 +39,8 @@ public:
     static constexpr int32_t EXPECT_POSITIVE    = -253;
 
 private:
-    static constexpr uintptr_t FLAG_CHAIN  = 1ULL;
-    static constexpr uintptr_t FLAG_IGNORE = 1ULL << 1;
-    static constexpr uintptr_t FLAG_FAIL   = 1ULL << 2;
+    static constexpr uintptr_t FLAG_CHAIN = 1ULL;
+    static constexpr uintptr_t FLAG_FAIL  = 1ULL << 2;
 
     EventType type { EVENT_INVALID };
     int32_t   status { 0 };
@@ -54,16 +53,16 @@ private:
     // For initialization.
     friend Event* event_create(EventTarget*, EventType);
 
-    Event(EventTarget*, EventType, int32_t expected_return, bool chain, bool ignore, bool queue);
+    Event(EventTarget*, EventType, int32_t expected_return, bool chain, bool force_handle,
+          bool queue);
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
     EventTarget* target() {
-        return reinterpret_cast<EventTarget*>(target_ptr & ~(FLAG_CHAIN | FLAG_IGNORE | FLAG_FAIL));
+        return reinterpret_cast<EventTarget*>(target_ptr & ~(FLAG_CHAIN | FLAG_FAIL));
     }
 
     bool chain() const { return target_ptr & FLAG_CHAIN; }
-    bool ignore() const { return target_ptr & FLAG_IGNORE; }
     bool failed() const { return target_ptr & FLAG_FAIL; }
     bool canceled() const { return !target_ptr; }
 
@@ -74,12 +73,12 @@ private:
 
 public:
     static std::unique_ptr<Event> create(EventTarget* target, EventType ty, int32_t expected_return,
-                                         bool chain = false, bool ignore = false,
+                                         bool chain = false, bool force_handle = false,
                                          bool queue = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain, ignore,
-                                                    queue } };
+        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain,
+                                                    force_handle, queue } };
     }
 
     void handle(struct io_uring&);

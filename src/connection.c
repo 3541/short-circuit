@@ -164,11 +164,11 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, 
     for (size_t sent = 0, remaining = len, to_send      = MIN(PIPE_BUF_SIZE, remaining); sent < len;
          sent += to_send, remaining -= to_send, to_send = MIN(PIPE_BUF_SIZE, remaining)) {
         if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1], to_send, 0,
-                                 sqe_flags | IOSQE_IO_LINK, true) ||
+                                 sqe_flags | IOSQE_IO_LINK, false) ||
             !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
                                  to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
                                  sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
-                                 (remaining > PIPE_BUF_SIZE) ? true : false)) {
+                                 (remaining > PIPE_BUF_SIZE) ? false : true)) {
             A3_ERR("Failed to submit splice.");
             return false;
         }
@@ -322,9 +322,6 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring, b
                                      int32_t status, bool chain) {
     assert(this);
     assert(uring);
-    (void)chain;
-    // Splice with chain but without ignore must be handled, since a splice call
-    // will nearly always be in a chain with the closure of a pipe.
 
     if (status < 0) {
         a3_log_error(-status, "splice failed");
@@ -334,6 +331,9 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring, b
         a3_log_fmt(LOG_ERROR, "Short splice of %d.", status);
         return false;
     }
+
+    if (chain)
+        return true;
 
     return http_response_handle((HttpConnection*)this, uring);
 }

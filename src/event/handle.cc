@@ -45,18 +45,11 @@ void event_queue_init(EventQueue* queue) {
 void Event::handle(struct io_uring& uring) {
     auto*     target      = this->target();
     bool      chain       = this->chain();
-    bool      ignore      = this->ignore();
     bool      success     = !failed();
     int32_t   status_code = status;
     EventType ty          = type;
 
     delete this;
-
-    if (ignore && success) {
-        if (status_code < 0)
-            a3_log_error(-status_code, "ignored event failed");
-        return;
-    }
 
     switch (ty) {
     case EVENT_ACCEPT:
