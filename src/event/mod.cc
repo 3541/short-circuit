@@ -343,6 +343,27 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uin
     return true;
 }
 
+bool event_stat_submit(EventTarget* target, struct io_uring* uring, A3CString path,
+                       uint32_t field_mask, struct statx* statx_buf, uint32_t sqe_flags) {
+    assert(target);
+    assert(uring);
+    assert(path.ptr);
+    assert(field_mask);
+    assert(statx_buf);
+
+    auto event = Event::create(target, EVENT_STAT, Event::EXPECT_NONNEGATIVE,
+                               event_flags_chained(sqe_flags));
+    A3_TRYB(event);
+
+    auto sqe = event_get_sqe(*uring);
+    A3_TRYB(sqe);
+
+    io_uring_prep_statx(sqe.get(), -1, A3_S_AS_C_STR(path), 0, field_mask, statx_buf);
+    event_sqe_fill(move(event), move(sqe), sqe_flags);
+
+    return true;
+}
+
 bool event_timeout_submit(EventTarget* target, struct io_uring* uring, Timespec* threshold,
                           uint32_t timeout_flags) {
     assert(target);

@@ -40,6 +40,6 @@ fd          file_handle_fd_unchecked(FileHandle*);
 bool        file_handle_waiting(FileHandle*);
 void        file_close(FileHandle*, struct io_uring*);
 void        file_cache_destroy(struct io_uring*);
-void        file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status);
+void        file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status, bool chain);
 
 A3_H_END

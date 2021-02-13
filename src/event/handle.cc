@@ -63,7 +63,8 @@ void Event::handle(struct io_uring& uring) {
                                 chain);
         return;
     case EVENT_OPENAT:
-        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring, status_code);
+    case EVENT_STAT:
+        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring, status_code, chain);
         return;
     case EVENT_TIMEOUT:
         timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring, status_code);

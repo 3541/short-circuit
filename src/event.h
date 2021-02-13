@@ -47,6 +47,7 @@ A3_H_BEGIN
     _EVENT_TYPE(EVENT_RECV)                                                                        \
     _EVENT_TYPE(EVENT_SEND)                                                                        \
     _EVENT_TYPE(EVENT_SPLICE)                                                                      \
+    _EVENT_TYPE(EVENT_STAT)                                                                        \
     _EVENT_TYPE(EVENT_TIMEOUT)                                                                     \
     _EVENT_TYPE(EVENT_INVALID)
 
@@ -85,6 +86,8 @@ bool event_send_submit(EventTarget*, struct io_uring*, fd socket, A3CString data
                        uint32_t send_flags, uint32_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in, fd out, size_t len,
                          uint32_t splice_flags, uint32_t sqe_flags, bool force_handle);
+bool event_stat_submit(EventTarget*, struct io_uring*, A3CString path, uint32_t field_mask,
+                       struct statx*, uint32_t sqe_flags);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*, uint32_t timeout_flags);
 
 // Synthesize an event. This Event is _not_ queued, but is useful for situations

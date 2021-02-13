@@ -201,10 +201,14 @@ void file_cache_destroy(struct io_uring* uring) {
     A3_CACHE_CLEAR(A3CString, FileHandlePtr)(&FILE_CACHE, uring);
 }
 
-void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_t status) {
+void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_t status,
+                              bool chain) {
     assert(handle);
     assert(file_handle_waiting(handle));
     assert(uring);
+
+    if (chain)
+        return;
 
     handle->file = status;
 

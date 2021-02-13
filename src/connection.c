@@ -379,6 +379,7 @@ void connection_event_handle(Connection* conn, struct io_uring* uring, EventType
         break;
     case EVENT_INVALID:
     case EVENT_OPENAT:
+    case EVENT_STAT:
     case EVENT_TIMEOUT:
         A3_PANIC_FMT("Invalid event %d.", type);
     }
