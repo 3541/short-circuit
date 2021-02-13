@@ -139,7 +139,12 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
         A3_REF(handle);
         a3_string_free(&full_path);
 
-        file_handle_wait(target, handle);
+        // The handle is not ready, but an open request is in flight. Synthesize
+        // an event so the caller is notified when the file is opened.
+        if (file_handle_waiting(handle)) {
+            a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
+            file_handle_wait(target, handle);
+        }
 
         return handle;
     }
