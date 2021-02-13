@@ -162,7 +162,7 @@ struct io_uring event_init() {
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it
 // is full. This /can/ return a null pointer if the SQ is full and, for whatever
 // reason, it does not empty in time.
-static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
+static inline unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
     struct io_uring_sqe* ret = io_uring_get_sqe(&uring);
     // Try to service events until an SQE is available or too many retries have
     // elapsed.
@@ -175,10 +175,14 @@ static unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
     return unique_ptr<struct io_uring_sqe> { ret };
 }
 
-static void event_sqe_fill(unique_ptr<Event>&& event, unique_ptr<struct io_uring_sqe>&& sqe,
-                           uint32_t sqe_flags = 0) {
+static inline void event_sqe_fill(unique_ptr<Event>&& event, unique_ptr<struct io_uring_sqe>&& sqe,
+                                  uint32_t sqe_flags = 0) {
     io_uring_sqe_set_flags(sqe.get(), sqe_flags);
     io_uring_sqe_set_data(sqe.release(), event.release());
+}
+
+static inline bool event_flags_chained(uint32_t sqe_flags) {
+    return sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK);
 }
 
 bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
@@ -268,8 +272,7 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file, A3S
     assert(file >= 0);
     assert(out_data.ptr);
 
-    auto event = Event::create(target, EVENT_READ, (int32_t)nbytes,
-                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
+    auto event = Event::create(target, EVENT_READ, (int32_t)nbytes, event_flags_chained(sqe_flags));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -305,8 +308,8 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket, A
     assert(uring);
     assert(data.ptr);
 
-    auto event = Event::create(target, EVENT_SEND, (int32_t)data.len,
-                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK));
+    auto event =
+        Event::create(target, EVENT_SEND, (int32_t)data.len, event_flags_chained(sqe_flags));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -326,8 +329,8 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uin
     assert(in >= 0);
     assert(out >= 0);
 
-    auto event = Event::create(target, EVENT_SPLICE, (int32_t)len,
-                               sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK), force_handle);
+    auto event = Event::create(target, EVENT_SPLICE, (int32_t)len, event_flags_chained(sqe_flags),
+                               force_handle);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
