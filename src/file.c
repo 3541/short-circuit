@@ -67,99 +67,65 @@ static void file_handle_wait(EventTarget* target, FileHandle* handle) {
     assert(target);
     assert(handle);
 
+    A3_REF(handle);
     Event* event = event_create(target, EVENT_OPENAT_SYNTH);
     A3_SLL_PUSH(Event)(&handle->waiting, event);
 }
 
 FileHandle* file_open(EventTarget* target, struct io_uring* uring, A3CString path, int32_t flags) {
-    assert(target);
-    assert(uring);
-    assert(path.ptr);
-    assert(flags == O_RDONLY);
-
-    FileHandle** handle_ptr = A3_CACHE_FIND(A3CString, FileHandlePtr)(&FILE_CACHE, path);
-    if (handle_ptr && (*handle_ptr)->flags == flags) {
-        FileHandle* handle = *handle_ptr;
-
-        a3_log_fmt(LOG_TRACE, "File cache hit on " A3_S_F ".", A3_S_FA(path));
-        A3_REF(handle);
-
-        // The handle is not ready, but an open request is in flight. Synthesize
-        // an event so the caller is notified when the file is opened.
-        if (file_handle_waiting(handle)) {
-            a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
-            file_handle_wait(target, handle);
-        }
-
-        return handle;
-    }
-
-    a3_log_fmt(LOG_TRACE, "File cache miss on " A3_S_F ".", A3_S_FA(path));
-    FileHandle* handle = NULL;
-    A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
-    A3_REF_INIT(handle);
-    A3_REF(handle); // Initialize reference count to 2.
-    handle->path = A3_S_CONST(a3_string_clone(path));
-    handle->file = FILE_HANDLE_WAITING;
-
-    if (!event_openat_submit(EVT(handle), uring, -1, handle->path, flags, 0)) {
-        a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
-        a3_string_free((A3String*)&handle->path);
-        free(handle);
-        return NULL;
-    }
-
-    file_handle_wait(target, handle);
-    A3_CACHE_INSERT(A3CString, FileHandlePtr)
-    (&FILE_CACHE, handle->path, handle, uring);
-
-    return handle;
+    return file_openat(target, uring, NULL, path, flags);
 }
 
 FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle* dir,
                         A3CString name, int32_t flags) {
     assert(target);
     assert(uring);
-    assert(dir);
     assert(name.ptr);
     assert(flags == O_RDONLY);
 
-    A3String full_path = a3_string_alloc(dir->path.len + name.len + 1);
-    if (dir->path.ptr[dir->path.len - 1] == '/')
-        a3_string_concat(full_path, 2, dir->path, name);
-    else
-        a3_string_concat(full_path, 3, dir->path, A3_CS("/"), name);
+    A3String path = A3_S_NULL;
+
+    if (dir) {
+        path = a3_string_alloc(dir->path.len + name.len + 1);
+        if (dir->path.ptr[dir->path.len - 1] == '/')
+            a3_string_concat(path, 2, dir->path, name);
+        else
+            a3_string_concat(path, 3, dir->path, A3_CS("/"), name);
+    } else {
+        path = a3_string_clone(name);
+    }
 
     FileHandle** handle_ptr =
-        A3_CACHE_FIND(A3CString, FileHandlePtr)(&FILE_CACHE, A3_S_CONST(full_path));
+        A3_CACHE_FIND(A3CString, FileHandlePtr)(&FILE_CACHE, A3_S_CONST(path));
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FA(full_path));
-        A3_REF(handle);
-        a3_string_free(&full_path);
+        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FA(path));
+        a3_string_free(&path);
 
         // The handle is not ready, but an open request is in flight. Synthesize
         // an event so the caller is notified when the file is opened.
         if (file_handle_waiting(handle)) {
             a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
             file_handle_wait(target, handle);
+            return handle;
         }
 
+        A3_REF(handle);
         return handle;
     }
 
-    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FA(full_path));
+    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FA(path));
     FileHandle* handle = NULL;
     A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     A3_REF_INIT(handle);
-    A3_REF(handle); // Initialize reference count to 2.
-    handle->path = A3_S_CONST(full_path);
+    handle->path = A3_S_CONST(path);
     handle->file = FILE_HANDLE_WAITING;
 
-    if (!event_openat_submit(EVT(handle), uring, file_handle_fd(dir), handle->path, flags, 0)) {
+    if (!event_openat_submit(EVT(handle), uring, dir ? file_handle_fd(dir) : -1, handle->path,
+                             flags, 0)) {
         a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
-        a3_string_free(&full_path);
+        a3_string_free(&path);
         free(handle);
         return NULL;
     }
