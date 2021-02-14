@@ -41,6 +41,7 @@ FileHandle*   file_openat(EventTarget*, struct io_uring*, FileHandle* dir, A3CSt
 fd            file_handle_fd(FileHandle*);
 fd            file_handle_fd_unchecked(FileHandle*);
 struct statx* file_handle_stat(FileHandle*);
+A3CString     file_handle_path(FileHandle*);
 bool          file_handle_waiting(FileHandle*);
 void          file_close(FileHandle*, struct io_uring*);
 void          file_cache_destroy(struct io_uring*);

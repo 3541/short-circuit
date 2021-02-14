@@ -153,6 +153,11 @@ struct statx* file_handle_stat(FileHandle* handle) {
     return &handle->stat;
 }
 
+A3CString file_handle_path(FileHandle* handle) {
+    assert(handle);
+    return handle->path;
+}
+
 bool file_handle_waiting(FileHandle* handle) {
     assert(handle);
 
