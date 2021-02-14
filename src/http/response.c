@@ -358,7 +358,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     else
         resp->content_type = http_content_type_from_path(file_handle_path(conn->target_file));
 
-    A3_TRYB(http_response_prep_default_headers(resp, HTTP_STATUS_OK, stat->stx_size,
+    A3_TRYB(http_response_prep_default_headers(resp, HTTP_STATUS_OK, (ssize_t)stat->stx_size,
                                                HTTP_RESPONSE_ALLOW));
     A3_TRYB(
         http_response_prep_header_timestamp(resp, A3_CS("Last-Modified"), stat->stx_mtime.tv_sec));
