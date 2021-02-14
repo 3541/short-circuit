@@ -356,7 +356,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     if (index)
         resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
     else
-        resp->content_type = http_content_type_from_path(A3_S_CONST(conn->request.target_path));
+        resp->content_type = http_content_type_from_path(file_handle_path(conn->target_file));
 
     A3_TRYB(http_response_prep_default_headers(resp, HTTP_STATUS_OK, stat->stx_size,
                                                HTTP_RESPONSE_ALLOW));
