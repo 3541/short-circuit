@@ -30,16 +30,20 @@
 A3_H_BEGIN
 
 typedef struct FileHandle FileHandle;
+struct statx;
 
-void        file_cache_init(void);
-FileHandle* file_open(EventTarget*, struct io_uring*, A3CString path, int32_t flags);
-FileHandle* file_openat(EventTarget*, struct io_uring*, FileHandle* dir, A3CString name,
-                        int32_t flags);
-fd          file_handle_fd(FileHandle*);
-fd          file_handle_fd_unchecked(FileHandle*);
-bool        file_handle_waiting(FileHandle*);
-void        file_close(FileHandle*, struct io_uring*);
-void        file_cache_destroy(struct io_uring*);
-void        file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status, bool chain);
+#define FILE_STATX_MASK (STATX_TYPE | STATX_MTIME | STATX_INO | STATX_SIZE)
+
+void          file_cache_init(void);
+FileHandle*   file_open(EventTarget*, struct io_uring*, A3CString path, int32_t flags);
+FileHandle*   file_openat(EventTarget*, struct io_uring*, FileHandle* dir, A3CString name,
+                          int32_t flags);
+fd            file_handle_fd(FileHandle*);
+fd            file_handle_fd_unchecked(FileHandle*);
+struct statx* file_handle_stat(FileHandle*);
+bool          file_handle_waiting(FileHandle*);
+void          file_close(FileHandle*, struct io_uring*);
+void          file_cache_destroy(struct io_uring*);
+void          file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status, bool chain);
 
 A3_H_END

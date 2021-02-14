@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
+#include <linux/stat.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -326,12 +327,11 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     if (target_file < 0)
         return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
 
-    struct stat res;
-    A3_TRYB(fstat(target_file, &res) == 0);
+    bool          index = false;
+    struct statx* stat  = file_handle_stat(conn->target_file);
+    assert(stat->stx_mask & FILE_STATX_MASK);
 
-    bool index = false;
-
-    if (S_ISDIR(res.st_mode)) {
+    if (S_ISDIR(stat->stx_mode)) {
         FileHandle* index_file =
             file_openat(EVT(&conn->conn), uring, conn->target_file, INDEX_FILENAME, O_RDONLY);
         // TODO: Directory listings.
@@ -345,10 +345,10 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
             return true;
 
         target_file = file_handle_fd(conn->target_file);
-        A3_TRYB(fstat(target_file, &res) == 0);
+        stat        = file_handle_stat(conn->target_file);
     }
 
-    if (!S_ISREG(res.st_mode))
+    if (!S_ISREG(stat->stx_mode))
         return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND, HTTP_RESPONSE_ALLOW);
 
     conn->state = HTTP_CONNECTION_RESPONDING;
@@ -358,11 +358,13 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     else
         resp->content_type = http_content_type_from_path(A3_S_CONST(conn->request.target_path));
 
+    A3_TRYB(http_response_prep_default_headers(resp, HTTP_STATUS_OK, stat->stx_size,
+                                               HTTP_RESPONSE_ALLOW));
     A3_TRYB(
-        http_response_prep_default_headers(resp, HTTP_STATUS_OK, res.st_size, HTTP_RESPONSE_ALLOW));
-    A3_TRYB(http_response_prep_header_timestamp(resp, A3_CS("Last-Modified"), res.st_mtim.tv_sec));
-    A3_TRYB(http_response_prep_header_fmt(resp, A3_CS("Etag"), "\"%luX%lX%lX\"", res.st_ino,
-                                          res.st_mtime, res.st_size));
+        http_response_prep_header_timestamp(resp, A3_CS("Last-Modified"), stat->stx_mtime.tv_sec));
+    A3_TRYB(http_response_prep_header_fmt(resp, A3_CS("Etag"), "\"%lluX%lX%lX\"", stat->stx_ino,
+                                          (uint64_t)stat->stx_mtime.tv_sec,
+                                          (uint64_t)stat->stx_size));
     A3_TRYB(http_response_prep_headers_done(resp));
 
     // TODO: Perhaps instead of just sending here, it would be better to write into the same pipe
@@ -375,7 +377,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
         goto done;
 
     // TODO: This will not work for TLS.
-    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, (size_t)res.st_size,
+    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, stat->stx_size,
                                      !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
 
 done:

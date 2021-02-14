@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <liburing.h>
+#include <linux/stat.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -122,7 +123,9 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
     handle->path = A3_S_CONST(path);
     handle->file = FILE_HANDLE_WAITING;
 
-    if (!event_openat_submit(EVT(handle), uring, dir ? file_handle_fd(dir) : -1, handle->path,
+    if (!event_stat_submit(EVT(handle), uring, handle->path, FILE_STATX_MASK, &handle->stat,
+                           IOSQE_IO_LINK) ||
+        !event_openat_submit(EVT(handle), uring, dir ? file_handle_fd(dir) : -1, handle->path,
                              flags, 0)) {
         a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
         a3_string_free(&path);
@@ -144,6 +147,11 @@ fd file_handle_fd(FileHandle* handle) {
 }
 
 fd file_handle_fd_unchecked(FileHandle* handle) { return handle->file; }
+
+struct statx* file_handle_stat(FileHandle* handle) {
+    assert(handle);
+    return &handle->stat;
+}
 
 bool file_handle_waiting(FileHandle* handle) {
     assert(handle);

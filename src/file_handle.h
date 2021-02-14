@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <linux/stat.h>
+
 #include <a3/rc.h>
 #include <a3/sll.h>
 #include <a3/str.h>
@@ -27,10 +29,11 @@
 #include "forward.h"
 
 typedef struct FileHandle {
+    A3_REFCOUNTED;
     EVENT_TARGET;
     EventQueue waiting;
 
-    A3_REFCOUNTED;
+    struct statx stat;
 
     A3CString path;
     fd        file;
