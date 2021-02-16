@@ -89,7 +89,6 @@ HttpConnectionType http_header_connection(HttpHeaders* headers) {
         return HTTP_CONNECTION_TYPE_UNSPECIFIED;
 
     A3CString conn = A3_S_CONST(*connection);
-    // TODO: Handle invalid values for Connection header.
     if (a3_string_cmpi(conn, A3_CS("Keep-Alive")) == 0)
         return HTTP_CONNECTION_TYPE_KEEP_ALIVE;
     else if (a3_string_cmpi(conn, A3_CS("Close")) == 0)
