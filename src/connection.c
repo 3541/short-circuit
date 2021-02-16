@@ -26,7 +26,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <liburing/io_uring.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>
