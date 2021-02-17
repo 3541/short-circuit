@@ -61,6 +61,7 @@ target_link_libraries(sc ${SC_LIB})
 
 include(StackProtector)
 target_add_stack_protector(sc)
+target_add_stack_clash_protection(sc)
 
 include(DisableExceptions)
 include(DisableRTTI)
