@@ -159,10 +159,16 @@ struct io_uring event_init() {
     return ret;
 }
 
+// It is expected that there should not be a situation which causes an sqe_ptr to be destroyed. If
+// this does actually happen, log the error.
+static void sqe_lost(void*) { a3_log_msg(LOG_ERROR, "Lost an sqe_ptr."); }
+
+using sqe_ptr = unique_ptr<struct io_uring_sqe, decltype(sqe_lost)&>;
+
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it
 // is full. This /can/ return a null pointer if the SQ is full and, for whatever
 // reason, it does not empty in time.
-static inline unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uring) {
+static inline sqe_ptr event_get_sqe(struct io_uring& uring) {
     struct io_uring_sqe* ret = io_uring_get_sqe(&uring);
     // Try to service events until an SQE is available or too many retries have
     // elapsed.
@@ -172,10 +178,10 @@ static inline unique_ptr<struct io_uring_sqe> event_get_sqe(struct io_uring& uri
             break;
     if (!ret)
         a3_log_msg(LOG_WARN, "SQ full.");
-    return unique_ptr<struct io_uring_sqe> { ret };
+    return sqe_ptr { ret, sqe_lost };
 }
 
-static inline void event_sqe_fill(unique_ptr<Event>&& event, unique_ptr<struct io_uring_sqe>&& sqe,
+static inline void event_sqe_fill(unique_ptr<Event>&& event, sqe_ptr&& sqe,
                                   uint32_t sqe_flags = 0) {
     io_uring_sqe_set_flags(sqe.get(), sqe_flags);
     io_uring_sqe_set_data(sqe.release(), event.release());
