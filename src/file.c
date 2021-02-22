@@ -56,7 +56,7 @@ static void file_evict_callback(void* uring, A3CString* key, FileHandle** value)
     assert(value);
 
     a3_log_fmt(LOG_TRACE, "Evicting file " A3_S_F ".", A3_S_FA(*key));
-    file_close(*value, uring);
+    file_handle_close(*value, uring);
 }
 
 void file_cache_init() {
@@ -71,6 +71,13 @@ static void file_handle_wait(EventTarget* target, FileHandle* handle) {
     A3_REF(handle);
     Event* event = event_create(target, EVENT_OPENAT_SYNTH);
     A3_SLL_PUSH(Event)(&handle->waiting, event);
+}
+
+static EventTarget* file_handle_target(FileHandle* handle) {
+    assert(handle);
+
+    A3_REF(handle);
+    return EVT(handle);
 }
 
 FileHandle* file_open(EventTarget* target, struct io_uring* uring, A3CString path, int32_t flags) {
@@ -123,10 +130,10 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
     handle->path = A3_S_CONST(path);
     handle->file = FILE_HANDLE_WAITING;
 
-    if (!event_stat_submit(EVT(handle), uring, handle->path, FILE_STATX_MASK, &handle->stat,
-                           IOSQE_IO_LINK) ||
-        !event_openat_submit(EVT(handle), uring, dir ? file_handle_fd(dir) : -1, handle->path,
-                             flags, 0)) {
+    if (!event_stat_submit(file_handle_target(handle), uring, handle->path, FILE_STATX_MASK,
+                           &handle->stat, IOSQE_IO_LINK) ||
+        !event_openat_submit(file_handle_target(handle), uring, dir ? file_handle_fd(dir) : -1,
+                             handle->path, flags, 0)) {
         a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
         a3_string_free(&path);
         free(handle);
@@ -164,19 +171,21 @@ bool file_handle_waiting(FileHandle* handle) {
     return handle->file == FILE_HANDLE_WAITING;
 }
 
-void file_close(FileHandle* handle, struct io_uring* uring) {
+// Returns true if the handle was freed.
+bool file_handle_close(FileHandle* handle, struct io_uring* uring) {
     assert(handle);
     assert(A3_REF_COUNT(handle));
     assert(uring);
 
     A3_UNREF(handle);
     if (A3_REF_COUNT(handle))
-        return; // Other users remain.
+        return false; // Other users remain.
 
     if (handle->file >= 0)
         event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
     a3_string_free((A3String*)&handle->path);
     free(handle);
+    return true;
 }
 
 void file_cache_destroy(struct io_uring* uring) {
@@ -190,6 +199,10 @@ void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_
     assert(handle);
     assert(file_handle_waiting(handle));
     assert(uring);
+
+    // Unref.
+    if (file_handle_close(handle, uring))
+        return;
 
     if (chain)
         return;

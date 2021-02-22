@@ -339,7 +339,7 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
             return http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
                                               HTTP_RESPONSE_ALLOW);
 
-        file_close(conn->target_file, uring);
+        file_handle_close(conn->target_file, uring);
         conn->target_file = index_file;
         if (file_handle_waiting(conn->target_file))
             return true;

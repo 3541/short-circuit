@@ -43,8 +43,8 @@ fd            file_handle_fd_unchecked(FileHandle*);
 struct statx* file_handle_stat(FileHandle*);
 A3CString     file_handle_path(FileHandle*);
 bool          file_handle_waiting(FileHandle*);
-void          file_close(FileHandle*, struct io_uring*);
-void          file_cache_destroy(struct io_uring*);
+bool          file_handle_close(FileHandle*, struct io_uring*);
 void          file_handle_event_handle(FileHandle*, struct io_uring*, int32_t status, bool chain);
+void          file_cache_destroy(struct io_uring*);
 
 A3_H_END

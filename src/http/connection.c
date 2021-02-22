@@ -125,7 +125,7 @@ bool http_connection_reset(HttpConnection* conn, struct io_uring* uring) {
     assert(uring);
 
     if (conn->target_file) {
-        file_close(conn->target_file, uring);
+        file_handle_close(conn->target_file, uring);
         conn->target_file = NULL;
     }
 
