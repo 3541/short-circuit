@@ -75,13 +75,11 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
     assert(this);
     assert(uring);
 
-    // Send isn't done.
-    if (a3_buf_len(&this->conn.send_buf) > 0)
-        return true;
+    HttpResponse* resp = &this->response;
 
     switch (this->state) {
     case HTTP_CONNECTION_OPENING_FILE:
-        return http_response_file_submit(&this->response, uring);
+        return http_response_file_submit(resp, uring);
     case HTTP_CONNECTION_RESPONDING:
         if (http_connection_keep_alive(this)) {
             A3_TRYB(http_connection_reset(this, uring));
