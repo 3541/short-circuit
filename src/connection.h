@@ -55,7 +55,6 @@ typedef struct Connection {
 
     ConnectionSubmit recv_submit;
     ConnectionHandle recv_handle;
-
     ConnectionSubmit send_submit;
 
     struct sockaddr_in client_addr;
