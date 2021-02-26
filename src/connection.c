@@ -326,15 +326,11 @@ static bool connection_splice_handle(Connection* this, struct io_uring* uring, b
         a3_log_error(-status, "splice failed");
         return false;
     }
-    if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short splice of %d.", status);
-        return false;
-    }
 
-    if (chain)
+    if (chain && success)
         return true;
 
-    return http_response_handle((HttpConnection*)this, uring);
+    return http_response_splice_handle((HttpConnection*)this, uring, success, status);
 }
 
 static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) {
