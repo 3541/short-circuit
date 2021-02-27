@@ -43,11 +43,10 @@ void event_queue_init(EventQueue* queue) {
 }
 
 void Event::handle(struct io_uring& uring) {
-    auto*     target      = this->target();
-    bool      chain       = this->chain();
-    bool      success     = !failed();
-    int32_t   status_code = status;
-    EventType ty          = type;
+    auto*     t  = target;
+    int32_t   st = status;
+    uint32_t  fl = flags;
+    EventType ty = type;
 
     delete this;
 
@@ -59,15 +58,14 @@ void Event::handle(struct io_uring& uring) {
     case EVENT_RECV:
     case EVENT_SEND:
     case EVENT_SPLICE:
-        connection_event_handle(EVT_PTR(target, Connection), &uring, ty, success, status_code,
-                                chain);
+        connection_event_handle(EVT_PTR(t, Connection), &uring, ty, st, fl);
         return;
     case EVENT_OPENAT:
     case EVENT_STAT:
-        file_handle_event_handle(EVT_PTR(target, FileHandle), &uring, status_code, chain);
+        file_handle_event_handle(EVT_PTR(t, FileHandle), &uring, st, fl);
         return;
     case EVENT_TIMEOUT:
-        timeout_event_handle(EVT_PTR(target, TimeoutQueue), &uring, status_code);
+        timeout_event_handle(EVT_PTR(t, TimeoutQueue), &uring, st);
         return;
     case EVENT_INVALID:
         return;
@@ -143,7 +141,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         }
         event->status = status;
 
-        auto* target = event->target();
+        auto* target = event->target;
 
         // Remove from the in-flight list.
         A3_SLL_REMOVE(Event)(target, event);

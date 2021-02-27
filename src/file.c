@@ -195,7 +195,7 @@ void file_cache_destroy(struct io_uring* uring) {
 }
 
 void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_t status,
-                              bool chain) {
+                              uint32_t flags) {
     assert(handle);
     assert(file_handle_waiting(handle));
     assert(uring);
@@ -204,7 +204,7 @@ void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_
     if (file_handle_close(handle, uring))
         return;
 
-    if (chain)
+    if (flags & EVENT_FLAG_CHAIN)
         return;
 
     handle->file = status;

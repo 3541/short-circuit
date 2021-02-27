@@ -39,12 +39,10 @@ public:
     static constexpr int32_t EXPECT_POSITIVE    = -253;
 
 private:
-    static constexpr uintptr_t FLAG_CHAIN = 1ULL;
-    static constexpr uintptr_t FLAG_FAIL  = 1ULL << 2;
-
-    EventType type { EVENT_INVALID };
-    int32_t   status { 0 };
-    uintptr_t target_ptr { 0 };
+    EventType    type { EVENT_INVALID };
+    int32_t      status { 0 };
+    uint32_t     flags { 0 };
+    EventTarget* target { nullptr };
 
     // For access to the status.
     friend void event_synth_deliver(EventQueue*, struct io_uring*, int32_t status);
@@ -53,34 +51,27 @@ private:
     // For initialization.
     friend Event* event_create(EventTarget*, EventType);
 
-    Event(EventTarget*, EventType, int32_t expected_return, bool chain, bool force_handle,
-          bool queue);
+    Event(EventTarget*, EventType, int32_t expected_return, bool chain, uint32_t flags,
+          bool force_handle, bool queue);
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
-    EventTarget* target() {
-        return reinterpret_cast<EventTarget*>(target_ptr & ~(FLAG_CHAIN | FLAG_FAIL));
-    }
-
-    bool chain() const { return target_ptr & FLAG_CHAIN; }
-    bool failed() const { return target_ptr & FLAG_FAIL; }
-    bool canceled() const { return !target_ptr; }
-
     void set_failed(bool failed) {
         if (failed)
-            target_ptr |= FLAG_FAIL;
+            flags |= EVENT_FLAG_FAIL;
     }
+    bool canceled() const { return !target; }
 
 public:
     static std::unique_ptr<Event> create(EventTarget* target, EventType ty, int32_t expected_return,
-                                         bool chain = false, bool force_handle = false,
-                                         bool queue = true) {
+                                         bool chain = false, uint32_t flags = 0,
+                                         bool force_handle = false, bool queue = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain,
+        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain, flags,
                                                     force_handle, queue } };
     }
 
     void handle(struct io_uring&);
-    void cancel() { target_ptr = 0; }
+    void cancel() { target = nullptr; }
 };

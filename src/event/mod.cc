@@ -49,16 +49,16 @@ using std::unique_ptr;
 A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
 A3_SLL_DEFINE_METHODS(Event);
 
-Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain, bool force_handle,
-             bool queue) :
-    type { ty }, status { expected_return } {
-    target_ptr = reinterpret_cast<uintptr_t>(tgt) | ((chain && !force_handle) ? FLAG_CHAIN : 0);
+Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain, uint32_t fl,
+             bool force_handle, bool queue) :
+    type { ty }, status { expected_return }, target { tgt } {
+    flags = ((chain && !force_handle) ? EVENT_FLAG_CHAIN : 0) | fl;
     if (queue)
         A3_SLL_PUSH(Event)(tgt, this);
 }
 
 A3CString event_type_name(EventType ty) {
-#define _EVENT_TYPE(E) [E] = A3_CS(#E),
+#define _EVENT_TYPE(E) [E]               = A3_CS(#E),
     static const A3CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
@@ -336,7 +336,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uin
     assert(out >= 0);
 
     auto event = Event::create(target, EVENT_SPLICE, (int32_t)len, event_flags_chained(sqe_flags),
-                               force_handle);
+                               0, force_handle);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -399,7 +399,7 @@ bool event_cancel_all(EventTarget* target) {
 
 Event* event_create(EventTarget* target, EventType ty) {
     assert(target);
-    return Event::create(target, ty, Event::EXPECT_NONE, /* chain */ false,
+    return Event::create(target, ty, Event::EXPECT_NONE, /* chain */ false, /* flags */ 0,
                          /* force_handle */ false,
                          /* queue */ false)
         .release();

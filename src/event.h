@@ -38,6 +38,9 @@ A3_H_BEGIN
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
 
+#define EVENT_FLAG_CHAIN (1ULL)
+#define EVENT_FLAG_FAIL  (1ULL << 1)
+
 #define EVENT_TYPE_ENUM                                                                            \
     _EVENT_TYPE(EVENT_ACCEPT)                                                                      \
     _EVENT_TYPE(EVENT_CLOSE)                                                                       \

@@ -343,12 +343,14 @@ static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) 
                                       HTTP_RESPONSE_CLOSE);
 }
 
-void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type, bool success,
-                             int32_t status, bool chain) {
+void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type,
+                             int32_t status, uint32_t flags) {
     assert(conn);
     assert(uring);
 
-    bool rc = true;
+    bool rc      = true;
+    bool chain   = flags & EVENT_FLAG_CHAIN;
+    bool success = !(flags & EVENT_FLAG_FAIL);
 
     switch (type) {
     case EVENT_ACCEPT:
