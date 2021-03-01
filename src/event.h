@@ -38,8 +38,14 @@ A3_H_BEGIN
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
 
-#define EVENT_FLAG_CHAIN (1ULL)
-#define EVENT_FLAG_FAIL  (1ULL << 1)
+#define EVENT_FLAG_CHAIN (1UL)
+#define EVENT_FLAG_FAIL  (1UL << 1)
+
+// Flags for specific events should start here. Flags specific to different events may collide.
+#define EVENT_FLAG_BOUNDARY (1UL << 16)
+
+#define EVENT_FLAG_SPLICE_IN  EVENT_FLAG_BOUNDARY
+#define EVENT_FLAG_SPLICE_OUT (EVENT_FLAG_BOUNDARY << 1)
 
 #define EVENT_TYPE_ENUM                                                                            \
     _EVENT_TYPE(EVENT_ACCEPT)                                                                      \
@@ -88,7 +94,8 @@ bool event_recv_submit(EventTarget*, struct io_uring*, fd socket, A3String out_d
 bool event_send_submit(EventTarget*, struct io_uring*, fd socket, A3CString data,
                        uint32_t send_flags, uint32_t sqe_flags);
 bool event_splice_submit(EventTarget*, struct io_uring*, fd in, uint64_t off_in, fd out, size_t len,
-                         uint32_t splice_flags, uint32_t sqe_flags, bool force_handle);
+                         uint32_t splice_flags, uint32_t event_flags, uint32_t sqe_flags,
+                         bool force_handle);
 bool event_stat_submit(EventTarget*, struct io_uring*, A3CString path, uint32_t field_mask,
                        struct statx*, uint32_t sqe_flags);
 bool event_timeout_submit(EventTarget*, struct io_uring*, Timespec*, uint32_t timeout_flags);

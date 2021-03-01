@@ -328,15 +328,17 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket, A
 }
 
 bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uint64_t off_in,
-                         fd out, size_t len, uint32_t splice_flags, uint32_t sqe_flags,
-                         bool force_handle) {
+                         fd out, size_t len, uint32_t splice_flags, uint32_t event_flags,
+                         uint32_t sqe_flags, bool force_handle) {
     assert(target);
     assert(uring);
     assert(in >= 0);
     assert(out >= 0);
+    // A splice without a specified direction is nonsensical.
+    assert(event_flags & (EVENT_FLAG_SPLICE_IN | EVENT_FLAG_SPLICE_OUT));
 
     auto event = Event::create(target, EVENT_SPLICE, (int32_t)len, event_flags_chained(sqe_flags),
-                               0, force_handle);
+                               event_flags, force_handle);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);

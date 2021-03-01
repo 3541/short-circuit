@@ -95,14 +95,15 @@ bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
     }
 }
 
-bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, bool success,
-                                 int32_t status) {
+bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, uint32_t flags,
+                                 bool success, int32_t status) {
     assert(conn);
     assert(uring);
     assert(status >= 0);
 
     if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short splice of %d.", status);
+        a3_log_fmt(LOG_ERROR, "Short splice %s of %d.",
+                   (flags & EVENT_FLAG_SPLICE_IN) ? "IN" : "OUT", status);
         return false;
     }
     return http_response_handle(conn, uring);

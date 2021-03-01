@@ -33,7 +33,8 @@ void http_response_init(HttpResponse*);
 void http_response_reset(HttpResponse*);
 
 bool http_response_handle(HttpConnection*, struct io_uring*);
-bool http_response_splice_handle(HttpConnection*, struct io_uring*, bool success, int32_t status);
+bool http_response_splice_handle(HttpConnection*, struct io_uring*, uint32_t flags, bool success,
+                                 int32_t status);
 
 #define HTTP_RESPONSE_CLOSE true
 #define HTTP_RESPONSE_ALLOW false
