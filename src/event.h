@@ -38,8 +38,8 @@ A3_H_BEGIN
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
 
-#define EVENT_FLAG_CHAIN (1UL)
-#define EVENT_FLAG_FAIL  (1UL << 1)
+#define EVENT_FLAG_CHAIN (1U)
+#define EVENT_FLAG_FAIL  (1U << 1)
 
 // Flags for specific events should start here. Flags specific to different events may collide.
 #define EVENT_FLAG_BOUNDARY (1UL << 16)
