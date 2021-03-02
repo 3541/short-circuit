@@ -62,6 +62,7 @@ void http_response_init(HttpResponse* resp) {
 
     resp->content_type       = HTTP_CONTENT_TYPE_TEXT_HTML;
     resp->transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
+    resp->body_sent          = 0;
 }
 
 void http_response_reset(HttpResponse* resp) {
@@ -106,6 +107,9 @@ bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, u
                    (flags & EVENT_FLAG_SPLICE_IN) ? "IN" : "OUT", status);
         return false;
     }
+
+    if (flags & EVENT_FLAG_SPLICE_IN)
+        conn->response.body_sent += (size_t)status;
     return http_response_handle(conn, uring);
 }
 

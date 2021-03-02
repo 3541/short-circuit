@@ -27,6 +27,7 @@
 typedef struct HttpResponse {
     HttpContentType      content_type;
     HttpTransferEncoding transfer_encodings;
+    size_t               body_sent;
 } HttpResponse;
 
 void http_response_init(HttpResponse*);
