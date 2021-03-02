@@ -78,7 +78,7 @@ A3CString http_status_reason(HttpStatus status) { return HTTP_STATUSES[status].r
 uint16_t http_status_code(HttpStatus status) { return HTTP_STATUSES[status].code; }
 
 A3CString http_content_type_name(HttpContentType type) {
-#define _CTYPE(T, S) [T]                             = A3_CS(S),
+#define _CTYPE(T, S) [T] = A3_CS(S),
     static const A3CString HTTP_CONTENT_TYPE_NAMES[] = { HTTP_CONTENT_TYPE_ENUM };
 #undef _CTYPE
 

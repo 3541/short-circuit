@@ -58,7 +58,7 @@ Event::Event(EventTarget* tgt, EventType ty, int32_t expected_return, bool chain
 }
 
 A3CString event_type_name(EventType ty) {
-#define _EVENT_TYPE(E) [E]               = A3_CS(#E),
+#define _EVENT_TYPE(E) [E] = A3_CS(#E),
     static const A3CString EVENT_NAMES[] = { EVENT_TYPE_ENUM };
 #undef _EVENT_TYPE
 
