@@ -61,7 +61,7 @@ static void sigint_handle(int no) {
     cont = false;
 }
 
-static void check_webroot_exists(A3CString root) {
+static void webroot_check_exists(A3CString root) {
     struct stat s;
 
     if (stat(A3_S_AS_C_STR(root), &s) < 0)
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
 
     srand((uint32_t)time(NULL));
 
-    check_webroot_exists(CONFIG.web_root);
+    webroot_check_exists(CONFIG.web_root);
     http_connection_pool_init();
     file_cache_init();
     connection_timeout_init();
