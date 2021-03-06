@@ -105,7 +105,19 @@ bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, u
     if (!success) {
         a3_log_fmt(LOG_ERROR, "Short splice %s of %d.",
                    (flags & EVENT_FLAG_SPLICE_IN) ? "IN" : "OUT", status);
-        return false;
+        if (flags & EVENT_FLAG_SPLICE_OUT) {
+            A3_ERR("TODO: Handle short splice out.");
+            return false;
+        }
+
+        size_t sent      = conn->response.body_sent;
+        size_t remaining = file_handle_stat(conn->target_file)->stx_size - sent;
+        A3_TRYB(connection_splice_retry(&conn->conn, uring, file_handle_fd(conn->target_file),
+                                        (size_t)status, sent, remaining,
+                                        !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
+        if (!http_connection_keep_alive(conn))
+            return http_connection_close_submit(conn, uring);
+        return true;
     }
 
     if (flags & EVENT_FLAG_SPLICE_IN)
@@ -393,7 +405,8 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
         goto done;
 
     // TODO: This will not work for TLS.
-    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, stat->stx_size,
+    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, /* offset */ 0,
+                                     stat->stx_size,
                                      !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
 
 done:

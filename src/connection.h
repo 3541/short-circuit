@@ -72,7 +72,10 @@ bool connection_reset(Connection*, struct io_uring*);
 
 Connection* connection_accept_submit(Listener*, struct io_uring*);
 bool connection_send_submit(Connection*, struct io_uring*, uint32_t send_flags, uint8_t sqe_flags);
-bool connection_splice_submit(Connection*, struct io_uring*, fd src, size_t len, uint8_t sqe_flags);
+bool connection_splice_submit(Connection*, struct io_uring*, fd src, size_t file_offset, size_t len,
+                              uint8_t sqe_flags);
+bool connection_splice_retry(Connection*, struct io_uring*, fd src, size_t in_buf,
+                             size_t file_offset, size_t remaining, uint8_t sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*);
 
 void connection_event_handle(Connection*, struct io_uring*, EventType, int32_t status,

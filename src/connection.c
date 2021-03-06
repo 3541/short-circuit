@@ -146,8 +146,8 @@ bool connection_send_submit(Connection* this, struct io_uring* uring, uint32_t s
 #define PIPE_BUF_SIZE 65536ULL
 
 // Wraps splice so it can be used without a pipe.
-bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, size_t len,
-                              uint8_t sqe_flags) {
+bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, size_t file_offset,
+                              size_t len, uint8_t sqe_flags) {
     assert(this);
     assert(uring);
 
@@ -162,8 +162,8 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, 
     // TODO: This is horrendous. Clean it up.
     for (size_t sent = 0, remaining = len, to_send      = MIN(PIPE_BUF_SIZE, remaining); sent < len;
          sent += to_send, remaining -= to_send, to_send = MIN(PIPE_BUF_SIZE, remaining)) {
-        if (!event_splice_submit(EVT(this), uring, src, sent, this->pipe[1], to_send, 0,
-                                 EVENT_FLAG_SPLICE_IN, sqe_flags | IOSQE_IO_LINK, false) ||
+        if (!event_splice_submit(EVT(this), uring, src, sent + file_offset, this->pipe[1], to_send,
+                                 0, EVENT_FLAG_SPLICE_IN, sqe_flags | IOSQE_IO_LINK, false) ||
             !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
                                  to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
                                  EVENT_FLAG_SPLICE_OUT,
@@ -174,6 +174,27 @@ bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, 
         }
     }
 
+    return true;
+}
+
+// Retry an interrupted splice chain.
+bool connection_splice_retry(Connection* conn, struct io_uring* uring, fd src, size_t in_buf,
+                             size_t file_offset, size_t remaining, uint8_t sqe_flags) {
+    assert(conn);
+    assert(uring);
+
+    bool more = remaining > 0;
+
+    if (in_buf &&
+        !event_splice_submit(EVT(conn), uring, conn->pipe[0], (uint64_t)-1, conn->socket, in_buf,
+                             more ? SPLICE_F_MORE : 0, EVENT_FLAG_SPLICE_OUT,
+                             sqe_flags | (more ? IOSQE_IO_LINK : 0), more ? false : true)) {
+        A3_ERR("Failed to submit splice.");
+        return false;
+    }
+
+    if (more)
+        return connection_splice_submit(conn, uring, src, file_offset, remaining, sqe_flags);
     return true;
 }
 
@@ -348,6 +369,9 @@ void connection_event_handle(Connection* conn, struct io_uring* uring, EventType
                              int32_t status, uint32_t flags) {
     assert(conn);
     assert(uring);
+
+    if (status == -ECANCELED)
+        return;
 
     bool rc      = true;
     bool chain   = flags & EVENT_FLAG_CHAIN;
