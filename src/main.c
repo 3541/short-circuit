@@ -179,7 +179,6 @@ int main(int argc, char** argv) {
     http_connection_pool_init();
     file_cache_init();
     connection_timeout_init();
-
     struct io_uring uring = event_init();
 
     Listener* listeners   = NULL;
@@ -207,7 +206,7 @@ int main(int argc, char** argv) {
         struct io_uring_cqe* cqe;
         int                  rc;
 #ifdef PROFILE
-        struct __kernel_timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
+        Timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
         if (((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 && rc != -ETIME) ||
             time(NULL) > init_time + 20) {
             if (rc < 0)
@@ -222,7 +221,6 @@ int main(int argc, char** argv) {
 #endif
 
         event_handle_all(&queue, &uring);
-
         listener_accept_all(listeners, n_listeners, &uring);
 
         if (io_uring_sq_ready(&uring) > 0) {
