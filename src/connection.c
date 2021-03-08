@@ -146,32 +146,34 @@ bool connection_send_submit(Connection* this, struct io_uring* uring, uint32_t s
 #define PIPE_BUF_SIZE 65536ULL
 
 // Wraps splice so it can be used without a pipe.
-bool connection_splice_submit(Connection* this, struct io_uring* uring, fd src, size_t file_offset,
+bool connection_splice_submit(Connection* conn, struct io_uring* uring, fd src, size_t file_offset,
                               size_t len, uint8_t sqe_flags) {
-    assert(this);
+    assert(conn);
     assert(uring);
 
-    if (!this->pipe[0] && !this->pipe[1]) {
+    if (!conn->pipe[0] && !conn->pipe[1]) {
         a3_log_msg(LOG_TRACE, "Opening pipe.");
-        if (pipe(this->pipe) < 0) {
+        if (pipe(conn->pipe) < 0) {
             a3_log_error(errno, "unable to open pipe");
             return false;
         }
     }
 
-    // TODO: This is horrendous. Clean it up.
-    for (size_t sent = 0, remaining = len, to_send      = MIN(PIPE_BUF_SIZE, remaining); sent < len;
-         sent += to_send, remaining -= to_send, to_send = MIN(PIPE_BUF_SIZE, remaining)) {
-        if (!event_splice_submit(EVT(this), uring, src, sent + file_offset, this->pipe[1], to_send,
-                                 0, EVENT_FLAG_SPLICE_IN, sqe_flags | IOSQE_IO_LINK, false) ||
-            !event_splice_submit(EVT(this), uring, this->pipe[0], (uint64_t)-1, this->socket,
-                                 to_send, (remaining > PIPE_BUF_SIZE) ? SPLICE_F_MORE : 0,
-                                 EVENT_FLAG_SPLICE_OUT,
-                                 sqe_flags | ((remaining > PIPE_BUF_SIZE) ? IOSQE_IO_LINK : 0),
-                                 (remaining > PIPE_BUF_SIZE) ? false : true)) {
-            A3_ERR("Failed to submit splice.");
-            return false;
-        }
+    for (size_t remaining = len; remaining > 0; ) {
+        size_t req_len = MIN(PIPE_BUF_SIZE, remaining);
+        bool   more    = remaining > PIPE_BUF_SIZE;
+        A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, src, len - remaining + file_offset,
+                                        conn->pipe[1], req_len, 0, EVENT_FLAG_SPLICE_IN,
+                                        sqe_flags | IOSQE_IO_LINK, false),
+                    LOG_ERROR, "Failed to submit splice in.");
+        A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, conn->pipe[0], (uint64_t)-1, conn->socket,
+                                        req_len, more ? SPLICE_F_MORE : 0, EVENT_FLAG_SPLICE_OUT,
+                                        sqe_flags | (more ? IOSQE_IO_LINK : 0), !more),
+                    LOG_ERROR, "Failed to submit splice out.");
+        if (more)
+            remaining -= PIPE_BUF_SIZE;
+        else
+            remaining = 0;
     }
 
     return true;
