@@ -159,7 +159,7 @@ bool connection_splice_submit(Connection* conn, struct io_uring* uring, fd src, 
         }
     }
 
-    for (size_t remaining = len; remaining > 0; ) {
+    for (size_t remaining = len; remaining > 0;) {
         size_t req_len = MIN(PIPE_BUF_SIZE, remaining);
         bool   more    = remaining > PIPE_BUF_SIZE;
         A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, src, len - remaining + file_offset,

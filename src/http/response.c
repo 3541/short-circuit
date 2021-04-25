@@ -102,8 +102,11 @@ bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, u
     assert(uring);
     assert(status >= 0);
 
+    if (flags & EVENT_FLAG_SPLICE_IN)
+        conn->response.body_sent += (size_t)status;
+
     if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short splice %s of %d.",
+        a3_log_fmt(LOG_TRACE, "Short splice %s of %d.",
                    (flags & EVENT_FLAG_SPLICE_IN) ? "IN" : "OUT", status);
         if (flags & EVENT_FLAG_SPLICE_OUT) {
             A3_ERR("TODO: Handle short splice out.");
@@ -120,8 +123,6 @@ bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, u
         return true;
     }
 
-    if (flags & EVENT_FLAG_SPLICE_IN)
-        conn->response.body_sent += (size_t)status;
     return http_response_handle(conn, uring);
 }
 
