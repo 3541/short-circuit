@@ -103,10 +103,10 @@ HttpTransferEncoding http_header_transfer_encodings(HttpHeaders* headers) {
     HttpTransferEncoding ret = HTTP_TRANSFER_ENCODING_INVALID;
 
     HTTP_HEADER_FOR_EACH_VALUE(headers, A3_CS("Transfer-Encoding"), encoding) {
-        HttpTransferEncoding new = http_transfer_encoding_parse(encoding);
-        if (!new)
+        HttpTransferEncoding new_encoding = http_transfer_encoding_parse(encoding);
+        if (!new_encoding)
             return HTTP_TRANSFER_ENCODING_INVALID;
-        ret |= new;
+        ret |= new_encoding;
     }
 
     if (!ret)

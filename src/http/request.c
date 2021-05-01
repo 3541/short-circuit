@@ -102,28 +102,28 @@ void http_request_reset(HttpRequest* req) {
 }
 
 // Try to parse as much of the HTTP request as possible.
-HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uring) {
-    assert(this);
+HttpRequestResult http_request_handle(HttpConnection* conn, struct io_uring* uring) {
+    assert(conn);
     assert(uring);
 
     HttpRequestStateResult rc = HTTP_REQUEST_STATE_ERROR;
 
     // Go through as many states as possible with the data currently loaded.
-    switch (this->state) {
+    switch (conn->state) {
     case HTTP_CONNECTION_INIT:
-        if ((rc = http_request_first_line_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_first_line_parse(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case HTTP_CONNECTION_PARSED_FIRST_LINE:
-        if ((rc = http_request_headers_add(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_headers_add(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case HTTP_CONNECTION_ADDED_HEADERS:
-        if ((rc = http_request_headers_parse(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_headers_parse(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case HTTP_CONNECTION_PARSED_HEADERS:
-        if ((rc = http_request_method_handle(&this->request, uring)) != HTTP_REQUEST_STATE_DONE)
+        if ((rc = http_request_method_handle(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
             return (HttpRequestResult)rc;
         // fallthrough
     case HTTP_CONNECTION_OPENING_FILE:
@@ -132,6 +132,6 @@ HttpRequestResult http_request_handle(HttpConnection* this, struct io_uring* uri
         return HTTP_REQUEST_COMPLETE;
     }
 
-    a3_log_fmt(LOG_TRACE, "State: %d", this->state);
+    a3_log_fmt(LOG_TRACE, "State: %d", conn->state);
     A3_PANIC("TODO: Handle whatever request did this.");
 }

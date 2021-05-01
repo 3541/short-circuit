@@ -52,22 +52,22 @@ static fd socket_listen(in_port_t port) {
     return ret;
 }
 
-void listener_init(Listener* this, in_port_t port, ConnectionTransport transport) {
-    assert(this);
+void listener_init(Listener* listener, in_port_t port, ConnectionTransport transport) {
+    assert(listener);
 
-    this->socket        = socket_listen(port);
-    this->accept_queued = false;
-    this->transport     = transport;
+    listener->socket        = socket_listen(port);
+    listener->accept_queued = false;
+    listener->transport     = transport;
 }
 
-Connection* listener_accept_submit(Listener* this, struct io_uring* uring) {
-    assert(this);
-    assert(!this->accept_queued);
+Connection* listener_accept_submit(Listener* listener, struct io_uring* uring) {
+    assert(listener);
+    assert(!listener->accept_queued);
     assert(uring);
 
-    Connection* ret = connection_accept_submit(this, uring);
+    Connection* ret = connection_accept_submit(listener, uring);
     if (ret)
-        this->accept_queued = true;
+        listener->accept_queued = true;
 
     return ret;
 }

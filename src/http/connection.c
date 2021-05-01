@@ -63,35 +63,35 @@ HttpConnection* http_connection_new() {
     return ret;
 }
 
-void http_connection_free(HttpConnection* this, struct io_uring* uring) {
-    assert(this);
+void http_connection_free(HttpConnection* conn, struct io_uring* uring) {
+    assert(conn);
     assert(uring);
 
     // If the socket hasn't been closed, arrange it. The close handle event will
     // call free when it's done.
-    if (this->conn.socket != -1) {
-        event_cancel_all(EVT(&this->conn));
+    if (conn->conn.socket != -1) {
+        event_cancel_all(EVT(&conn->conn));
         // If the submission was successful, we're done for now.
-        if (connection_close_submit(&this->conn, uring))
+        if (connection_close_submit(&conn->conn, uring))
             return;
 
         // Make a last-ditch attempt to close, but do not block. Theoretically
         // this could cause a leak of sockets, but if both the close request and
         // the actual close here fail, there are probably larger issues at play.
-        int flags = fcntl(this->conn.socket, F_GETFL);
-        if (fcntl(this->conn.socket, F_SETFL, flags | O_NONBLOCK) != 0 ||
-            close(this->conn.socket) != 0)
+        int flags = fcntl(conn->conn.socket, F_GETFL);
+        if (fcntl(conn->conn.socket, F_SETFL, flags | O_NONBLOCK) != 0 ||
+            close(conn->conn.socket) != 0)
             a3_log_error(errno, "Failed to close socket.");
     }
 
-    http_connection_reset(this, uring);
+    http_connection_reset(conn, uring);
 
-    if (a3_buf_initialized(&this->conn.recv_buf))
-        a3_buf_destroy(&this->conn.recv_buf);
-    if (a3_buf_initialized(&this->conn.send_buf))
-        a3_buf_destroy(&this->conn.send_buf);
+    if (a3_buf_initialized(&conn->conn.recv_buf))
+        a3_buf_destroy(&conn->conn.recv_buf);
+    if (a3_buf_initialized(&conn->conn.send_buf))
+        a3_buf_destroy(&conn->conn.send_buf);
 
-    a3_pool_free_block(HTTP_CONNECTION_POOL, this);
+    a3_pool_free_block(HTTP_CONNECTION_POOL, conn);
 }
 
 void http_connection_a3_pool_free() { a3_pool_free(HTTP_CONNECTION_POOL); }

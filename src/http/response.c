@@ -72,27 +72,27 @@ void http_response_reset(HttpResponse* resp) {
 }
 
 // Respond to a mid-response event.
-bool http_response_handle(HttpConnection* this, struct io_uring* uring) {
-    assert(this);
+bool http_response_handle(HttpConnection* conn, struct io_uring* uring) {
+    assert(conn);
     assert(uring);
 
-    HttpResponse* resp = &this->response;
+    HttpResponse* resp = &conn->response;
 
-    switch (this->state) {
+    switch (conn->state) {
     case HTTP_CONNECTION_OPENING_FILE:
         return http_response_file_submit(resp, uring);
     case HTTP_CONNECTION_RESPONDING:
-        if (http_connection_keep_alive(this)) {
-            A3_TRYB(http_connection_reset(this, uring));
-            A3_TRYB(http_connection_init(this));
-            return this->conn.recv_submit(&this->conn, uring, 0, 0);
+        if (http_connection_keep_alive(conn)) {
+            A3_TRYB(http_connection_reset(conn, uring));
+            A3_TRYB(http_connection_init(conn));
+            return conn->conn.recv_submit(&conn->conn, uring, 0, 0);
         }
 
-        return http_connection_close_submit(this, uring);
+        return http_connection_close_submit(conn, uring);
     case HTTP_CONNECTION_CLOSING:
         return true;
     default:
-        A3_PANIC_FMT("Invalid state in response_handle: %d.", this->state);
+        A3_PANIC_FMT("Invalid state in response_handle: %d.", conn->state);
     }
 }
 

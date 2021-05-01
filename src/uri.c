@@ -195,8 +195,8 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
 
 // Return the path to the pointed-to file if it is a child of the given root
 // path.
-A3String uri_path_if_contained(Uri* this, A3CString real_root) {
-    assert(this);
+A3String uri_path_if_contained(Uri* uri, A3CString real_root) {
+    assert(uri);
     assert(real_root.ptr && *real_root.ptr);
 
     // Ensure there are no directory escaping shenanigans. This occurs after
@@ -204,33 +204,33 @@ A3String uri_path_if_contained(Uri* this, A3CString real_root) {
     //
     // TODO: This only makes sense for static files since parts of the path
     // which are used by an endpoint are perfectly allowed to contain "..".
-    for (size_t i = 0; i < this->path.len - 1; i++)
-        if (this->path.ptr[i] == '.' && this->path.ptr[i + 1] == '.')
+    for (size_t i = 0; i < uri->path.len - 1; i++)
+        if (uri->path.ptr[i] == '.' && uri->path.ptr[i + 1] == '.')
             return A3_S_NULL;
 
-    if (this->path.len == 1 && *this->path.ptr == '/')
+    if (uri->path.len == 1 && *uri->path.ptr == '/')
         return a3_string_clone(real_root);
 
-    A3String ret = a3_string_alloc(real_root.len + this->path.len);
-    a3_string_concat(ret, 2, real_root, this->path);
+    A3String ret = a3_string_alloc(real_root.len + uri->path.len);
+    a3_string_concat(ret, 2, real_root, uri->path);
     return ret;
 }
 
-bool uri_is_initialized(Uri* this) {
-    assert(this);
+bool uri_is_initialized(Uri* uri) {
+    assert(uri);
 
-    return this->path.ptr;
+    return uri->path.ptr;
 }
 
-void uri_free(Uri* this) {
-    assert(uri_is_initialized(this));
+void uri_free(Uri* uri) {
+    assert(uri_is_initialized(uri));
 
-    if (this->authority.ptr)
-        a3_string_free(&this->authority);
-    if (this->path.ptr)
-        a3_string_free(&this->path);
-    if (this->query.ptr)
-        a3_string_free(&this->query);
-    if (this->fragment.ptr)
-        a3_string_free(&this->fragment);
+    if (uri->authority.ptr)
+        a3_string_free(&uri->authority);
+    if (uri->path.ptr)
+        a3_string_free(&uri->path);
+    if (uri->query.ptr)
+        a3_string_free(&uri->query);
+    if (uri->fragment.ptr)
+        a3_string_free(&uri->fragment);
 }
