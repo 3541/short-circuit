@@ -57,6 +57,11 @@ set(SC_LIB
 
 add_executable(sc src/main.c ${SC_SRC})
 target_include_directories(sc PRIVATE src)
+
+include(Sanitize)
+target_add_sanitizers(sc FALSE)
+target_add_sanitizers(a3 FALSE)
+
 target_link_libraries(sc ${SC_LIB})
 
 include(StackProtector)
@@ -72,9 +77,6 @@ include (ClangTidy)
 include(IWYU)
 target_add_iwyu(sc)
 target_add_clang_tidy(sc)
-
-include(Sanitize)
-target_add_sanitizers(sc FALSE)
 
 include(AddWarnings)
 target_add_extra_warnings(sc FALSE)
