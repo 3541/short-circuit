@@ -42,7 +42,7 @@ static bool http_headers_combine(A3String* current_value, A3String new_value) {
 void http_headers_init(HttpHeaders* headers) {
     assert(headers);
 
-    A3_HT_INIT(A3CString, A3String)(&headers->headers, A3_HT_ALLOW_GROWTH);
+    A3_HT_INIT(A3CString, A3String)(&headers->headers, A3_HT_NO_HASH_KEY, A3_HT_ALLOW_GROWTH);
     A3_HT_SET_DUPLICATE_CB(A3CString, A3String)(&headers->headers, http_headers_combine);
 }
 
