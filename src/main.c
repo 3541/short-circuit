@@ -102,12 +102,14 @@ static void version(void) {
 enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
 
 static void config_parse(int argc, char** argv) {
-    static struct option options[] = { [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
-                                       [OPT_PORT]    = { "port", required_argument, NULL, 'p' },
-                                       [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
-                                       [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
-                                       [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
-                                       [_OPT_COUNT]  = { 0, 0, 0, 0 } };
+    static struct option options[] = {
+        [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
+        [OPT_PORT]    = { "port", required_argument, NULL, 'p' },
+        [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
+        [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
+        [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
+        [_OPT_COUNT]  = { 0, 0, 0, 0 },
+    };
 
     int      opt;
     int      longindex;
