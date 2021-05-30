@@ -48,9 +48,8 @@ using ExpectedStatus = Event::ExpectedStatus;
 A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
 A3_SLL_DEFINE_METHODS(Event);
 
-Event::Event(EventTarget* tgt, EventCallback cb, void* cb_data, int32_t expected_return,
-             bool queue) :
-    status { expected_return }, target { tgt }, callback { cb }, callback_data { cb_data } {
+Event::Event(EventTarget* tgt, EventHandler h, void* h_ctx, int32_t expected, bool queue) :
+    status { expected }, target { tgt }, handler { h }, handler_ctx { h_ctx } {
     if (queue)
         A3_SLL_PUSH(Event)(tgt, this);
 }
@@ -83,17 +82,15 @@ static inline void event_sqe_fill(unique_ptr<Event>&& event, sqe_ptr&& sqe,
     io_uring_sqe_set_data(sqe.release(), event.release());
 }
 
-static inline bool event_flags_chained(uint32_t sqe_flags) {
-    return sqe_flags & (IOSQE_IO_LINK | IOSQE_IO_HARDLINK);
-}
-
-bool event_accept_submit(EventTarget* target, struct io_uring* uring, fd socket,
-                         struct sockaddr_in* out_client_addr, socklen_t* inout_addr_len) {
+bool event_accept_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                         void* handler_ctx, fd socket, struct sockaddr_in* out_client_addr,
+                         socklen_t* inout_addr_len) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(out_client_addr);
 
-    auto event = Event::create(target, EVENT_ACCEPT, Event::EXPECT_NONNEGATIVE);
+    auto event = Event::create(target, handler, handler_ctx, ExpectedStatus::Nonnegative);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -118,15 +115,16 @@ static bool event_close_fallback(Event* event, struct io_uring& uring, fd file) 
     return true;
 }
 
-bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file, uint32_t sqe_flags,
-                        bool fallback_sync) {
+bool event_close_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                        void* handler_ctx, fd file, uint32_t sqe_flags, bool fallback_sync) {
     assert(uring);
+    assert(handler);
     assert(file >= 0);
 
     unique_ptr<Event> event;
 
     if (target) {
-        event = Event::create(target, EVENT_CLOSE, Event::EXPECT_NONNEGATIVE);
+        event = Event::create(target, handler, handler_ctx, ExpectedStatus::Nonnegative);
         if (!event) {
             if (fallback_sync)
                 return event_close_fallback(nullptr, *uring, file);
@@ -149,13 +147,15 @@ bool event_close_submit(EventTarget* target, struct io_uring* uring, fd file, ui
     return true;
 }
 
-bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir, A3CString path,
-                         int32_t open_flags, mode_t mode) {
+bool event_openat_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                         void* handler_ctx, fd dir, A3CString path, int32_t open_flags,
+                         mode_t mode) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(path.ptr);
 
-    auto event = Event::create(target, EVENT_OPENAT, Event::EXPECT_NONNEGATIVE);
+    auto event = Event::create(target, handler, handler_ctx, ExpectedStatus::Nonnegative);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -167,32 +167,38 @@ bool event_openat_submit(EventTarget* target, struct io_uring* uring, fd dir, A3
     return true;
 }
 
-bool event_read_submit(EventTarget* target, struct io_uring* uring, fd file, A3String out_data,
-                       size_t nbytes, off_t offset, uint32_t sqe_flags) {
+bool event_read_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                       void* handler_ctx, fd file, A3String out_data, size_t nbytes, off_t offset,
+                       uint32_t sqe_flags) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(file >= 0);
     assert(out_data.ptr);
 
-    auto event = Event::create(target, EVENT_READ, (int32_t)nbytes, event_flags_chained(sqe_flags));
+    auto read_size = static_cast<uint32_t>(MIN(out_data.len, nbytes));
+
+    auto event = Event::create(target, handler, handler_ctx, read_size);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_read(sqe.get(), file, out_data.ptr,
-                       static_cast<uint32_t>(MIN(out_data.len, nbytes)), offset);
+    io_uring_prep_read(sqe.get(), file, out_data.ptr, read_size, offset);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
 
-bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket, A3String data) {
+bool event_recv_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                       void* handler_ctx, fd socket, A3String data) {
     assert(target);
     assert(uring);
+    assert(handler);
+    assert(socket >= 0);
     assert(data.ptr);
 
-    auto event = Event::create(target, EVENT_RECV, Event::EXPECT_POSITIVE);
+    auto event = Event::create(target, handler, handler_ctx, ExpectedStatus::Positive);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -204,59 +210,60 @@ bool event_recv_submit(EventTarget* target, struct io_uring* uring, fd socket, A
     return true;
 }
 
-bool event_send_submit(EventTarget* target, struct io_uring* uring, fd socket, A3CString data,
-                       uint32_t send_flags, uint32_t sqe_flags) {
+bool event_send_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                       void* handler_ctx, fd socket, A3CString data, uint32_t send_flags,
+                       uint32_t sqe_flags) {
     assert(target);
     assert(uring);
+    assert(handler);
+    assert(socket >= 0);
     assert(data.ptr);
 
-    auto event =
-        Event::create(target, EVENT_SEND, (int32_t)data.len, event_flags_chained(sqe_flags));
+    auto event = Event::create(target, handler, handler_ctx, static_cast<int32_t>(data.len));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, (int)send_flags);
+    io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, send_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
 
-bool event_splice_submit(EventTarget* target, struct io_uring* uring, fd in, uint64_t off_in,
-                         fd out, size_t len, uint32_t splice_flags, uint32_t event_flags,
-                         uint32_t sqe_flags, bool force_handle) {
+bool event_splice_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                         void* handler_ctx, fd in, uint64_t off_in, fd out, size_t len,
+                         uint32_t splice_flags, uint32_t sqe_flags) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(in >= 0);
     assert(out >= 0);
-    // A splice without a specified direction is nonsensical.
-    assert(event_flags & (EVENT_FLAG_SPLICE_IN | EVENT_FLAG_SPLICE_OUT));
 
-    auto event = Event::create(target, EVENT_SPLICE, (int32_t)len, event_flags_chained(sqe_flags),
-                               event_flags, force_handle);
+    auto event = Event::create(target, handler, handler_ctx, static_cast<int32_t>(len));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_splice(sqe.get(), in, off_in, out, (uint64_t)-1, (unsigned)len,
-                         SPLICE_F_MOVE | splice_flags);
+    io_uring_prep_splice(sqe.get(), in, off_in, out, static_cast<uint64_t>(-1),
+                         static_cast<int32_t>(len), SPLICE_F_MOVE | splice_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
 }
 
-bool event_stat_submit(EventTarget* target, struct io_uring* uring, A3CString path,
-                       uint32_t field_mask, struct statx* statx_buf, uint32_t sqe_flags) {
+bool event_stat_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                       void* handler_ctx, A3CString path, uint32_t field_mask,
+                       struct statx* statx_buf, uint32_t sqe_flags) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(path.ptr);
     assert(field_mask);
     assert(statx_buf);
 
-    auto event = Event::create(target, EVENT_STAT, Event::EXPECT_NONNEGATIVE,
-                               event_flags_chained(sqe_flags));
+    auto event = Event::create(target, handler, handler_ctx, ExpectedStatus::Nonnegative);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -268,13 +275,14 @@ bool event_stat_submit(EventTarget* target, struct io_uring* uring, A3CString pa
     return true;
 }
 
-bool event_timeout_submit(EventTarget* target, struct io_uring* uring, Timespec* threshold,
-                          uint32_t timeout_flags) {
+bool event_timeout_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
+                          void* handler_ctx, Timespec* threshold, uint32_t timeout_flags) {
     assert(target);
     assert(uring);
+    assert(handler);
     assert(threshold);
 
-    auto event = Event::create(target, EVENT_TIMEOUT, Event::EXPECT_NONE);
+    auto event = Event::create(target, handler, handler_ctx, ExpectedStatus::None);
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -295,10 +303,8 @@ bool event_cancel_all(EventTarget* target) {
     return true;
 }
 
-Event* event_create(EventTarget* target, EventType ty) {
+Event* event_create(EventTarget* target, EventHandler handler, void* handler_ctx) {
     assert(target);
-    return Event::create(target, ty, Event::EXPECT_NONE, /* chain */ false, /* flags */ 0,
-                         /* force_handle */ false,
-                         /* queue */ false)
+    return Event::create(target, handler, handler_ctx, ExpectedStatus::None, EVENT_NO_QUEUE)
         .release();
 }

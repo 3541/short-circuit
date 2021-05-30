@@ -43,35 +43,15 @@ void event_queue_init(EventQueue* queue) {
 }
 
 void Event::handle(struct io_uring& uring) {
-    auto*     t  = target;
-    int32_t   st = status;
-    uint32_t  fl = flags;
-    EventType ty = type;
+    auto*        t         = target;
+    int32_t      st        = status;
+    EventHandler h         = handler;
+    void*        ctx       = handler_ctx;
+    bool         succeeded = success;
 
     delete this;
 
-    switch (ty) {
-    case EVENT_ACCEPT:
-    case EVENT_CLOSE:
-    case EVENT_OPENAT_SYNTH:
-    case EVENT_READ:
-    case EVENT_RECV:
-    case EVENT_SEND:
-    case EVENT_SPLICE:
-        connection_event_handle(EVT_PTR(t, Connection), &uring, ty, st, fl);
-        return;
-    case EVENT_OPENAT:
-    case EVENT_STAT:
-        file_handle_event_handle(EVT_PTR(t, FileHandle), &uring, st, fl);
-        return;
-    case EVENT_TIMEOUT:
-        timeout_event_handle(EVT_PTR(t, TimeoutQueue), &uring, st);
-        return;
-    case EVENT_INVALID:
-        return;
-    }
-
-    A3_UNREACHABLE();
+    h(t, &uring, ctx, succeeded, st);
 }
 
 // Handle all events pending on the queue.
@@ -130,20 +110,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
             continue;
         }
 
-        switch (event->status) {
-        case Event::EXPECT_NONE:
-            break;
-        case Event::EXPECT_NONNEGATIVE:
-            event->set_failed(status < 0);
-            break;
-        case Event::EXPECT_POSITIVE:
-            event->set_failed(status <= 0);
-            break;
-        default:
-            event->set_failed(status != event->status);
-            break;
-        }
-        event->status = status;
+        event->set_status(status);
 
 
         // Add to the to-process queue.
