@@ -34,6 +34,7 @@ pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing)
 add_subdirectory(extern/liba3 EXCLUDE_FROM_ALL)
 
 set(SC_SRC
+  src/event/init.c
   src/event/mod.cc
   src/event/handle.cc
   src/file.c
