@@ -36,10 +36,11 @@
 
 A3_H_BEGIN
 
-// Callback types to submit events.
-typedef bool (*ConnectionSubmit)(Connection*, struct io_uring*, uint32_t event_flags,
-                                 uint8_t sqe_flags);
-typedef bool (*ConnectionHandle)(Connection*, struct io_uring*, int32_t status, bool chain);
+typedef enum { SPLICE_IN, SPLICE_OUT } SpliceDirection;
+
+typedef bool (*ConnectionHandler)(Connection*, struct io_uring*, bool success, int32_t status);
+typedef bool (*ConnectionSpliceHandler)(Connection*, struct io_uring*, SpliceDirection,
+                                        bool success, int32_t status);
 
 typedef enum ConnectionTransport { TRANSPORT_PLAIN, TRANSPORT_TLS } ConnectionTransport;
 
@@ -52,10 +53,6 @@ typedef struct Connection {
     Timeout timeout;
 
     Listener* listener;
-
-    ConnectionSubmit recv_submit;
-    ConnectionHandle recv_handle;
-    ConnectionSubmit send_submit;
 
     struct sockaddr_in client_addr;
     socklen_t          addr_len;
@@ -70,15 +67,16 @@ void connection_timeout_init(void);
 bool connection_init(Connection*);
 bool connection_reset(Connection*, struct io_uring*);
 
-Connection* connection_accept_submit(Listener*, struct io_uring*);
-bool connection_send_submit(Connection*, struct io_uring*, uint32_t send_flags, uint8_t sqe_flags);
-bool connection_splice_submit(Connection*, struct io_uring*, fd src, size_t file_offset, size_t len,
+Connection* connection_accept_submit(Listener*, struct io_uring*, ConnectionHandler);
+bool        connection_recv_submit(Connection*, struct io_uring*, ConnectionHandler);
+bool connection_send_submit(Connection*, struct io_uring*, ConnectionHandler, uint32_t send_flags,
+                            uint8_t sqe_flags);
+bool connection_splice_submit(Connection*, struct io_uring*, ConnectionSpliceHandler,
+                              ConnectionHandler, fd src, size_t file_offset, size_t len,
                               uint8_t sqe_flags);
-bool connection_splice_retry(Connection*, struct io_uring*, fd src, size_t in_buf,
-                             size_t file_offset, size_t remaining, uint8_t sqe_flags);
-bool connection_close_submit(Connection*, struct io_uring*);
-
-void connection_event_handle(Connection*, struct io_uring*, EventType, int32_t status,
-                             uint32_t flags);
+bool connection_splice_retry(Connection*, struct io_uring*, ConnectionSpliceHandler,
+                             ConnectionHandler, fd src, size_t in_buf, size_t file_offset,
+                             size_t remaining, uint8_t sqe_flags);
+bool connection_close_submit(Connection*, struct io_uring*, ConnectionHandler);
 
 A3_H_END

@@ -45,21 +45,14 @@
 #include "listen.h"
 #include "timeout.h"
 
-static bool connection_recv_submit(Connection*, struct io_uring*, uint32_t recv_flags,
-                                   uint8_t sqe_flags);
+static bool connection_recv_submit(Connection*, struct io_uring*, ConnectionHandler);
 static bool connection_timeout_submit(Connection* conn, struct io_uring* uring, time_t delay);
 
-static bool connection_recv_handle(Connection* conn, struct io_uring* uring, int32_t status,
-                                   bool chain);
+static void connection_recv_handle(EventTarget*, struct io_uring*, void* ctx, bool success,
+                                   int32_t status);
 static bool connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
-
-static inline HttpConnection* connection_http(Connection* conn) {
-    assert(conn);
-
-    return A3_CONTAINER_OF(conn, HttpConnection, conn);
-}
 
 void connection_timeout_init() { timeout_queue_init(&connection_timeout_queue); }
 
@@ -86,275 +79,195 @@ bool connection_reset(Connection* conn, struct io_uring* uring) {
     return true;
 }
 
-// Submit an ACCEPT on the uring.
-Connection* connection_accept_submit(Listener* listener, struct io_uring* uring) {
-    assert(listener);
-    assert(uring);
-
-    Connection* ret = (Connection*)http_connection_new();
-    if (!ret)
-        return NULL;
-
-    ret->listener = listener;
-
-    ret->transport = listener->transport;
-    switch (ret->transport) {
-    case TRANSPORT_PLAIN:
-        ret->recv_submit = connection_recv_submit;
-        ret->recv_handle = connection_recv_handle;
-
-        ret->send_submit = connection_send_submit;
-        break;
-    case TRANSPORT_TLS:
-        A3_PANIC("TODO: TLS");
-    default:
-        A3_PANIC("Invalid transport.");
-    }
-
-    ret->addr_len = sizeof(ret->client_addr);
-
-    if (!event_accept_submit(EVT(ret), uring, listener->socket, &ret->client_addr,
-                             &ret->addr_len)) {
-        http_connection_free((HttpConnection*)ret, uring);
-        return NULL;
-    }
-
-    return ret;
-}
-
-// Submit a request to receive as much data as the buffer can handle.
-static bool connection_recv_submit(Connection* conn, struct io_uring* uring, uint32_t recv_flags,
-                                   uint8_t sqe_flags) {
-    assert(conn);
-    assert(uring);
-    (void)recv_flags;
-    (void)sqe_flags;
-
-    return event_recv_submit(EVT(conn), uring, conn->socket, a3_buf_write_ptr(&conn->recv_buf));
-}
-
-bool connection_send_submit(Connection* conn, struct io_uring* uring, uint32_t send_flags,
-                            uint8_t sqe_flags) {
+static inline void connection_drop(Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    A3Buffer* buf = &conn->send_buf;
-    return event_send_submit(EVT(conn), uring, conn->socket, a3_buf_read_ptr(buf), send_flags,
-                             sqe_flags);
+    a3_log_msg(LOG_WARN, "Dropping connection.");
+    // TODO: Make generic.
+    http_connection_free(connection_http(conn), uring);
 }
 
-#define PIPE_BUF_SIZE 65536ULL
+#define CTRYB(CONN, URING, T)                                                                      \
+    do {                                                                                           \
+        if (!(T)) {                                                                                \
+            connection_drop((CONN), (URING));                                                      \
+            return;                                                                                \
+        }                                                                                          \
+    } while (0)
 
-// Wraps splice so it can be used without a pipe.
-bool connection_splice_submit(Connection* conn, struct io_uring* uring, fd src, size_t file_offset,
-                              size_t len, uint8_t sqe_flags) {
+#define CTRYB_MAP(CONN, URING, T, E)                                                               \
+    do {                                                                                           \
+        if (!(T)) {                                                                                \
+            connection_drop((CONN), (URING));                                                      \
+            return (E);                                                                            \
+        }                                                                                          \
+    } while (0)
+
+// Call a connection callback, and close on failure.
+static inline void connection_handler_call(Connection* conn, struct io_uring* uring,
+                                           ConnectionHandler handler, bool success,
+                                           int32_t status) {
     assert(conn);
     assert(uring);
+    assert(handler);
 
-    if (!conn->pipe[0] && !conn->pipe[1]) {
-        a3_log_msg(LOG_TRACE, "Opening pipe.");
-        if (pipe(conn->pipe) < 0) {
-            a3_log_error(errno, "unable to open pipe");
-            return false;
-        }
-    }
+    if (handler(conn, uring, success, status))
+        return;
 
-    for (size_t remaining = len; remaining > 0;) {
-        size_t req_len = MIN(PIPE_BUF_SIZE, remaining);
-        bool   more    = remaining > PIPE_BUF_SIZE;
-        A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, src, len - remaining + file_offset,
-                                        conn->pipe[1], req_len, 0, EVENT_FLAG_SPLICE_IN,
-                                        sqe_flags | IOSQE_IO_LINK, false),
-                    LOG_ERROR, "Failed to submit splice in.");
-        A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, conn->pipe[0], (uint64_t)-1, conn->socket,
-                                        req_len, more ? SPLICE_F_MORE : 0, EVENT_FLAG_SPLICE_OUT,
-                                        sqe_flags | (more ? IOSQE_IO_LINK : 0), !more),
-                    LOG_ERROR, "Failed to submit splice out.");
-        if (more)
-            remaining -= PIPE_BUF_SIZE;
-        else
-            remaining = 0;
-    }
-
-    return true;
-}
-
-// Retry an interrupted splice chain.
-bool connection_splice_retry(Connection* conn, struct io_uring* uring, fd src, size_t in_buf,
-                             size_t file_offset, size_t remaining, uint8_t sqe_flags) {
-    assert(conn);
-    assert(uring);
-
-    bool more = remaining > 0;
-
-    if (in_buf &&
-        !event_splice_submit(EVT(conn), uring, conn->pipe[0], (uint64_t)-1, conn->socket, in_buf,
-                             more ? SPLICE_F_MORE : 0, EVENT_FLAG_SPLICE_OUT,
-                             sqe_flags | (more ? IOSQE_IO_LINK : 0), more ? false : true)) {
-        A3_ERR("Failed to submit splice.");
-        return false;
-    }
-
-    if (more)
-        return connection_splice_submit(conn, uring, src, file_offset, remaining, sqe_flags);
-    return true;
-}
-
-static bool connection_timeout_submit(Connection* conn, struct io_uring* uring, time_t delay) {
-    assert(conn);
-    assert(uring);
-
-    struct timespec t;
-    if (clock_gettime(CLOCK_MONOTONIC, &t) < 0)
-        return false;
-
-    conn->timeout.threshold.tv_sec  = t.tv_sec + delay;
-    conn->timeout.threshold.tv_nsec = t.tv_nsec;
-    conn->timeout.fire              = connection_timeout_handle;
-    return timeout_schedule(&connection_timeout_queue, &conn->timeout, uring);
-}
-
-bool connection_close_submit(Connection* conn, struct io_uring* uring) {
-    assert(conn);
-    assert(uring);
-
-    if (timeout_is_scheduled(&conn->timeout))
-        timeout_cancel(&conn->timeout);
-
-    return event_close_submit(EVT(conn), uring, conn->socket, 0, EVENT_FALLBACK_FORBID);
+    connection_drop(conn, uring);
 }
 
 // Handle the completion of an ACCEPT event.
-static bool connection_accept_handle(Connection* conn, struct io_uring* uring, int32_t status,
-                                     bool chain) {
-    assert(conn);
+static void connection_accept_handle(EventTarget* target, struct io_uring* uring, void* handler,
+                                     bool success, int32_t status) {
+    assert(target);
     assert(uring);
-    assert(!chain);
-    (void)chain;
+
+    Connection* conn = EVT_PTR(target, Connection);
 
     a3_log_msg(LOG_TRACE, "Accept connection.");
     conn->listener->accept_queued = false;
-    if (status < 0) {
+    if (!success) {
         a3_log_error(-status, "accept failed");
-        return false;
+        connection_drop(conn, uring);
+        return;
     }
     conn->socket = (fd)status;
 
-    A3_TRYB(connection_timeout_submit(conn, uring, CONNECTION_TIMEOUT));
-
-    return conn->recv_submit(conn, uring, 0, 0);
+    CTRYB(conn, uring, connection_timeout_submit(conn, uring, CONNECTION_TIMEOUT));
+    CTRYB(conn, uring, connection_recv_submit(conn, uring, handler));
 }
 
-static bool connection_close_handle(Connection* conn, struct io_uring* uring, int32_t status,
-                                    bool chain) {
-    assert(conn);
+static void connection_close_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                    bool success, int32_t status) {
+    assert(target);
     assert(uring);
-    assert(!chain);
-    (void)chain;
+
+    Connection* conn = EVT_PTR(target, Connection);
 
     conn->socket = -1;
     if (status < 0)
         a3_log_error(-status, "close failed");
-    http_connection_free((HttpConnection*)conn, uring);
 
-    return true;
+    if (ctx)
+        connection_handler_call(conn, uring, ctx, success, status);
 }
 
-static bool connection_openat_handle(Connection* conn, struct io_uring* uring, int32_t status,
-                                     bool chain) {
-    assert(conn);
+static void connection_recv_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                   bool success, int32_t status) {
+    assert(target);
     assert(uring);
-    assert(!chain);
-    (void)chain;
-    (void)status;
+    assert(ctx);
 
-    // FIXME: This is ugly and unnecessary coupling.
-    return http_response_handle((HttpConnection*)conn, uring);
-}
+    Connection* conn = EVT_PTR(target, Connection);
 
-static bool connection_read_handle(Connection* conn, struct io_uring* uring, bool success,
-                                   int32_t status, bool chain) {
-    assert(conn);
-    assert(uring);
-    assert(chain);
-    (void)uring;
-    (void)chain;
-
-    if (status < 0) {
-        a3_log_error(-status, "read failed");
-        return false;
+    if (status == 0 || status == -ECONNRESET) {
+        a3_log_msg(LOG_TRACE, "Connection closed by peer.");
+        connection_drop(conn, uring);
+        return;
     }
     if (!success) {
-        // TODO: Handle short reads.
-        a3_log_fmt(LOG_ERROR, "Short read of %d.", status);
-        return false;
-    }
-
-    a3_buf_wrote(&conn->send_buf, (size_t)status);
-    return true;
-}
-
-static bool connection_recv_handle(Connection* conn, struct io_uring* uring, int32_t status,
-                                   bool chain) {
-    assert(conn);
-    assert(uring);
-    assert(!chain);
-    (void)chain;
-
-    if (status == 0 || status == -ECONNRESET)
-        return connection_close_submit(conn, uring);
-    if (status < 0) {
         a3_log_error(-status, "recv failed");
-        return false;
+        connection_drop(conn, uring);
+        return;
     }
 
     a3_buf_wrote(&conn->recv_buf, (size_t)status);
 
-    HttpRequestResult rc = http_request_handle((HttpConnection*)conn, uring);
-    if (rc == HTTP_REQUEST_ERROR)
-        return false;
-    else if (rc == HTTP_REQUEST_NEED_DATA)
-        return conn->recv_submit(conn, uring, 0, 0);
-
-    return true;
+    connection_handler_call(conn, uring, ctx, success, status);
 }
 
-static bool connection_send_handle(Connection* conn, struct io_uring* uring, bool success,
-                                   int32_t status, bool chain) {
-    assert(conn);
+static void connection_send_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                   bool success, int32_t status) {
+    assert(target);
     assert(uring);
+
+    Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
         a3_log_error(-status, "send failed");
-        return false;
+        connection_drop(conn, uring);
+        return;
     }
     if (!success) {
         a3_log_fmt(LOG_ERROR, "Short send of %d.", status);
-        return false;
+        connection_drop(conn, uring);
+        return;
     }
 
     a3_buf_read(&conn->send_buf, (size_t)status);
 
-    if (chain)
-        return true;
-
-    return http_response_handle((HttpConnection*)conn, uring);
+    if (ctx)
+        connection_handler_call(conn, uring, ctx, success, status);
 }
 
-static bool connection_splice_handle(Connection* conn, struct io_uring* uring, uint32_t flags,
-                                     bool success, int32_t status, bool chain) {
-    assert(conn);
+static void connection_splice_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                     bool success, int32_t status) {
+    assert(target);
     assert(uring);
+
+    Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
         a3_log_error(-status, "splice failed");
-        return false;
+        connection_drop(conn, uring);
+        return;
+    }
+    if (!success) {
+        a3_log_fmt(LOG_ERROR, "Short splice out of %d.", status);
+        connection_drop(conn, uring);
     }
 
-    if (chain && success)
-        return true;
+    if (ctx)
+        connection_handler_call(conn, uring, ctx, success, status);
+}
 
-    return http_response_splice_handle((HttpConnection*)conn, uring, flags, success, status);
+static void connection_splice_in_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                        bool success, int32_t status) {
+    assert(target);
+    assert(uring);
+
+    Connection* conn = EVT_PTR(target, Connection);
+
+    if (status < 0) {
+        a3_log_error(-status, "splice in failed");
+        connection_drop(conn, uring);
+        return;
+    }
+    if (!success)
+        a3_log_fmt(LOG_WARN, "Short splice of %d.", status);
+
+    if (ctx) {
+        ConnectionSpliceHandler handler = ctx;
+        if (!handler(conn, uring, SPLICE_IN, success, status))
+            connection_drop(conn, uring);
+    }
+}
+
+static void connection_splice_out_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                         bool success, int32_t status) {
+    assert(target);
+    assert(uring);
+
+    Connection* conn = EVT_PTR(target, Connection);
+
+    if (status < 0) {
+        a3_log_error(-status, "splice out failed");
+        connection_drop(conn, uring);
+        return;
+    }
+    if (!success) {
+        a3_log_fmt(LOG_ERROR, "Short splice out of %d.", status);
+        connection_drop(conn, uring);
+        return;
+    }
+
+    if (ctx) {
+        ConnectionSpliceHandler handler = ctx;
+        if (!handler(conn, uring, SPLICE_OUT, success, status))
+            connection_drop(conn, uring);
+    }
 }
 
 static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) {
@@ -367,49 +280,144 @@ static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) 
                                       HTTP_RESPONSE_CLOSE);
 }
 
-void connection_event_handle(Connection* conn, struct io_uring* uring, EventType type,
-                             int32_t status, uint32_t flags) {
+// Submit an ACCEPT on the uring. The handler given will only be called upon the arrival of input
+// data.
+Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
+                                     ConnectionHandler handler) {
+    assert(listener);
+    assert(uring);
+    assert(handler);
+
+    // TODO: This needs to be generic over connection types. Perhaps just take as a parameter.
+    Connection* ret = (Connection*)http_connection_new();
+    if (!ret)
+        return NULL;
+
+    ret->listener  = listener;
+    ret->transport = listener->transport;
+    ret->addr_len  = sizeof(ret->client_addr);
+
+    CTRYB_MAP(ret, uring,
+              event_accept_submit(EVT(ret), uring, connection_accept_handle, handler,
+                                  listener->socket, &ret->client_addr, &ret->addr_len),
+              NULL);
+
+    return ret;
+}
+
+// Submit a request to receive as much data as the buffer can handle.
+bool connection_recv_submit(Connection* conn, struct io_uring* uring,
+                                   ConnectionHandler handler) {
+    assert(conn);
+    assert(uring);
+    assert(handler);
+
+    return event_recv_submit(EVT(conn), uring, connection_recv_handle, handler, conn->socket,
+                             a3_buf_write_ptr(&conn->recv_buf));
+}
+
+bool connection_send_submit(Connection* conn, struct io_uring* uring, ConnectionHandler handler,
+                            uint32_t send_flags, uint8_t sqe_flags) {
+    assert(conn);
+    assert(handler);
+    assert(uring);
+    return event_send_submit(EVT(conn), uring, connection_send_handle, handler, conn->socket,
+                             a3_buf_read_ptr(&conn->send_buf), send_flags, sqe_flags);
+}
+
+#define PIPE_BUF_SIZE 65536ULL
+
+// Wraps splice so it can be used without a pipe.
+bool connection_splice_submit(Connection* conn, struct io_uring* uring,
+                              ConnectionSpliceHandler splice_handler, ConnectionHandler handler,
+                              fd src, size_t file_offset, size_t len, uint8_t sqe_flags) {
+    assert(conn);
+    assert(uring);
+    assert(splice_handler);
+    assert(handler);
+
+    if (!conn->pipe[0] && !conn->pipe[1]) {
+        a3_log_msg(LOG_TRACE, "Opening pipe.");
+        if (pipe(conn->pipe) < 0) {
+            a3_log_error(errno, "unable to open pipe");
+            return false;
+        }
+    }
+
+    for (size_t remaining = len; remaining > 0;) {
+        size_t req_len = MIN(PIPE_BUF_SIZE, remaining);
+        bool   more    = remaining > PIPE_BUF_SIZE;
+        A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, connection_splice_in_handle,
+                                        splice_handler, src, len - remaining + file_offset,
+                                        conn->pipe[1], req_len, 0, sqe_flags | IOSQE_IO_LINK),
+                    LOG_ERROR, "Failed to submit splice in.");
+        A3_TRYB_MSG(
+            event_splice_submit(EVT(conn), uring,
+                                more ? connection_splice_out_handle : connection_splice_handle,
+                                more ? (void*)splice_handler : (void*)handler, conn->pipe[0],
+                                (uint64_t)-1, conn->socket, req_len, more ? SPLICE_F_MORE : 0,
+                                sqe_flags | (more ? IOSQE_IO_LINK : 0)),
+            LOG_ERROR, "Failed to submit splice out.");
+        if (more)
+            remaining -= PIPE_BUF_SIZE;
+        else
+            remaining = 0;
+    }
+
+    return true;
+}
+
+// Retry an interrupted splice chain.
+bool connection_splice_retry(Connection* conn, struct io_uring* uring,
+                             ConnectionSpliceHandler splice_handler, ConnectionHandler handler,
+                             fd src, size_t in_buf, size_t file_offset, size_t remaining,
+                             uint8_t sqe_flags) {
+    assert(conn);
+    assert(uring);
+    assert(splice_handler);
+    assert(handler);
+
+    bool more = remaining > 0;
+
+    // Clear out data currently in the pipe.
+    if (in_buf &&
+        !event_splice_submit(EVT(conn), uring,
+                             more ? connection_splice_out_handle : connection_splice_handle,
+                             more ? (void*)splice_handler : (void*)handler, conn->pipe[0],
+                             (uint64_t)-1, conn->socket, in_buf, more ? SPLICE_F_MORE : 0,
+                             sqe_flags | (more ? IOSQE_IO_LINK : 0))) {
+        A3_ERR("Failed to submit splice.");
+        return false;
+    }
+
+    // Re-submit the chain.
+    if (more)
+        return connection_splice_submit(conn, uring, splice_handler, handler, src, file_offset,
+                                        remaining, sqe_flags);
+    return true;
+}
+
+static bool connection_timeout_submit(Connection* conn, struct io_uring* uring, time_t delay) {
     assert(conn);
     assert(uring);
 
-    if (status == -ECANCELED)
-        return;
+    struct timespec t;
+    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &t));
 
-    bool rc      = true;
-    bool chain   = flags & EVENT_FLAG_CHAIN;
-    bool success = !(flags & EVENT_FLAG_FAIL);
+    conn->timeout.threshold.tv_sec  = t.tv_sec + delay;
+    conn->timeout.threshold.tv_nsec = t.tv_nsec;
+    conn->timeout.fire              = connection_timeout_handle;
+    return timeout_schedule(&connection_timeout_queue, &conn->timeout, uring);
+}
 
-    switch (type) {
-    case EVENT_ACCEPT:
-        rc = connection_accept_handle(conn, uring, status, chain);
-        break;
-    case EVENT_CLOSE:
-        rc = connection_close_handle(conn, uring, status, chain);
-        break;
-    case EVENT_OPENAT_SYNTH:
-        rc = connection_openat_handle(conn, uring, status, chain);
-        break;
-    case EVENT_READ:
-        rc = connection_read_handle(conn, uring, success, status, chain);
-        break;
-    case EVENT_RECV:
-        rc = conn->recv_handle(conn, uring, status, chain);
-        break;
-    case EVENT_SEND:
-        rc = connection_send_handle(conn, uring, success, status, chain);
-        break;
-    case EVENT_SPLICE:
-        rc = connection_splice_handle(conn, uring, flags, success, status, chain);
-        break;
-    case EVENT_INVALID:
-    case EVENT_OPENAT:
-    case EVENT_STAT:
-    case EVENT_TIMEOUT:
-        A3_PANIC_FMT("Invalid event %d.", type);
-    }
+bool connection_close_submit(Connection* conn, struct io_uring* uring, ConnectionHandler handler) {
+    assert(conn);
+    assert(uring);
+    assert(handler);
 
-    if (!rc) {
-        a3_log_msg(LOG_WARN, "Connection failure. Closing.");
-        http_connection_free((HttpConnection*)conn, uring);
-    }
+    if (timeout_is_scheduled(&conn->timeout))
+        timeout_cancel(&conn->timeout);
+
+    return event_close_submit(EVT(conn), uring, connection_close_handle, handler, conn->socket, 0,
+                              EVENT_FALLBACK_ALLOW);
 }
