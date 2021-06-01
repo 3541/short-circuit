@@ -75,8 +75,8 @@ void http_response_reset(HttpResponse* resp) {
 }
 
 // Respond to a mid-response event.
-bool http_response_handle(Connection* connection, struct io_uring* uring, bool success,
-                          int32_t status) {
+static bool http_response_handle(Connection* connection, struct io_uring* uring, bool success,
+                                 int32_t status) {
     assert(connection);
     assert(uring);
     assert(success);

@@ -33,8 +33,6 @@ typedef struct HttpResponse {
 void http_response_init(HttpResponse*);
 void http_response_reset(HttpResponse*);
 
-bool http_response_handle(Connection*, struct io_uring*, bool success, int32_t status);
-
 #define HTTP_RESPONSE_CLOSE true
 #define HTTP_RESPONSE_ALLOW false
 bool http_response_error_submit(HttpResponse*, struct io_uring*, HttpStatus, bool close);
