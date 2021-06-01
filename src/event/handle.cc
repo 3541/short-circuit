@@ -51,7 +51,8 @@ void Event::handle(struct io_uring& uring) {
 
     delete this;
 
-    h(t, &uring, ctx, succeeded, st);
+    if (h)
+        h(t, &uring, ctx, succeeded, st);
 }
 
 // Handle all events pending on the queue.

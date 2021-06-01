@@ -47,6 +47,9 @@
 #include "http/request.h"
 #include "http/types.h"
 
+static bool http_response_splice_handle(Connection*, struct io_uring*, bool success,
+                                        int32_t status);
+
 static inline HttpConnection* http_response_connection(HttpResponse* resp) {
     assert(resp);
 
@@ -72,11 +75,16 @@ void http_response_reset(HttpResponse* resp) {
 }
 
 // Respond to a mid-response event.
-bool http_response_handle(HttpConnection* conn, struct io_uring* uring) {
-    assert(conn);
+bool http_response_handle(Connection* connection, struct io_uring* uring, bool success,
+                          int32_t status) {
+    assert(connection);
     assert(uring);
+    assert(success);
+    (void)success;
+    (void)status;
 
-    HttpResponse* resp = &conn->response;
+    HttpConnection* conn = connection_http(connection);
+    HttpResponse*   resp = &conn->response;
 
     switch (conn->state) {
     case HTTP_CONNECTION_OPENING_FILE:
@@ -85,7 +93,7 @@ bool http_response_handle(HttpConnection* conn, struct io_uring* uring) {
         if (http_connection_keep_alive(conn)) {
             A3_TRYB(http_connection_reset(conn, uring));
             A3_TRYB(http_connection_init(conn));
-            return conn->conn.recv_submit(&conn->conn, uring, 0, 0);
+            return connection_recv_submit(&conn->conn, uring, http_request_handle);
         }
 
         return http_connection_close_submit(conn, uring);
@@ -96,34 +104,46 @@ bool http_response_handle(HttpConnection* conn, struct io_uring* uring) {
     }
 }
 
-bool http_response_splice_handle(HttpConnection* conn, struct io_uring* uring, uint32_t flags,
-                                 bool success, int32_t status) {
-    assert(conn);
+static bool http_response_splice_chain_handle(Connection* connection, struct io_uring* uring,
+                                              SpliceDirection dir, bool success, int32_t status) {
+    assert(connection);
     assert(uring);
     assert(status >= 0);
 
-    if (flags & EVENT_FLAG_SPLICE_IN)
+    HttpConnection* conn = connection_http(connection);
+
+    if (dir == SPLICE_IN)
         conn->response.body_sent += (size_t)status;
 
     if (!success) {
-        a3_log_fmt(LOG_TRACE, "Short splice %s of %d.",
-                   (flags & EVENT_FLAG_SPLICE_IN) ? "IN" : "OUT", status);
-        if (flags & EVENT_FLAG_SPLICE_OUT) {
+        a3_log_fmt(LOG_TRACE, "Short splice %s of %d.", (dir == SPLICE_IN) ? "IN" : "OUT", status);
+        if (dir == SPLICE_OUT) {
             A3_ERR("TODO: Handle short splice out.");
             return false;
         }
 
         size_t sent      = conn->response.body_sent;
         size_t remaining = file_handle_stat(conn->target_file)->stx_size - sent;
-        A3_TRYB(connection_splice_retry(&conn->conn, uring, file_handle_fd(conn->target_file),
-                                        (size_t)status, sent, remaining,
-                                        !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
+        A3_TRYB(connection_splice_retry(
+            &conn->conn, uring, http_response_splice_chain_handle, http_response_splice_handle,
+            file_handle_fd(conn->target_file), (size_t)status, sent, remaining,
+            !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
         if (!http_connection_keep_alive(conn))
             return http_connection_close_submit(conn, uring);
         return true;
     }
 
-    return http_response_handle(conn, uring);
+    return true;
+}
+
+static bool http_response_splice_handle(Connection* connection, struct io_uring* uring,
+                                        bool success, int32_t status) {
+    assert(connection);
+    assert(uring);
+    assert(status >= 0);
+
+    A3_TRYB(http_response_splice_chain_handle(connection, uring, SPLICE_OUT, success, status));
+    return http_response_handle(connection, uring, success, status);
 }
 
 // Write the status line to the send buffer.
@@ -304,13 +324,15 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, Http
     assert(uring);
     assert(status != HTTP_STATUS_INVALID);
 
+    HttpConnection* conn = http_response_connection(resp);
+    if (!http_connection_keep_alive(conn))
+        close = true;
+
     a3_log_fmt(LOG_DEBUG, "HTTP error %d. %s", http_status_code(status),
                close ? "Closing connection." : "");
 
     // Clear any previously written data.
     a3_buf_reset(http_response_send_buf(resp));
-
-    HttpConnection* conn = http_response_connection(resp);
 
     conn->state        = HTTP_CONNECTION_RESPONDING;
     resp->content_type = HTTP_CONTENT_TYPE_TEXT_HTML;
@@ -326,11 +348,29 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, Http
     if (conn->method != HTTP_METHOD_HEAD)
         A3_TRYB(http_response_prep_body(resp, body));
 
-    A3_TRYB(conn->conn.send_submit(&conn->conn, uring, 0, close ? IOSQE_IO_LINK : 0));
+    A3_TRYB(connection_send_submit(&conn->conn, uring, close ? NULL : http_response_handle, 0,
+                                   close ? IOSQE_IO_LINK : 0));
     if (close)
         return http_connection_close_submit(conn, uring);
 
     return true;
+}
+
+static void http_response_file_open_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                           bool success, int32_t status) {
+    assert(target);
+    assert(uring);
+    (void)ctx;
+    (void)success;
+    (void)status;
+
+    Connection*     connection = EVT_PTR(target, Connection);
+    HttpConnection* conn       = connection_http(connection);
+
+    if (http_response_file_submit(&conn->response, uring))
+        return;
+
+    http_connection_free(conn, uring);
 }
 
 bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
@@ -340,9 +380,9 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
     HttpConnection* conn = http_response_connection(resp);
 
     if (!conn->target_file) {
-        conn->state = HTTP_CONNECTION_OPENING_FILE;
-        conn->target_file =
-            file_open(EVT(&conn->conn), uring, A3_S_CONST(conn->request.target_path), O_RDONLY);
+        conn->state       = HTTP_CONNECTION_OPENING_FILE;
+        conn->target_file = file_open(EVT(&conn->conn), uring, http_response_file_open_handle, NULL,
+                                      A3_S_CONST(conn->request.target_path), O_RDONLY);
     }
 
     if (!conn->target_file)
@@ -362,7 +402,8 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
 
     if (S_ISDIR(stat->stx_mode)) {
         FileHandle* index_file =
-            file_openat(EVT(&conn->conn), uring, conn->target_file, INDEX_FILENAME, O_RDONLY);
+            file_openat(EVT(&conn->conn), uring, http_response_file_open_handle, NULL,
+                        conn->target_file, INDEX_FILENAME, O_RDONLY);
         // TODO: Directory listings.
         if (!index_file)
             return http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
@@ -396,17 +437,18 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
                                           (uint64_t)stat->stx_size));
     A3_TRYB(http_response_prep_headers_done(resp));
 
+    bool body = conn->method != HTTP_METHOD_HEAD;
     // TODO: Perhaps instead of just sending here, it would be better to write into the same pipe
     // that is used for splice.
-    A3_TRYB(conn->conn.send_submit(
-        &conn->conn, uring, (conn->method == HTTP_METHOD_HEAD) ? 0 : MSG_MORE,
-        (!http_connection_keep_alive(conn) || conn->method != HTTP_METHOD_HEAD) ? IOSQE_IO_LINK
-                                                                                : 0));
-    if (conn->method == HTTP_METHOD_HEAD)
+    A3_TRYB(connection_send_submit(
+        &conn->conn, uring, body ? NULL : http_response_handle, body ? MSG_MORE : 0,
+        (body || !http_connection_keep_alive(conn)) ? IOSQE_IO_LINK : 0));
+    if (!body)
         goto done;
 
     // TODO: This will not work for TLS.
-    A3_TRYB(connection_splice_submit(&conn->conn, uring, target_file, /* offset */ 0,
+    A3_TRYB(connection_splice_submit(&conn->conn, uring, http_response_splice_chain_handle,
+                                     http_response_splice_handle, target_file, /* offset */ 0,
                                      stat->stx_size,
                                      !http_connection_keep_alive(conn) ? IOSQE_IO_LINK : 0));
 

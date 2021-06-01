@@ -83,7 +83,7 @@ typedef enum HttpContentType {
     _STATUS(408, HTTP_STATUS_TIMEOUT, "Request Timeout")                                           \
     _STATUS(413, HTTP_STATUS_PAYLOAD_TOO_LARGE, "Payload Too Large")                               \
     _STATUS(414, HTTP_STATUS_URI_TOO_LONG, "URI Too Long")                                         \
-    _STATUS(418, HTTP_STATUS_IM_A_TEAPOT, "I'm a teapot")                                          \
+    _STATUS(418, HTCPCP_STATUS_IM_A_TEAPOT, "I'm a teapot")                                        \
     _STATUS(431, HTTP_STATUS_HEADER_TOO_LARGE, "Request Header Fields Too Large")                  \
     _STATUS(500, HTTP_STATUS_SERVER_ERROR, "Internal Server Error")                                \
     _STATUS(501, HTTP_STATUS_NOT_IMPLEMENTED, "Not Implemented")                                   \

@@ -47,7 +47,7 @@ A3_SLL_DECLARE_METHODS(Event);
 
 typedef A3_SLL(Event) EventTarget;
 typedef void (*EventHandler)(EventTarget*, struct io_uring*, void* ctx, bool success,
-                              int32_t status);
+                             int32_t status);
 
 // Include this as a member to make an object a viable event target.
 #define EVENT_TARGET   EventTarget _events_queued

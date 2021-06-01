@@ -45,12 +45,11 @@
 #include "listen.h"
 #include "timeout.h"
 
-static bool connection_recv_submit(Connection*, struct io_uring*, ConnectionHandler);
 static bool connection_timeout_submit(Connection* conn, struct io_uring* uring, time_t delay);
 
 static void connection_recv_handle(EventTarget*, struct io_uring*, void* ctx, bool success,
                                    int32_t status);
-static bool connection_timeout_handle(Timeout*, struct io_uring*);
+static void connection_timeout_handle(Timeout*, struct io_uring*);
 
 static TimeoutQueue connection_timeout_queue;
 
@@ -83,7 +82,7 @@ static inline void connection_drop(Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    a3_log_msg(LOG_WARN, "Dropping connection.");
+    a3_log_msg(LOG_TRACE, "Dropping connection.");
     // TODO: Make generic.
     http_connection_free(connection_http(conn), uring);
 }
@@ -270,14 +269,15 @@ static void connection_splice_out_handle(EventTarget* target, struct io_uring* u
     }
 }
 
-static bool connection_timeout_handle(Timeout* timeout, struct io_uring* uring) {
+static void connection_timeout_handle(Timeout* timeout, struct io_uring* uring) {
     assert(timeout);
     assert(uring);
 
     Connection* conn = A3_CONTAINER_OF(timeout, Connection, timeout);
 
-    return http_response_error_submit(&connection_http(conn)->response, uring, HTTP_STATUS_TIMEOUT,
-                                      HTTP_RESPONSE_CLOSE);
+    if (!http_response_error_submit(&connection_http(conn)->response, uring, HTTP_STATUS_TIMEOUT,
+                                    HTTP_RESPONSE_CLOSE))
+        connection_drop(conn, uring);
 }
 
 // Submit an ACCEPT on the uring. The handler given will only be called upon the arrival of input
@@ -306,8 +306,7 @@ Connection* connection_accept_submit(Listener* listener, struct io_uring* uring,
 }
 
 // Submit a request to receive as much data as the buffer can handle.
-bool connection_recv_submit(Connection* conn, struct io_uring* uring,
-                                   ConnectionHandler handler) {
+bool connection_recv_submit(Connection* conn, struct io_uring* uring, ConnectionHandler handler) {
     assert(conn);
     assert(uring);
     assert(handler);
@@ -319,7 +318,6 @@ bool connection_recv_submit(Connection* conn, struct io_uring* uring,
 bool connection_send_submit(Connection* conn, struct io_uring* uring, ConnectionHandler handler,
                             uint32_t send_flags, uint8_t sqe_flags) {
     assert(conn);
-    assert(handler);
     assert(uring);
     return event_send_submit(EVT(conn), uring, connection_send_handle, handler, conn->socket,
                              a3_buf_read_ptr(&conn->send_buf), send_flags, sqe_flags);

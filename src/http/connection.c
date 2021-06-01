@@ -72,7 +72,7 @@ void http_connection_free(HttpConnection* conn, struct io_uring* uring) {
     if (conn->conn.socket != -1) {
         event_cancel_all(EVT(&conn->conn));
         // If the submission was successful, we're done for now.
-        if (connection_close_submit(&conn->conn, uring))
+        if (http_connection_close_submit(conn, uring))
             return;
 
         // Make a last-ditch attempt to close, but do not block. Theoretically
@@ -112,12 +112,25 @@ bool http_connection_init(HttpConnection* conn) {
     return true;
 }
 
+static bool http_connection_close_handle(Connection* connection, struct io_uring* uring,
+                                         bool success, int32_t status) {
+    assert(connection);
+    assert(uring);
+    assert(success);
+    (void)success;
+    (void)status;
+
+    http_connection_free(connection_http(connection), uring);
+
+    return true;
+}
+
 bool http_connection_close_submit(HttpConnection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
     conn->state = HTTP_CONNECTION_CLOSING;
-    return connection_close_submit(&conn->conn, uring);
+    return connection_close_submit(&conn->conn, uring, http_connection_close_handle);
 }
 
 bool http_connection_reset(HttpConnection* conn, struct io_uring* uring) {

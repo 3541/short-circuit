@@ -118,7 +118,6 @@ static bool event_close_fallback(Event* event, struct io_uring& uring, fd file) 
 bool event_close_submit(EventTarget* target, struct io_uring* uring, EventHandler handler,
                         void* handler_ctx, fd file, uint32_t sqe_flags, bool fallback_sync) {
     assert(uring);
-    assert(handler);
     assert(file >= 0);
 
     unique_ptr<Event> event;
@@ -178,7 +177,7 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, EventHandler
 
     auto read_size = static_cast<uint32_t>(MIN(out_data.len, nbytes));
 
-    auto event = Event::create(target, handler, handler_ctx, read_size);
+    auto event = Event::create(target, handler, handler_ctx, static_cast<int32_t>(read_size));
     A3_TRYB(event);
 
     auto sqe = event_get_sqe(*uring);
@@ -225,7 +224,7 @@ bool event_send_submit(EventTarget* target, struct io_uring* uring, EventHandler
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, send_flags);
+    io_uring_prep_send(sqe.get(), socket, data.ptr, data.len, static_cast<int32_t>(send_flags));
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
@@ -247,7 +246,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, EventHandl
     A3_TRYB(sqe);
 
     io_uring_prep_splice(sqe.get(), in, off_in, out, static_cast<uint64_t>(-1),
-                         static_cast<int32_t>(len), SPLICE_F_MOVE | splice_flags);
+                         static_cast<uint32_t>(len), SPLICE_F_MOVE | splice_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;

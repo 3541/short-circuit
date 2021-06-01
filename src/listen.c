@@ -31,6 +31,7 @@
 #include "config.h"
 #include "connection.h"
 #include "forward.h"
+#include "http/request.h"
 
 static fd socket_listen(in_port_t port) {
     fd ret;
@@ -65,7 +66,8 @@ Connection* listener_accept_submit(Listener* listener, struct io_uring* uring) {
     assert(!listener->accept_queued);
     assert(uring);
 
-    Connection* ret = connection_accept_submit(listener, uring);
+    // TODO: Generic over connection types.
+    Connection* ret = connection_accept_submit(listener, uring, http_request_handle);
     if (ret)
         listener->accept_queued = true;
 
