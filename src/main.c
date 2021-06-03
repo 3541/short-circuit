@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    http_connection_a3_pool_free();
+    http_connection_pool_free();
     free(listeners);
     file_cache_destroy(&uring);
 

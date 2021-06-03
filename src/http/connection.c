@@ -94,7 +94,7 @@ void http_connection_free(HttpConnection* conn, struct io_uring* uring) {
     a3_pool_free_block(HTTP_CONNECTION_POOL, conn);
 }
 
-void http_connection_a3_pool_free() { a3_pool_free(HTTP_CONNECTION_POOL); }
+void http_connection_pool_free() { a3_pool_free(HTTP_CONNECTION_POOL); }
 
 bool http_connection_init(HttpConnection* conn) {
     assert(conn);
