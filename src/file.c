@@ -64,12 +64,14 @@ void file_cache_init() {
     (&FILE_CACHE, FD_CACHE_SIZE, file_evict_callback);
 }
 
-static void file_handle_wait(EventTarget* target, FileHandle* handle) {
+static void file_handle_wait(EventTarget* target, FileHandle* handle, FileHandleHandler handler,
+                             void* ctx) {
     assert(target);
     assert(handle);
+    assert(handler);
 
     A3_REF(handle);
-    Event* event = event_create(target, EVENT_OPENAT_SYNTH);
+    Event* event = event_create(target, handler, ctx);
     A3_SLL_PUSH(Event)(&handle->waiting, event);
 }
 
@@ -80,14 +82,55 @@ static EventTarget* file_handle_target(FileHandle* handle) {
     return EVT(handle);
 }
 
-FileHandle* file_open(EventTarget* target, struct io_uring* uring, A3CString path, int32_t flags) {
-    return file_openat(target, uring, NULL, path, flags);
-}
-
-FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle* dir,
-                        A3CString name, int32_t flags) {
+static void file_handle_stat_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                    bool success, int32_t status) {
     assert(target);
     assert(uring);
+    (void)ctx;
+
+    FileHandle* handle = EVT_PTR(target, FileHandle);
+    assert(file_handle_waiting(handle));
+
+    // Unref.
+    if (file_handle_close(handle, uring))
+        return;
+
+    // If there was an error, deliver it. Otherwise, wait for the open.
+    if (!success) {
+        handle->file = status;
+        event_synth_deliver(&handle->waiting, uring, status);
+    }
+}
+
+static void file_handle_openat_handle(EventTarget* target, struct io_uring* uring, void* ctx,
+                                      bool success, int32_t status) {
+    assert(target);
+    assert(uring);
+    (void)ctx;
+    (void)success;
+
+    FileHandle* handle = EVT_PTR(target, FileHandle);
+    assert(file_handle_waiting(handle));
+
+    // Unref.
+    if (file_handle_close(handle, uring))
+        return;
+
+    handle->file = status;
+    event_synth_deliver(&handle->waiting, uring, status);
+}
+
+FileHandle* file_open(EventTarget* target, struct io_uring* uring, FileHandleHandler handler,
+                      void* ctx, A3CString path, int32_t flags) {
+    assert(handler);
+    return file_openat(target, uring, handler, ctx, NULL, path, flags);
+}
+
+FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleHandler handler,
+                        void* ctx, FileHandle* dir, A3CString name, int32_t flags) {
+    assert(target);
+    assert(uring);
+    assert(handler);
     assert(name.ptr);
     assert(flags == O_RDONLY);
 
@@ -115,7 +158,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
         // an event so the caller is notified when the file is opened.
         if (file_handle_waiting(handle)) {
             a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
-            file_handle_wait(target, handle);
+            file_handle_wait(target, handle, handler, ctx);
             return handle;
         }
 
@@ -130,17 +173,17 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandle*
     handle->path = A3_S_CONST(path);
     handle->file = FILE_HANDLE_WAITING;
 
-    if (!event_stat_submit(file_handle_target(handle), uring, handle->path, FILE_STATX_MASK,
-                           &handle->stat, IOSQE_IO_LINK) ||
-        !event_openat_submit(file_handle_target(handle), uring, dir ? file_handle_fd(dir) : -1,
-                             handle->path, flags, 0)) {
+    if (!event_stat_submit(file_handle_target(handle), uring, file_handle_stat_handle, NULL,
+                           handle->path, FILE_STATX_MASK, &handle->stat, IOSQE_IO_LINK) ||
+        !event_openat_submit(file_handle_target(handle), uring, file_handle_openat_handle, NULL,
+                             dir ? file_handle_fd(dir) : -1, handle->path, flags, 0)) {
         a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
         a3_string_free(&path);
         free(handle);
         return NULL;
     }
 
-    file_handle_wait(target, handle);
+    file_handle_wait(target, handle, handler, ctx);
     A3_CACHE_INSERT(A3CString, FileHandlePtr)
     (&FILE_CACHE, handle->path, handle, uring);
 
@@ -153,7 +196,10 @@ fd file_handle_fd(FileHandle* handle) {
     return handle->file;
 }
 
-fd file_handle_fd_unchecked(FileHandle* handle) { return handle->file; }
+fd file_handle_fd_unchecked(FileHandle* handle) {
+    assert(handle);
+    return handle->file;
+}
 
 struct statx* file_handle_stat(FileHandle* handle) {
     assert(handle);
@@ -182,7 +228,7 @@ bool file_handle_close(FileHandle* handle, struct io_uring* uring) {
         return false; // Other users remain.
 
     if (handle->file >= 0)
-        event_close_submit(NULL, uring, handle->file, 0, EVENT_FALLBACK_ALLOW);
+        event_close_submit(NULL, uring, NULL, NULL, handle->file, 0, EVENT_FALLBACK_ALLOW);
     a3_string_free((A3String*)&handle->path);
     free(handle);
     return true;
@@ -192,22 +238,4 @@ void file_cache_destroy(struct io_uring* uring) {
     assert(uring);
 
     A3_CACHE_CLEAR(A3CString, FileHandlePtr)(&FILE_CACHE, uring);
-}
-
-void file_handle_event_handle(FileHandle* handle, struct io_uring* uring, int32_t status,
-                              uint32_t flags) {
-    assert(handle);
-    assert(file_handle_waiting(handle));
-    assert(uring);
-
-    // Unref.
-    if (file_handle_close(handle, uring))
-        return;
-
-    if (flags & EVENT_FLAG_CHAIN)
-        return;
-
-    handle->file = status;
-
-    event_synth_deliver(&handle->waiting, uring, status);
 }

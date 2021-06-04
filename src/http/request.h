@@ -44,4 +44,4 @@ HttpResponse*   http_request_response(HttpRequest*);
 void http_request_init(HttpRequest*);
 void http_request_reset(HttpRequest*);
 
-HttpRequestResult http_request_handle(HttpConnection*, struct io_uring*);
+bool http_request_handle(Connection*, struct io_uring*, bool success, int32_t status);

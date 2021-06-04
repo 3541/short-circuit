@@ -68,3 +68,9 @@ A3_ALWAYS_INLINE bool http_connection_keep_alive(HttpConnection* conn) {
         return false;
     return conn->connection_type == HTTP_CONNECTION_TYPE_KEEP_ALIVE;
 }
+
+A3_ALWAYS_INLINE HttpConnection* connection_http(Connection* conn) {
+    assert(conn);
+
+    return A3_CONTAINER_OF(conn, HttpConnection, conn);
+}

@@ -69,7 +69,7 @@ static HttpRequestStateResult http_request_method_handle(HttpRequest* req, struc
     case HTTP_METHOD_BREW:
         conn->version = HTCPCP_VERSION_10;
         A3_RET_MAP(http_response_error_submit(http_request_response(req), uring,
-                                              HTTP_STATUS_IM_A_TEAPOT, HTTP_RESPONSE_ALLOW),
+                                              HTCPCP_STATUS_IM_A_TEAPOT, HTTP_RESPONSE_ALLOW),
                    HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     case HTTP_METHOD_INVALID:
     case HTTP_METHOD_UNKNOWN:
@@ -102,9 +102,16 @@ void http_request_reset(HttpRequest* req) {
 }
 
 // Try to parse as much of the HTTP request as possible.
-HttpRequestResult http_request_handle(HttpConnection* conn, struct io_uring* uring) {
-    assert(conn);
+bool http_request_handle(Connection* connection, struct io_uring* uring, bool success,
+                         int32_t status) {
+    assert(connection);
     assert(uring);
+    assert(success);
+    (void)success;
+    (void)status;
+
+    HttpConnection* conn = connection_http(connection);
+    // TODO: Get more data here instead of returning the error up.
 
     HttpRequestStateResult rc = HTTP_REQUEST_STATE_ERROR;
 
@@ -112,19 +119,19 @@ HttpRequestResult http_request_handle(HttpConnection* conn, struct io_uring* uri
     switch (conn->state) {
     case HTTP_CONNECTION_INIT:
         if ((rc = http_request_first_line_parse(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
-            return (HttpRequestResult)rc;
+            break;
         // fallthrough
     case HTTP_CONNECTION_PARSED_FIRST_LINE:
         if ((rc = http_request_headers_add(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
-            return (HttpRequestResult)rc;
+            break;
         // fallthrough
     case HTTP_CONNECTION_ADDED_HEADERS:
         if ((rc = http_request_headers_parse(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
-            return (HttpRequestResult)rc;
+            break;
         // fallthrough
     case HTTP_CONNECTION_PARSED_HEADERS:
         if ((rc = http_request_method_handle(&conn->request, uring)) != HTTP_REQUEST_STATE_DONE)
-            return (HttpRequestResult)rc;
+            break;
         // fallthrough
     case HTTP_CONNECTION_OPENING_FILE:
     case HTTP_CONNECTION_RESPONDING:
@@ -132,6 +139,17 @@ HttpRequestResult http_request_handle(HttpConnection* conn, struct io_uring* uri
         return HTTP_REQUEST_COMPLETE;
     }
 
-    a3_log_fmt(LOG_TRACE, "State: %d", conn->state);
-    A3_PANIC("TODO: Handle whatever request did this.");
+    switch (rc) {
+    case HTTP_REQUEST_STATE_BAIL:
+    case HTTP_REQUEST_STATE_DONE:
+    case HTTP_REQUEST_STATE_SENDING:
+        return true;
+    case HTTP_REQUEST_STATE_ERROR:
+        return false;
+    case HTTP_REQUEST_STATE_NEED_DATA:
+        break;
+    }
+
+    // Request more data.
+    return connection_recv_submit(connection, uring, http_request_handle);
 }

@@ -41,9 +41,38 @@ static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
 
 A3_LL_DEFINE_METHODS(Timeout)
 
+static bool timeout_schedule_next(TimeoutQueue*, struct io_uring*);
+
 void timeout_queue_init(TimeoutQueue* timeouts) {
     assert(timeouts);
     A3_LL_INIT(Timeout)(&timeouts->queue);
+}
+
+static void timeout_handle(EventTarget* target, struct io_uring* uring, void* ctx, bool success,
+                           int32_t status) {
+    assert(target);
+    assert(uring);
+    assert(status > 0 || status == -ETIME);
+    (void)ctx;
+    (void)success;
+    (void)status;
+
+    TimeoutQueue* timeouts = EVT_PTR(target, TimeoutQueue);
+
+    a3_log_msg(LOG_TRACE, "Timeout firing.");
+
+    struct timespec current;
+    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
+
+    Timeout* peek;
+    while ((peek = A3_LL_PEEK(Timeout)(&timeouts->queue)) &&
+           timespec_compare(peek->threshold, current) <= 0) {
+        Timeout* timeout = A3_LL_DEQUEUE(Timeout)(&timeouts->queue);
+        timeout->fire(timeout, uring);
+    }
+
+    if (!timeout_schedule_next(timeouts, uring))
+        a3_log_msg(LOG_ERROR, "Unable to schedule timeout.");
 }
 
 static bool timeout_schedule_next(TimeoutQueue* timeouts, struct io_uring* uring) {
@@ -54,7 +83,8 @@ static bool timeout_schedule_next(TimeoutQueue* timeouts, struct io_uring* uring
     if (!next)
         return true;
 
-    return event_timeout_submit(EVT(timeouts), uring, &next->threshold, IORING_TIMEOUT_ABS);
+    return event_timeout_submit(EVT(timeouts), uring, timeout_handle, NULL, &next->threshold,
+                                IORING_TIMEOUT_ABS);
 }
 
 bool timeout_schedule(TimeoutQueue* timeouts, Timeout* timeout, struct io_uring* uring) {
@@ -84,25 +114,4 @@ bool timeout_cancel(Timeout* timeouts) {
     A3_LL_REMOVE(Timeout)(timeouts);
 
     return true;
-}
-
-bool timeout_event_handle(TimeoutQueue* timeouts, struct io_uring* uring, int32_t status) {
-    assert(timeouts);
-    assert(uring);
-    assert(status > 0 || status == -ETIME);
-    (void)status;
-
-    a3_log_msg(LOG_TRACE, "Timeout firing.");
-
-    struct timespec current;
-    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
-
-    Timeout* peek;
-    while ((peek = A3_LL_PEEK(Timeout)(&timeouts->queue)) &&
-           timespec_compare(peek->threshold, current) <= 0) {
-        Timeout* timeout = A3_LL_DEQUEUE(Timeout)(&timeouts->queue);
-        A3_TRYB(timeout->fire(timeout, uring));
-    }
-
-    return timeout_schedule_next(timeouts, uring);
 }

@@ -29,49 +29,84 @@
 #include "event/handle.h"
 #include "forward.h"
 
+// An event to be submitted asynchronously.
 struct Event {
     A3_POOL_ALLOCATED_PRIV_NEW(Event)
 public:
+    // Event queues use an inline linked list.
     A3_SLL_NODE(Event);
 
-    static constexpr int32_t EXPECT_NONE        = -255;
-    static constexpr int32_t EXPECT_NONNEGATIVE = -254;
-    static constexpr int32_t EXPECT_POSITIVE    = -253;
+    // A caller can set an expected return code, either in the form of a status "class" described
+    // here, or a precise value.
+    enum class ExpectedStatus : int32_t {
+        None        = INT32_MIN,
+        Nonnegative = INT32_MIN + 1,
+        Positive    = INT32_MIN + 2,
+    };
 
 private:
-    EventType    type { EVENT_INVALID };
-    int32_t      status { 0 };
-    uint32_t     flags { 0 };
+    bool success { true };
+    union {
+        ExpectedStatus expected_status;
+        int32_t        expected_return;
+        int32_t        status;
+    };
     EventTarget* target { nullptr };
+
+    // On completion, the handler is called. The context variable can be anything, but will in many
+    // cases be another callback to be invoked by a more general handler. See connection.c.
+    EventHandler handler { nullptr };
+    void*        handler_ctx { nullptr };
 
     // For access to the status.
     friend void event_synth_deliver(EventQueue*, struct io_uring*, int32_t status);
     // For access to the target and status.
     friend void event_handle_all(EventQueue*, struct io_uring*);
     // For initialization.
-    friend Event* event_create(EventTarget*, EventType);
+    friend Event* event_create(EventTarget*, EventHandler, void*);
 
-    Event(EventTarget*, EventType, int32_t expected_return, bool chain, uint32_t flags,
-          bool force_handle, bool queue);
+    Event(EventTarget*, EventHandler, void* cb_data, int32_t expected_return, bool queue);
     Event(const Event&) = delete;
     Event(Event&&)      = delete;
 
-    void set_failed(bool failed) {
-        if (failed)
-            flags |= EVENT_FLAG_FAIL;
+    void set_failed(bool failed) { success = !failed; }
+
+    void set_status(int32_t new_status) {
+        switch (expected_status) {
+        case ExpectedStatus::None:
+            break;
+        case ExpectedStatus::Nonnegative:
+            set_failed(new_status < 0);
+            break;
+        case ExpectedStatus::Positive:
+            set_failed(new_status <= 0);
+            break;
+        default:
+            set_failed(new_status != expected_return);
+        }
+
+        status = new_status;
     }
+
     bool canceled() const { return !target; }
 
 public:
-    static std::unique_ptr<Event> create(EventTarget* target, EventType ty, int32_t expected_return,
-                                         bool chain = false, uint32_t flags = 0,
-                                         bool force_handle = false, bool queue = true) {
+    static std::unique_ptr<Event> create(EventTarget* target, EventHandler handler,
+                                         void* handler_ctx, int32_t expected_return,
+                                         bool queue = true) {
         // The Event must be explicitly constructed because `make_unique` cannot
         // see the constructor.
-        return std::unique_ptr<Event> { new Event { target, ty, expected_return, chain, flags,
-                                                    force_handle, queue } };
+        return std::unique_ptr<Event> { new Event { target, handler, handler_ctx, expected_return,
+                                                    queue } };
     }
 
-    void handle(struct io_uring&);
+    static std::unique_ptr<Event> create(EventTarget* target, EventHandler handler,
+                                         void* handler_ctx, ExpectedStatus expected_status,
+                                         bool queue = true) {
+        return create(target, handler, handler_ctx, static_cast<int32_t>(expected_status), queue);
+    }
+
     void cancel() { target = nullptr; }
+
+    void handle(struct io_uring&);
 };

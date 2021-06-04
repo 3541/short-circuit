@@ -33,7 +33,7 @@ A3_H_BEGIN
 struct Timeout;
 typedef struct Timeout Timeout;
 
-typedef bool (*TimeoutExec)(Timeout*, struct io_uring*);
+typedef void (*TimeoutExec)(Timeout*, struct io_uring*);
 
 A3_LL_DEFINE_STRUCTS(Timeout)
 
