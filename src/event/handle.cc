@@ -121,6 +121,10 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
             continue;
         }
 
+        auto* target = event->target;
+        // Remove from the in-flight list.
+        A3_SLL_REMOVE(Event)(target, event);
+
         if (event->canceled()) {
             delete event;
             continue;
@@ -141,10 +145,6 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         }
         event->status = status;
 
-        auto* target = event->target;
-
-        // Remove from the in-flight list.
-        A3_SLL_REMOVE(Event)(target, event);
 
         // Add to the to-process queue.
         A3_SLL_ENQUEUE(Event)(queue, event);
