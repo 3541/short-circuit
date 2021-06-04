@@ -76,9 +76,9 @@ static struct rlimit rlimit_maximize(int resource) {
     return lim;
 }
 
-static void event_check_rlimits(void) {
+// Check and set resource limits.
+static void event_limits_init(void) {
     struct rlimit lim_memlock = rlimit_maximize(RLIMIT_MEMLOCK);
-
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
     if (lim_memlock.rlim_cur <= 96 * URING_ENTRIES)
@@ -97,7 +97,7 @@ static void event_check_rlimits(void) {
 
 struct io_uring event_init() {
     event_check_kver();
-    event_check_rlimits();
+    event_limits_init();
 
     struct io_uring ret;
 
