@@ -119,8 +119,14 @@ find_package(GTest)
 if (GTest_FOUND)
   set(GTEST_LIB GTest::gtest_main)
 else()
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+  )
+
   set(INSTALL_GTEST FALSE CACHE BOOL "Don't install GTest.")
-  add_subdirectory(extern/googletest EXCLUDE_FROM_ALL)
+  FetchContent_MakeAvailable(googletest)
   set(GTEST_LIB gtest_main)
 
   if (WIN32 AND NOT MSVC)
