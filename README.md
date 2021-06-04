@@ -1,5 +1,7 @@
 # Short Circuit
 
+[![.github/workflows/build.yml](https://github.com/3541/short-circuit/actions/workflows/build.yml/badge.svg)](https://github.com/3541/short-circuit/actions/workflows/build.yml)
+
 A lightweight and performant web server for Linux, built on top of io_uring. Capable of ~~60,000~~
 ~~80,000~~ ~~120,000~~ ~~135,000 requests per second on static files~~. Suffice it to say, it is
 fast, and getting faster. Actual, more rigorous benchmarks will come once the project gets closer to
