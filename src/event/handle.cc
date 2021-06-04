@@ -113,6 +113,10 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
         event->set_status(status);
 
+        if (!event->success && event->status == -ECANCELED) {
+            delete event;
+            continue;
+        }
 
         // Add to the to-process queue.
         A3_SLL_ENQUEUE(Event)(queue, event);
