@@ -167,7 +167,7 @@ static void config_parse(int argc, char** argv) {
     CONFIG.web_root = A3_CS_OF(realpath(A3_S_AS_C_STR(CONFIG.web_root), NULL));
 }
 
-int main(int argc, char** argv) {
+/*int main(int argc, char** argv) {
     (void)argv;
 
     a3_log_init(stderr, CONFIG.log_level);
@@ -236,4 +236,4 @@ int main(int argc, char** argv) {
     file_cache_destroy(&uring);
 
     return EXIT_SUCCESS;
-}
+    }*/
