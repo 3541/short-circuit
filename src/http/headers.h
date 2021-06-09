@@ -26,7 +26,7 @@
 #include "forward.h"
 #include "http/types.h"
 
-A3_HT_DEFINE_STRUCTS(A3CString, A3String);
+A3_HT_DEFINE_STRUCTS(A3CString, A3String)
 
 typedef struct HttpHeaders {
     A3_HT(A3CString, A3String) headers;

@@ -42,8 +42,8 @@ A3_H_BEGIN
 
 typedef struct Event Event;
 
-A3_SLL_DEFINE_STRUCTS(Event);
-A3_SLL_DECLARE_METHODS(Event);
+A3_SLL_DEFINE_STRUCTS(Event)
+A3_SLL_DECLARE_METHODS(Event)
 
 typedef A3_SLL(Event) EventTarget;
 typedef void (*EventHandler)(EventTarget*, struct io_uring*, void* ctx, bool success,

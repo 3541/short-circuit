@@ -46,7 +46,7 @@ using std::unique_ptr;
 using ExpectedStatus = Event::ExpectedStatus;
 
 A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
-A3_SLL_DEFINE_METHODS(Event);
+A3_SLL_DEFINE_METHODS(Event)
 
 Event::Event(EventTarget* tgt, EventHandler h, void* h_ctx, int32_t expected, bool queue) :
     status { expected }, target { tgt }, handler { h }, handler_ctx { h_ctx } {

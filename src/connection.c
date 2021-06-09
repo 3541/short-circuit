@@ -416,6 +416,6 @@ bool connection_close_submit(Connection* conn, struct io_uring* uring, Connectio
     if (timeout_is_scheduled(&conn->timeout))
         timeout_cancel(&conn->timeout);
 
-    return event_close_submit(EVT(conn), uring, connection_close_handle, handler, conn->socket, 0,
+    return event_close_submit(EVT(conn), uring, connection_close_handle, (void*)handler, conn->socket, 0,
                               EVENT_FALLBACK_ALLOW);
 }

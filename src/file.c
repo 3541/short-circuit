@@ -42,9 +42,9 @@
 
 typedef FileHandle* FileHandlePtr;
 
-A3_CACHE_DEFINE_STRUCTS(A3CString, FileHandlePtr);
-A3_CACHE_DECLARE_METHODS(A3CString, FileHandlePtr);
-A3_CACHE_DEFINE_METHODS(A3CString, FileHandlePtr, A3_CS_PTR, A3_S_LEN, a3_string_cmp);
+A3_CACHE_DEFINE_STRUCTS(A3CString, FileHandlePtr)
+A3_CACHE_DECLARE_METHODS(A3CString, FileHandlePtr)
+A3_CACHE_DEFINE_METHODS(A3CString, FileHandlePtr, A3_CS_PTR, A3_S_LEN, a3_string_cmp)
 typedef A3_CACHE(A3CString, FileHandlePtr) FileCache;
 
 static FileCache FILE_CACHE;
