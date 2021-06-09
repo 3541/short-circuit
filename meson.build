@@ -9,7 +9,7 @@ project(
     'cpp_rtti=false',
     'cpp_eh=none',
 
-    'warning_level=3',
+    'warning_level=2',
     'buildtype=debug',
     'b_ndebug=if-release',
     'default_library=static'
