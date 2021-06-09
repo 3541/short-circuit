@@ -1,7 +1,2 @@
-[wrap-git]
-url = https://github.com/google/highwayhash.git
-revision = head
-patch_directory = highwayhash
-
-[provide]
-dependency_names = highwayhash_c
+[wrap-redirect]
+filename = a3/subprojects/highwayhash.wrap
