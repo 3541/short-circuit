@@ -59,6 +59,8 @@ endif
 sc_include = include_directories('src')
 sc_src = files(
   [
+    'src/main.c',
+
     'src/event/init.c',
     'src/event/mod.cc',
     'src/event/handle.cc',
@@ -78,12 +80,13 @@ sc_src = files(
 
 liburing = dependency('liburing')
 a3 = dependency('a3', fallback: ['a3', 'a3_dep'])
+a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 
 sc = executable(
   'sc',
   sc_src,
   include_directories: sc_include,
-  dependencies: [liburing, a3],
+  dependencies: [liburing, a3, a3_hash],
   c_args: sc_c_flags + sc_common_flags,
   cpp_args: sc_cxx_flags + sc_common_flags,
   gnu_symbol_visibility: 'hidden',

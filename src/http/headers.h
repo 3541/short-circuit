@@ -47,6 +47,6 @@ ssize_t              http_header_content_length(HttpHeaders*);
     A3Buffer _header_buf = {                                                                       \
         .data = _header_val, .tail = _header_val.len, .head = 0, .max_cap = _header_val.len        \
     };                                                                                             \
-    for (A3CString VAL = A3_S_CONST(a3_buf_token_next(&_header_buf, A3_CS(",")));                  \
+    for (A3CString VAL = A3_S_CONST(a3_buf_token_next(&_header_buf, A3_CS(","), A3_PRES_END_NO));  \
          VAL.ptr && a3_buf_len(&_header_buf);                                                      \
-         VAL = A3_S_CONST(a3_buf_token_next(&_header_buf, A3_CS(","))))
+         VAL = A3_S_CONST(a3_buf_token_next(&_header_buf, A3_CS(","), A3_PRES_END_NO)))
