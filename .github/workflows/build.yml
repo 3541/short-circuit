@@ -1,6 +1,7 @@
 name: Build and test
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '**/*.c'
@@ -8,8 +9,8 @@ on:
       - '**/*.cc'
       - '**/*.hh'
       - '.github/workflows/build.yml'
-      - 'CMakeLists.txt'
-      - 'extern/liba3'
+      - '**/meson.build'
+      - 'subprojects/a3.wrap'
       - 'boilerplate'
 
 jobs:
@@ -33,17 +34,14 @@ jobs:
         make
         sudo make install
 
-    - name: Create build directory
-      run: cmake -E make_directory ${{runner.workspace}}/build
+    - name: Install dependencies
+      run: pip install meson ninja
 
     - name: Configure
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DUSE_WERROR=1
+      run: meson setup --buildtype debug --werror -Db_sanitize=address,undefined build
 
     - name: Build
-      working-directory: ${{runner.workspace}}/build
-      run: cmake --build .
+      run: meson compile -C build
 
     - name: Test
-      working-directory: ${{runner.workspace}}/build
-      run: cmake --build . -t sc_check
+      run: meson test -C build
