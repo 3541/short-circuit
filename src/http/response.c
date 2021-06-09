@@ -236,7 +236,7 @@ static bool http_response_prep_header_date(HttpResponse* resp) {
     assert(resp);
 
     static THREAD_LOCAL uint8_t   DATE_BUF[HTTP_TIME_BUF_LENGTH] = { '\0' };
-    static THREAD_LOCAL A3CString DATE                           = A3_CS_NULL;
+    static THREAD_LOCAL A3CString DATE                           = A3_CS_NULL_INIT;
     static THREAD_LOCAL time_t    LAST_TIME                      = 0;
 
     time_t current = time(NULL);

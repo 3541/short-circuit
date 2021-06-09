@@ -156,20 +156,22 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
 
     // [<scheme>://][authority]<path>[query][fragment]
     if (a3_buf_memmem(buf, A3_CS("://")).ptr) {
-        ret->scheme = uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"))));
+        ret->scheme =
+            uri_scheme_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS("://"), A3_PRES_END_NO)));
         if (ret->scheme == URI_SCHEME_INVALID)
             return URI_PARSE_BAD_URI;
     }
 
     // [authority]<path>[query][fragment]
     if (buf->data.ptr[buf->head] != '/' && ret->scheme != URI_SCHEME_UNSPECIFIED) {
-        ret->authority = a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"))));
+        ret->authority =
+            a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"), A3_PRES_END_NO)));
         A3_TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }
 
     // <path>[query][fragment]
-    ret->path = a3_buf_token_next_copy(buf, A3_CS("#?\r\n"));
+    ret->path = a3_buf_token_next_copy(buf, A3_CS("#?\r\n"), A3_PRES_END_NO);
     A3_TRYB_MAP(ret->path.ptr, URI_PARSE_BAD_URI);
     if (ret->path.len == 0)
         return URI_PARSE_BAD_URI;
@@ -178,14 +180,14 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
         return URI_PARSE_SUCCESS;
 
     // [query][fragment]
-    ret->query = a3_buf_token_next_copy(buf, A3_CS("#"));
+    ret->query = a3_buf_token_next_copy(buf, A3_CS("#"), A3_PRES_END_NO);
     A3_TRYB_MAP(ret->query.ptr, URI_PARSE_BAD_URI);
     A3_TRYB_MAP(uri_decode(ret->query), URI_PARSE_BAD_URI);
     if (a3_buf_len(buf) == 0)
         return URI_PARSE_SUCCESS;
 
     // [fragment]
-    ret->fragment = a3_buf_token_next_copy(buf, A3_CS(""));
+    ret->fragment = a3_buf_token_next_copy(buf, A3_CS(""), A3_PRES_END_NO);
     A3_TRYB_MAP(ret->fragment.ptr, URI_PARSE_BAD_URI);
     uri_decode(ret->fragment);
     assert(a3_buf_len(buf) == 0);

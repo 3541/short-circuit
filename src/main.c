@@ -47,10 +47,10 @@
 
 Config CONFIG = { .web_root    = DEFAULT_WEB_ROOT,
                   .listen_port = DEFAULT_LISTEN_PORT,
-#if defined(DEBUG_BUILD) && !defined(PROFILE)
-                  .log_level = LOG_TRACE
-#else
+#ifdef NDEBUG
                   .log_level = LOG_WARN
+#else
+                  .log_level = LOG_TRACE
 #endif
 };
 

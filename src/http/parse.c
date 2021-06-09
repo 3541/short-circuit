@@ -67,7 +67,8 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
             HTTP_REQUEST_STATE_BAIL, HTTP_REQUEST_STATE_ERROR);
     }
 
-    conn->method = http_request_method_parse(A3_S_CONST(a3_buf_token_next(buf, A3_CS(" \r\n"))));
+    conn->method = http_request_method_parse(
+        A3_S_CONST(a3_buf_token_next(buf, A3_CS(" \r\n"), A3_PRES_END_NO)));
     switch (conn->method) {
     case HTTP_METHOD_INVALID:
         a3_log_msg(LOG_TRACE, "Got an invalid method.");
@@ -84,7 +85,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
         break;
     }
 
-    A3String target_str = a3_buf_token_next(buf, A3_CS(" \r\n"));
+    A3String target_str = a3_buf_token_next(buf, A3_CS(" \r\n"), A3_PRES_END_NO);
     if (!target_str.ptr)
         A3_RET_MAP(
             http_response_error_submit(resp, uring, HTTP_STATUS_BAD_REQUEST, HTTP_RESPONSE_CLOSE),
@@ -111,7 +112,7 @@ HttpRequestStateResult http_request_first_line_parse(HttpRequest* req, struct io
 
     // Need to only eat one "\r\n".
     conn->version =
-        http_version_parse(A3_S_CONST(a3_buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true)));
+        http_version_parse(A3_S_CONST(a3_buf_token_next(buf, HTTP_NEWLINE, A3_PRES_END_YES)));
     if (!a3_buf_consume(buf, HTTP_NEWLINE) || conn->version == HTTP_VERSION_INVALID ||
         conn->version == HTTP_VERSION_UNKNOWN ||
         (conn->version == HTCPCP_VERSION_10 && conn->method != HTTP_METHOD_BREW)) {
@@ -153,9 +154,8 @@ HttpRequestStateResult http_request_headers_add(HttpRequest* req, struct io_urin
             if (!a3_buf_memmem(buf, HTTP_NEWLINE).ptr)
                 return HTTP_REQUEST_STATE_NEED_DATA;
 
-            A3CString name = A3_S_CONST(a3_buf_token_next(buf, A3_CS(": ")));
-            A3CString value =
-                A3_S_CONST(a3_buf_token_next(buf, HTTP_NEWLINE, .preserve_end = true));
+            A3CString name  = A3_S_CONST(a3_buf_token_next(buf, A3_CS(": "), A3_PRES_END_NO));
+            A3CString value = A3_S_CONST(a3_buf_token_next(buf, HTTP_NEWLINE, A3_PRES_END_YES));
             A3_TRYB_MAP(a3_buf_consume(buf, HTTP_NEWLINE), HTTP_REQUEST_STATE_ERROR);
 
             // RFC7230 § 5.4: Invalid field-value -> 400.
