@@ -16,9 +16,6 @@ project(
   ]
 )
 
-# TODO: fvisibility=hidden.
-# TODO: liburing.
-# TODO: liba3.
 # TODO: Library rework and tests.
 
 c = meson.get_compiler('c')
