@@ -15,20 +15,17 @@ interface) over its competitors (POSIX `aio`, `epoll`, etc...).
 Dependencies:
 * A C compiler supporting C11.
 * A C++ compiler supporting C++11.
-* CMake 3.9 or later.
+* Meson 0.55 or later.
 * [liburing](https://github.com/axboe/liburing).
 * Linux 5.7 or later.
 
-To build, create a build directory and change into it. Then run `cmake ..
-[-DCMAKE_BUILD_TYPE=<Debug|Release>]` to set up the build system. If
-[Ninja](https://ninja-build.org/) is installed, specify `-GNinja` for faster builds. Alternatively,
-the provided `configure` script will generate several build configurations under `build/`.
-Afterwards, run `cmake --build .` from the build directory to build the project.
+To build, first ensure all submodules have been downloaded (`git submodule update --init
+--recursive`), and then run `meson setup <BUILDDIR>` to configure the build system in `BUILDDIR`.
+Alternatively, a script to generate various build configurations is provided (`./configure`). After,
+run `meson compile -C <BUILDDIR>` to build the project.
 
 This produces a binary `sc`, which can be run directly. By default, the server listens on port
 `8000`. `sc --help` will show the available options and parameters.
-
-To build and run the test suite, invoke `cmake --build . -t sc_check`.
 
 Note: on most Linux distributions, you may see warnings about the locked memory and open file
 resource limits. See [here](#queue-size) for more information.
