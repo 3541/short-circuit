@@ -56,7 +56,7 @@ void Event::handle(struct io_uring& uring) {
 }
 
 // Handle all events pending on the queue.
-void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
+static void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
     assert(queue);
     assert(uring);
 
