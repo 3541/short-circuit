@@ -64,7 +64,7 @@ static void sigint_handle(int no) {
 static void webroot_check_exists(A3CString root) {
     struct stat s;
 
-    if (stat(A3_S_AS_C_STR(root), &s) < 0)
+    if (stat(a3_string_cstr(root), &s) < 0)
         A3_PANIC_FMT("Web root %s is inaccessible.", root);
     if (!S_ISDIR(s.st_mode))
         A3_PANIC_FMT("Web root %s is not a directory.", root);
@@ -161,10 +161,10 @@ static void config_parse(int argc, char** argv) {
             usage();
         }
 
-        CONFIG.web_root = A3_CS_OF(argv[optind]);
+        CONFIG.web_root = a3_cstring_from(argv[optind]);
     }
 
-    CONFIG.web_root = A3_CS_OF(realpath(A3_S_AS_C_STR(CONFIG.web_root), NULL));
+    CONFIG.web_root = a3_cstring_from(realpath(a3_string_cstr(CONFIG.web_root), NULL));
 }
 
 int main(int argc, char** argv) {

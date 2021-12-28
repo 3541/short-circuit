@@ -35,17 +35,15 @@ typedef struct Timeout Timeout;
 
 typedef void (*TimeoutExec)(Timeout*, struct io_uring*);
 
-A3_LL_DEFINE_STRUCTS(Timeout)
-
 struct Timeout {
     Timespec    threshold;
     TimeoutExec fire;
-    A3_LL_NODE(Timeout);
+    A3LL        queue_link;
 };
 
 typedef struct TimeoutQueue {
     EVENT_TARGET;
-    A3_LL(Timeout) queue;
+    A3LL queue;
 } TimeoutQueue;
 
 void timeout_queue_init(TimeoutQueue*);

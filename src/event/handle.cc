@@ -39,7 +39,7 @@
 void event_queue_init(EventQueue* queue) {
     assert(queue);
 
-    A3_SLL_INIT(Event)(queue);
+    a3_sll_init(queue);
 }
 
 void Event::handle(struct io_uring& uring) {
@@ -63,12 +63,12 @@ static void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
     if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
         return;
 
-    auto* event = A3_SLL_PEEK(Event)(queue);
+    auto* event = Event::from_link(a3_sll_peek(queue));
     while (event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE) {
-        event = A3_SLL_DEQUEUE(Event)(queue);
+        event = Event::from_link(a3_sll_dequeue(queue));
         event->handle(*uring);
 
-        event = A3_SLL_PEEK(Event)(queue);
+        event = Event::from_link(a3_sll_peek(queue));
     }
 }
 
@@ -77,8 +77,7 @@ void event_synth_deliver(EventQueue* queue, struct io_uring* uring, int32_t stat
     assert(queue);
     assert(uring);
 
-    for (auto* event = A3_SLL_PEEK(Event)(queue); event; event = A3_SLL_NEXT(Event)(event))
-        event->status = status;
+    A3_SLL_FOR_EACH(Event, event, queue, queue_link) { event->status = status; }
 
     event_queue_handle_all(queue, uring);
 }
@@ -104,7 +103,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
         auto* target = event->target;
         // Remove from the in-flight list.
-        A3_SLL_REMOVE(Event)(target, event);
+        a3_sll_remove(target, &event->queue_link);
 
         if (event->canceled()) {
             delete event;
@@ -119,7 +118,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         }
 
         // Add to the to-process queue.
-        A3_SLL_ENQUEUE(Event)(queue, event);
+        a3_sll_enqueue(queue, &event->queue_link);
     }
 
     // Now, handle as many of the queued CQEs as possible without filling the

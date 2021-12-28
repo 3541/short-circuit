@@ -36,8 +36,8 @@ typedef struct Connection Connection;
 struct Event;
 typedef struct Event Event;
 
-typedef struct EventA3SLL EventTarget;
-typedef struct EventA3SLL EventQueue;
+typedef struct A3SLL EventQueue;
+typedef struct A3SLL EventTarget;
 
 // http_connection.h
 struct HttpConnection;

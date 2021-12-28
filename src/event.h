@@ -27,7 +27,6 @@
 #include <unistd.h>
 
 #include <a3/cpp.h>
-#include <a3/platform/util.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 
@@ -42,10 +41,6 @@ A3_H_BEGIN
 
 typedef struct Event Event;
 
-A3_SLL_DEFINE_STRUCTS(Event)
-A3_SLL_DECLARE_METHODS(Event)
-
-typedef A3_SLL(Event) EventTarget;
 typedef void (*EventHandler)(EventTarget*, struct io_uring*, void* ctx, bool success,
                              int32_t status);
 
@@ -82,5 +77,7 @@ bool event_timeout_submit(EventTarget*, struct io_uring*, EventHandler, void* ct
 Event* event_create(EventTarget*, EventHandler, void* ctx);
 
 bool event_cancel_all(EventTarget*);
+
+A3SLink* event_queue_link(Event*);
 
 A3_H_END

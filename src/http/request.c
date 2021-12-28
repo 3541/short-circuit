@@ -23,7 +23,6 @@
 #include <liburing.h>
 
 #include <a3/log.h>
-#include <a3/platform/util.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
@@ -82,7 +81,7 @@ static HttpRequestStateResult http_request_method_handle(HttpRequest* req, struc
 void http_request_init(HttpRequest* req) {
     assert(req);
 
-    A3_STRUCT_ZERO(req);
+    memset(req, 0, sizeof(*req));
 
     req->transfer_encodings = HTTP_TRANSFER_ENCODING_IDENTITY;
     req->content_length     = HTTP_CONTENT_LENGTH_UNSPECIFIED;
@@ -98,7 +97,7 @@ void http_request_reset(HttpRequest* req) {
         a3_string_free(&req->target_path);
     http_headers_destroy(&req->headers);
 
-    A3_STRUCT_ZERO(req);
+    memset(req, 0, sizeof(*req));
 }
 
 // Try to parse as much of the HTTP request as possible.

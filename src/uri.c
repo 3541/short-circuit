@@ -50,7 +50,7 @@ static UriScheme uri_scheme_parse(A3CString name) {
 
 static bool uri_decode(A3String str) {
     assert(str.ptr);
-    const uint8_t* end = A3_S_END(A3_S_CONST(str));
+    const uint8_t* end = a3_string_end(A3_S_CONST(str));
 
     for (uint8_t *wp, *rp = wp = str.ptr; wp < end && rp < end && *wp && *rp; wp++) {
         switch (*rp) {
@@ -164,8 +164,7 @@ UriParseResult uri_parse(Uri* ret, A3String str) {
 
     // [authority]<path>[query][fragment]
     if (buf->data.ptr[buf->head] != '/' && ret->scheme != URI_SCHEME_UNSPECIFIED) {
-        ret->authority =
-            a3_string_clone(A3_S_CONST(a3_buf_token_next(buf, A3_CS("/"), A3_PRES_END_NO)));
+        ret->authority = a3_string_clone(a3_buf_token_next(buf, A3_CS("/"), A3_PRES_END_NO));
         A3_TRYB_MAP(ret->authority.ptr, URI_PARSE_BAD_URI);
         buf->data.ptr[--buf->head] = '/';
     }

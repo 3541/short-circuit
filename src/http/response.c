@@ -35,7 +35,6 @@
 
 #include <a3/buffer.h>
 #include <a3/log.h>
-#include <a3/platform/types_private.h>
 #include <a3/str.h>
 #include <a3/util.h>
 
@@ -217,7 +216,7 @@ static bool http_response_prep_header_num(HttpResponse* resp, A3CString name, si
 static bool http_response_prep_header_timestamp(HttpResponse* resp, A3CString name, time_t tv) {
     assert(resp);
 
-    static THREAD_LOCAL struct {
+    static A3_THREAD_LOCAL struct {
         time_t  tv;
         uint8_t buf[HTTP_TIME_BUF_LENGTH];
         size_t  len;
@@ -235,9 +234,9 @@ static bool http_response_prep_header_timestamp(HttpResponse* resp, A3CString na
 static bool http_response_prep_header_date(HttpResponse* resp) {
     assert(resp);
 
-    static THREAD_LOCAL uint8_t   DATE_BUF[HTTP_TIME_BUF_LENGTH] = { '\0' };
-    static THREAD_LOCAL A3CString DATE                           = A3_CS_NULL_INIT;
-    static THREAD_LOCAL time_t    LAST_TIME                      = 0;
+    static A3_THREAD_LOCAL uint8_t   DATE_BUF[HTTP_TIME_BUF_LENGTH] = { '\0' };
+    static A3_THREAD_LOCAL A3CString DATE                           = A3_CS_NULL;
+    static A3_THREAD_LOCAL time_t    LAST_TIME                      = 0;
 
     time_t current = time(NULL);
     if (current - LAST_TIME > 2 || !DATE.ptr) {

@@ -39,10 +39,10 @@
 
 static A3Pool* HTTP_CONNECTION_POOL = NULL;
 
-static void connection_pool_free_cb(A3PoolSlot* slot) {
+static void connection_pool_free_cb(void* slot) {
     assert(slot);
 
-    HttpConnection* conn = (HttpConnection*)slot;
+    HttpConnection* conn = slot;
     if (conn->conn.pipe[0] || conn->conn.pipe[1]) {
         close(conn->conn.pipe[0]);
         close(conn->conn.pipe[1]);
@@ -51,7 +51,7 @@ static void connection_pool_free_cb(A3PoolSlot* slot) {
 
 void http_connection_pool_init() {
     HTTP_CONNECTION_POOL = A3_POOL_OF(HttpConnection, CONNECTION_POOL_SIZE, A3_POOL_PRESERVE_BLOCKS,
-                                      connection_pool_free_cb);
+                                      NULL, connection_pool_free_cb);
 }
 
 HttpConnection* http_connection_new() {

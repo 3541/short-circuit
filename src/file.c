@@ -44,7 +44,7 @@ typedef FileHandle* FileHandlePtr;
 
 A3_CACHE_DEFINE_STRUCTS(A3CString, FileHandlePtr)
 A3_CACHE_DECLARE_METHODS(A3CString, FileHandlePtr)
-A3_CACHE_DEFINE_METHODS(A3CString, FileHandlePtr, A3_CS_PTR, A3_S_LEN, a3_string_cmp)
+A3_CACHE_DEFINE_METHODS(A3CString, FileHandlePtr, a3_string_cptr, a3_string_len, a3_string_cmp)
 typedef A3_CACHE(A3CString, FileHandlePtr) FileCache;
 
 static FileCache FILE_CACHE;
@@ -55,7 +55,7 @@ static void file_evict_callback(void* uring, A3CString* key, FileHandle** value)
     assert(key->ptr);
     assert(value);
 
-    a3_log_fmt(LOG_TRACE, "Evicting file " A3_S_F ".", A3_S_FA(*key));
+    a3_log_fmt(LOG_TRACE, "Evicting file " A3_S_F ".", A3_S_FORMAT(*key));
     file_handle_close(*value, uring);
 }
 
@@ -72,7 +72,7 @@ static void file_handle_wait(EventTarget* target, FileHandle* handle, FileHandle
 
     A3_REF(handle);
     Event* event = event_create(target, handler, ctx);
-    A3_SLL_PUSH(Event)(&handle->waiting, event);
+    a3_sll_push(&handle->waiting, event_queue_link(event));
 }
 
 static EventTarget* file_handle_target(FileHandle* handle) {
@@ -151,7 +151,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FA(path));
+        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FORMAT(path));
         a3_string_free(&path);
 
         // The handle is not ready, but an open request is in flight. Synthesize
@@ -166,7 +166,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
         return handle;
     }
 
-    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FA(path));
+    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FORMAT(path));
     FileHandle* handle = NULL;
     A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     A3_REF_INIT(handle);

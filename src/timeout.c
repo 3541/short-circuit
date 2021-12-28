@@ -32,20 +32,16 @@
 #include "event.h"
 #include "forward.h"
 
-A3_LL_DECLARE_METHODS(Timeout)
-
 // Compare a kernel timespec and libc timespec.
 static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
     return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-A3_LL_DEFINE_METHODS(Timeout)
-
 static bool timeout_schedule_next(TimeoutQueue*, struct io_uring*);
 
 void timeout_queue_init(TimeoutQueue* timeouts) {
     assert(timeouts);
-    A3_LL_INIT(Timeout)(&timeouts->queue);
+    a3_ll_init(&timeouts->queue);
 }
 
 static void timeout_handle(EventTarget* target, struct io_uring* uring, void* ctx, bool success,
@@ -64,10 +60,10 @@ static void timeout_handle(EventTarget* target, struct io_uring* uring, void* ct
     struct timespec current;
     A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
 
-    Timeout* peek;
-    while ((peek = A3_LL_PEEK(Timeout)(&timeouts->queue)) &&
-           timespec_compare(peek->threshold, current) <= 0) {
-        Timeout* timeout = A3_LL_DEQUEUE(Timeout)(&timeouts->queue);
+    A3LL* peek;
+    while ((peek = a3_ll_peek(&timeouts->queue)) &&
+           timespec_compare(A3_CONTAINER_OF(peek, Timeout, queue_link)->threshold, current) <= 0) {
+        Timeout* timeout = A3_CONTAINER_OF(a3_ll_dequeue(&timeouts->queue), Timeout, queue_link);
         timeout->fire(timeout, uring);
     }
 
@@ -79,11 +75,12 @@ static bool timeout_schedule_next(TimeoutQueue* timeouts, struct io_uring* uring
     assert(timeouts);
     assert(uring);
 
-    Timeout* next = A3_LL_PEEK(Timeout)(&timeouts->queue);
+    A3LL* next = a3_ll_peek(&timeouts->queue);
     if (!next)
         return true;
 
-    return event_timeout_submit(EVT(timeouts), uring, timeout_handle, NULL, &next->threshold,
+    return event_timeout_submit(EVT(timeouts), uring, timeout_handle, NULL,
+                                &A3_CONTAINER_OF(next, Timeout, queue_link)->threshold,
                                 IORING_TIMEOUT_ABS);
 }
 
@@ -91,27 +88,27 @@ bool timeout_schedule(TimeoutQueue* timeouts, Timeout* timeout, struct io_uring*
     assert(timeouts);
     assert(timeout);
     assert(uring);
-    assert(!timeout->_a3_ll_ptr.next && !timeout->_a3_ll_ptr.prev);
+    assert(!timeout_is_scheduled(timeout));
 
-    A3_LL_ENQUEUE(Timeout)(&timeouts->queue, timeout);
-    if (A3_LL_PEEK(Timeout)(&timeouts->queue) == timeout)
+    a3_ll_enqueue(&timeouts->queue, &timeout->queue_link);
+    if (a3_ll_peek(&timeouts->queue) == &timeout->queue_link)
         return timeout_schedule_next(timeouts, uring);
 
     return true;
 }
 
-bool timeout_is_scheduled(Timeout* timeouts) {
-    assert(timeouts);
+bool timeout_is_scheduled(Timeout* timeout) {
+    assert(timeout);
 
-    return A3_LL_IS_INSERTED(Timeout)(timeouts);
+    return timeout->queue_link.next && timeout->queue_link.prev;
 }
 
-bool timeout_cancel(Timeout* timeouts) {
-    assert(timeouts);
-    assert(timeouts->_a3_ll_ptr.next && timeouts->_a3_ll_ptr.prev);
+bool timeout_cancel(Timeout* timeout) {
+    assert(timeout);
+    assert(timeout_is_scheduled(timeout));
 
     // There is no need to actually fiddle with events here.
-    A3_LL_REMOVE(Timeout)(timeouts);
+    a3_ll_remove(&timeout->queue_link);
 
     return true;
 }

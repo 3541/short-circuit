@@ -24,7 +24,7 @@
 #include <a3/str.h>
 
 A3_HT_DECLARE_METHODS(A3CString, A3String)
-A3_HT_DEFINE_METHODS(A3CString, A3String, A3_CS_PTR, A3_S_LEN, a3_string_cmp)
+A3_HT_DEFINE_METHODS(A3CString, A3String, a3_string_cptr, a3_string_len, a3_string_cmp)
 
 static bool http_headers_combine(A3String* current_value, A3String new_value) {
     assert(current_value);
@@ -121,7 +121,7 @@ ssize_t http_header_content_length(HttpHeaders* headers) {
 
     HTTP_HEADER_FOR_EACH_VALUE(headers, A3_CS("Content-Length"), content_length) {
         char*   endptr     = NULL;
-        ssize_t new_length = strtol(A3_S_AS_C_STR(content_length), &endptr, 10);
+        ssize_t new_length = strtol(a3_string_cstr(content_length), &endptr, 10);
 
         if (*endptr != '\0' || (ret != HTTP_CONTENT_LENGTH_UNSPECIFIED && ret != new_length) ||
             new_length < 0)

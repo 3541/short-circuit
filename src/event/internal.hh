@@ -34,7 +34,7 @@ struct Event {
     A3_POOL_ALLOCATED_PRIV_NEW(Event)
 public:
     // Event queues use an inline linked list.
-    A3_SLL_NODE(Event);
+    A3SLink queue_link { nullptr };
 
     // A caller can set an expected return code, either in the form of a status "class" described
     // here, or a precise value.
@@ -66,8 +66,11 @@ private:
     friend Event* event_create(EventTarget*, EventHandler, void*);
 
     Event(EventTarget*, EventHandler, void* cb_data, int32_t expected_return, bool queue);
-    Event(const Event&) = delete;
+    Event(Event const&) = delete;
     Event(Event&&)      = delete;
+
+    Event& operator=(Event const&) = delete;
+    Event& operator=(Event&&) = delete;
 
     void set_failed(bool failed) { success = !failed; }
 
@@ -109,4 +112,6 @@ public:
     void cancel() { target = nullptr; }
 
     void handle(struct io_uring&);
+
+    static Event* from_link(A3SLink* link) { return A3_CONTAINER_OF(link, Event, queue_link); }
 };

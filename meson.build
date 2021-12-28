@@ -5,7 +5,7 @@ project(
   default_options: [
     'c_std=c11',
 
-    'cpp_std=c++11',
+    'cpp_std=c++14',
     'cpp_rtti=false',
     'cpp_eh=none',
 
@@ -44,7 +44,7 @@ sc_warnings_wanted = [
     '-Wmissing-include-dirs', '-Wnull-dereference', '-Wpacked', '-Wshadow', '-Wstack-protector',
     '-Wundef', '-Wcast-align', '-Wbad-function-cast', '-Wimplicit', '-Wmissing-prototypes',
     '-Wnested-externs', '-Wstrict-prototypes', '-Wctor-dtor-privacy', '-Wdelete-non-virtual-dtor',
-    '-Weffc++'
+    '-Weffc++', '-Wno-invalid-offsetof'
 ]
 
 sc_c_flags += c.get_supported_arguments(sc_warnings_wanted)

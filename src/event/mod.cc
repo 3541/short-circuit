@@ -45,13 +45,12 @@ using std::unique_ptr;
 
 using ExpectedStatus = Event::ExpectedStatus;
 
-A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, nullptr);
-A3_SLL_DEFINE_METHODS(Event)
+A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS);
 
 Event::Event(EventTarget* tgt, EventHandler h, void* h_ctx, int32_t expected, bool queue) :
     status { expected }, target { tgt }, handler { h }, handler_ctx { h_ctx } {
     if (queue)
-        A3_SLL_PUSH(Event)(tgt, this);
+        a3_sll_push(tgt, &queue_link);
 }
 
 // It is expected that there should not be a situation which causes an sqe_ptr to be destroyed. If
@@ -76,8 +75,7 @@ static inline sqe_ptr event_get_sqe(struct io_uring& uring) {
     return sqe_ptr { ret, sqe_lost };
 }
 
-static inline void event_sqe_fill(unique_ptr<Event>&& event, sqe_ptr&& sqe,
-                                  uint32_t sqe_flags = 0) {
+static inline void event_sqe_fill(unique_ptr<Event> event, sqe_ptr sqe, uint32_t sqe_flags = 0) {
     io_uring_sqe_set_flags(sqe.get(), sqe_flags);
     io_uring_sqe_set_data(sqe.release(), event.release());
 }
@@ -174,6 +172,7 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, EventHandler
     assert(handler);
     assert(file >= 0);
     assert(out_data.ptr);
+    assert(offset >= 0);
 
     auto read_size = static_cast<uint32_t>(MIN(out_data.len, nbytes));
 
@@ -183,7 +182,7 @@ bool event_read_submit(EventTarget* target, struct io_uring* uring, EventHandler
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_read(sqe.get(), file, out_data.ptr, read_size, offset);
+    io_uring_prep_read(sqe.get(), file, out_data.ptr, read_size, static_cast<uint64_t>(offset));
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
@@ -245,7 +244,7 @@ bool event_splice_submit(EventTarget* target, struct io_uring* uring, EventHandl
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_splice(sqe.get(), in, off_in, out, static_cast<uint64_t>(-1),
+    io_uring_prep_splice(sqe.get(), in, static_cast<int64_t>(off_in), out, -1,
                          static_cast<uint32_t>(len), SPLICE_F_MOVE | splice_flags);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
@@ -268,7 +267,7 @@ bool event_stat_submit(EventTarget* target, struct io_uring* uring, EventHandler
     auto sqe = event_get_sqe(*uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_statx(sqe.get(), -1, A3_S_AS_C_STR(path), 0, field_mask, statx_buf);
+    io_uring_prep_statx(sqe.get(), -1, a3_string_cstr(path), 0, field_mask, statx_buf);
     event_sqe_fill(move(event), move(sqe), sqe_flags);
 
     return true;
@@ -296,7 +295,8 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring, EventHand
 bool event_cancel_all(EventTarget* target) {
     assert(target);
 
-    for (Event* victim = A3_SLL_POP(Event)(target); victim; victim = A3_SLL_POP(Event)(target))
+    for (Event* victim = Event::from_link(a3_sll_pop(target)); victim;
+         victim        = Event::from_link(a3_sll_pop(target)))
         victim->cancel();
 
     return true;
@@ -306,4 +306,9 @@ Event* event_create(EventTarget* target, EventHandler handler, void* handler_ctx
     assert(target);
     return Event::create(target, handler, handler_ctx, ExpectedStatus::None, EVENT_NO_QUEUE)
         .release();
+}
+
+A3SLink* event_queue_link(Event* event) {
+    assert(event);
+    return &event->queue_link;
 }
