@@ -38,10 +38,10 @@ public:
 
     // A caller can set an expected return code, either in the form of a status "class" described
     // here, or a precise value.
-    enum class ExpectedStatus : int32_t {
-        None        = INT32_MIN,
-        Nonnegative = INT32_MIN + 1,
-        Positive    = INT32_MIN + 2,
+    enum ExpectedStatus : int32_t {
+        EXPECTED_STATUS_NONE        = INT32_MIN,
+        EXPECTED_STATUS_NONNEGATIVE = INT32_MIN + 1,
+        EXPECTED_STATUS_POSITIVE    = INT32_MIN + 2,
     };
 
 private:
@@ -76,12 +76,12 @@ private:
 
     void set_status(int32_t new_status) {
         switch (expected_status) {
-        case ExpectedStatus::None:
+        case EXPECTED_STATUS_NONE:
             break;
-        case ExpectedStatus::Nonnegative:
+        case EXPECTED_STATUS_NONNEGATIVE:
             set_failed(new_status < 0);
             break;
-        case ExpectedStatus::Positive:
+        case EXPECTED_STATUS_POSITIVE:
             set_failed(new_status <= 0);
             break;
         default:
