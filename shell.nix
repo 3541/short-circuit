@@ -15,5 +15,6 @@ pkgs.mkShell {
     pkg-config
     ninja
     liburing
+    wrk
   ];
 }
