@@ -16,5 +16,6 @@ pkgs.mkShell {
     ninja
     liburing
     wrk
+    valgrind
   ];
 }
