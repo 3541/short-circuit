@@ -28,13 +28,10 @@
 #include <sys/socket.h>
 
 #include <a3/buffer.h>
-#include <a3/cpp.h>
 
 #include "event.h"
 #include "forward.h"
 #include "timeout.h"
-
-A3_H_BEGIN
 
 typedef enum { SPLICE_IN, SPLICE_OUT } SpliceDirection;
 
@@ -78,5 +75,3 @@ bool connection_splice_retry(Connection*, struct io_uring*, ConnectionSpliceHand
                              ConnectionHandler, fd src, size_t in_buf, size_t file_offset,
                              size_t remaining, uint8_t sqe_flags);
 bool connection_close_submit(Connection*, struct io_uring*, ConnectionHandler);
-
-A3_H_END

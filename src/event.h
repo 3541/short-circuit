@@ -26,13 +26,10 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include <a3/cpp.h>
 #include <a3/sll.h>
 #include <a3/str.h>
 
 #include "forward.h"
-
-A3_H_BEGIN
 
 #define EVENT_FALLBACK_ALLOW  true
 #define EVENT_FALLBACK_FORBID false
@@ -79,5 +76,3 @@ Event* event_create(EventTarget*, EventHandler, void* ctx);
 bool event_cancel_all(EventTarget*);
 
 A3SLink* event_queue_link(Event*);
-
-A3_H_END

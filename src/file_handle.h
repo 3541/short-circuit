@@ -20,11 +20,7 @@
 #pragma once
 
 // Some weirdness on NixOS.
-#ifndef _GNU_SOURCE
 #include <linux/stat.h>
-#else
-#include <sys/stat.h>
-#endif
 
 #include <a3/rc.h>
 #include <a3/sll.h>

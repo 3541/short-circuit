@@ -24,6 +24,7 @@
 #include <sys/utsname.h>
 
 #include "config.h"
+#include "internal.h"
 
 // Check that the kernel is recent enough to support io_uring and
 // io_uring_probe.
@@ -112,6 +113,7 @@ struct io_uring event_init() {
         A3_PANIC("Unable to open queue. The memlock limit is probably too low.");
 
     event_check_ops(&ret);
+    EVENT_POOL = A3_POOL_OF(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, NULL, NULL);
 
     return ret;
 }

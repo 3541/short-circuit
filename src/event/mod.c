@@ -16,19 +16,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+#define _GNU_SOURCE
 
 #include "event.h"
 
-#include <cassert>
-#include <cstdint>
-#include <cstdlib>
+#include <assert.h>
 #include <fcntl.h>
 #include <liburing.h>
-#include <memory>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <utility>
 
 #include <a3/log.h>
 #include <a3/pool.h>
@@ -40,10 +39,7 @@
 #include "event/internal.h"
 #include "forward.h"
 
-using std::move;
-using std::unique_ptr;
-
-A3Pool* EVENT_POOL = A3_POOL_OF(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, NULL, NULL);
+A3Pool* EVENT_POOL;
 
 static Event* event_new(EventTarget* target, EventHandler handler, void* handler_ctx,
                         int32_t expected_return, bool queue) {
@@ -106,8 +102,7 @@ bool event_accept_submit(EventTarget* target, struct io_uring* uring, EventHandl
     struct io_uring_sqe* sqe = event_get_sqe(uring);
     A3_TRYB(sqe);
 
-    io_uring_prep_accept(sqe, socket, reinterpret_cast<struct sockaddr*>(out_client_addr),
-                         inout_addr_len, 0);
+    io_uring_prep_accept(sqe, socket, (struct sockaddr*)out_client_addr, inout_addr_len, 0);
     return event_submit(target, sqe, handler, handler_ctx, EXPECTED_STATUS_NONNEGATIVE, true);
 }
 

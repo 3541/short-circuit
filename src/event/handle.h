@@ -21,14 +21,8 @@
 
 #include <stdint.h>
 
-#include <a3/cpp.h>
-
 #include "forward.h"
-
-A3_H_BEGIN
 
 void event_queue_init(EventQueue*);
 void event_synth_deliver(EventQueue*, struct io_uring*, int32_t status);
 void event_handle_all(EventQueue*, struct io_uring*);
-
-A3_H_END

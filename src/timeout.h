@@ -22,13 +22,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <a3/cpp.h>
 #include <a3/ll.h>
 
 #include "event.h"
 #include "forward.h"
-
-A3_H_BEGIN
 
 struct Timeout;
 typedef struct Timeout Timeout;
@@ -51,5 +48,3 @@ bool timeout_schedule(TimeoutQueue*, Timeout*, struct io_uring*);
 bool timeout_is_scheduled(Timeout*);
 bool timeout_cancel(Timeout*);
 bool timeout_event_handle(TimeoutQueue*, struct io_uring*, int32_t status);
-
-A3_H_END

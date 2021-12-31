@@ -55,3 +55,5 @@ struct Event {
 
 Event* event_from_link(A3SLink* link);
 void   event_free(Event*);
+
+extern A3Pool* EVENT_POOL;

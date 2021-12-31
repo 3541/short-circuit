@@ -22,12 +22,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <a3/cpp.h>
 #include <a3/str.h>
 
 #include "forward.h"
-
-A3_H_BEGIN
 
 struct statx;
 
@@ -49,5 +46,3 @@ A3CString     file_handle_path(FileHandle*);
 bool          file_handle_waiting(FileHandle*);
 bool          file_handle_close(FileHandle*, struct io_uring*);
 void          file_cache_destroy(struct io_uring*);
-
-A3_H_END

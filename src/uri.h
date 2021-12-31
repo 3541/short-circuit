@@ -21,10 +21,7 @@
 
 #include <stdbool.h>
 
-#include <a3/cpp.h>
 #include <a3/str.h>
-
-A3_H_BEGIN
 
 #define URI_SCHEME_ENUM                                                                            \
     _SCHEME(URI_SCHEME_UNSPECIFIED, "")                                                            \
@@ -57,5 +54,3 @@ UriParseResult uri_parse(Uri*, A3String);
 A3String       uri_path_if_contained(Uri*, A3CString real_root);
 bool           uri_is_initialized(Uri*);
 void           uri_free(Uri*);
-
-A3_H_END

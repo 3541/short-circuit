@@ -19,10 +19,10 @@
 
 #include "event/handle.h"
 
-#include <cassert>
-#include <cstdint>
+#include <assert.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
+#include <stdint.h>
 
 #include <a3/log.h>
 #include <a3/sll.h>
@@ -85,8 +85,8 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
     struct io_uring_cqe* cqe;
     for (io_uring_peek_cqe(uring, &cqe); cqe; io_uring_peek_cqe(uring, &cqe)) {
-        auto* event  = static_cast<Event*>(io_uring_cqe_get_data(cqe));
-        int   status = cqe->res;
+        Event* event  = io_uring_cqe_get_data(cqe);
+        int    status = cqe->res;
 
         // Remove from the CQ.
         io_uring_cqe_seen(uring, cqe);
@@ -97,7 +97,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
             continue;
         }
 
-        auto* target = event->target;
+        EventTarget* target = event->target;
         // Remove from the in-flight list.
         a3_sll_remove(target, &event->queue_link);
 
