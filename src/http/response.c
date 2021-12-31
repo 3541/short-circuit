@@ -403,7 +403,6 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
         FileHandle* index_file =
             file_openat(EVT(&conn->conn), uring, http_response_file_open_handle, NULL,
                         conn->target_file, INDEX_FILENAME, O_RDONLY);
-        // TODO: Directory listings.
         if (!index_file)
             return http_response_error_submit(resp, uring, HTTP_STATUS_SERVER_ERROR,
                                               HTTP_RESPONSE_ALLOW);
@@ -413,8 +412,12 @@ bool http_response_file_submit(HttpResponse* resp, struct io_uring* uring) {
         if (file_handle_waiting(conn->target_file))
             return true;
 
-        target_file = file_handle_fd(conn->target_file);
+        target_file = file_handle_fd_unchecked(conn->target_file);
         stat        = file_handle_stat(conn->target_file);
+        // TODO: Directory listings.
+        if (target_file < 0)
+            return http_response_error_submit(resp, uring, HTTP_STATUS_NOT_FOUND,
+                                              HTTP_RESPONSE_ALLOW);
     }
 
     if (!S_ISREG(stat->stx_mode))

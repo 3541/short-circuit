@@ -31,7 +31,7 @@
 #include "config.h"
 #include "connection.h"
 #include "event.h"
-#include "event/internal.hh"
+#include "event/internal.h"
 #include "file.h"
 #include "file_handle.h"
 #include "timeout.h"
@@ -42,17 +42,13 @@ void event_queue_init(EventQueue* queue) {
     a3_sll_init(queue);
 }
 
-void Event::handle(struct io_uring& uring) {
-    auto*        t         = target;
-    int32_t      st        = status;
-    EventHandler h         = handler;
-    void*        ctx       = handler_ctx;
-    bool         succeeded = success;
+static void event_handle(Event* event, struct io_uring* uring) {
+    assert(event);
+    assert(uring);
 
-    delete this;
-
-    if (h)
-        h(t, &uring, ctx, succeeded, st);
+    if (event->handler)
+        event->handler(event->target, uring, event->handler_ctx, event->success, event->status);
+    event_free(event);
 }
 
 // Handle all events pending on the queue.
@@ -63,12 +59,12 @@ static void event_queue_handle_all(EventQueue* queue, struct io_uring* uring) {
     if (io_uring_sq_space_left(uring) <= URING_SQ_LEAVE_SPACE)
         return;
 
-    auto* event = Event::from_link(a3_sll_peek(queue));
+    Event* event = event_from_link(a3_sll_peek(queue));
     while (event && io_uring_sq_space_left(uring) > URING_SQ_LEAVE_SPACE) {
-        event = Event::from_link(a3_sll_dequeue(queue));
-        event->handle(*uring);
+        event = event_from_link(a3_sll_dequeue(queue));
+        event_handle(event, uring);
 
-        event = Event::from_link(a3_sll_peek(queue));
+        event = event_from_link(a3_sll_peek(queue));
     }
 }
 
@@ -105,15 +101,28 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
         // Remove from the in-flight list.
         a3_sll_remove(target, &event->queue_link);
 
-        if (event->canceled()) {
-            delete event;
+        if (!event->target) {
+            // Canceled.
+            event_free(event);
             continue;
         }
 
-        event->set_status(status);
+        switch (event->expected_status) {
+        case EXPECTED_STATUS_NONE:
+            break;
+        case EXPECTED_STATUS_NONNEGATIVE:
+            event->success = status >= 0;
+            break;
+        case EXPECTED_STATUS_POSITIVE:
+            event->success = status > 0;
+            break;
+        default:
+            event->success = status == event->expected_return;
+        }
+        event->status = status;
 
         if (!event->success && event->status == -ECANCELED) {
-            delete event;
+            event_free(event);
             continue;
         }
 

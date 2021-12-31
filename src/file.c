@@ -184,8 +184,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
     }
 
     file_handle_wait(target, handle, handler, ctx);
-    A3_CACHE_INSERT(A3CString, FileHandlePtr)
-    (&FILE_CACHE, handle->path, handle, uring);
+    A3_CACHE_INSERT(A3CString, FileHandlePtr)(&FILE_CACHE, handle->path, handle, uring);
 
     return handle;
 }

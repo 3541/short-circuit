@@ -37,22 +37,40 @@
 #include <a3/util.h>
 
 #include "config.h"
-#include "event/internal.hh"
+#include "event/internal.h"
 #include "forward.h"
 
 using std::move;
 using std::unique_ptr;
 
-constexpr auto EXPECTED_STATUS_NONE        = Event::EXPECTED_STATUS_NONE;
-constexpr auto EXPECTED_STATUS_NONNEGATIVE = Event::EXPECTED_STATUS_NONNEGATIVE;
-constexpr auto EXPECTED_STATUS_POSITIVE    = Event::EXPECTED_STATUS_POSITIVE;
+A3Pool* EVENT_POOL = A3_POOL_OF(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS, NULL, NULL);
 
-A3_POOL_STORAGE(Event, EVENT_POOL_SIZE, A3_POOL_ZERO_BLOCKS);
+static Event* event_new(EventTarget* target, EventHandler handler, void* handler_ctx,
+                        int32_t expected_return, bool queue) {
+    Event* event = (Event*)a3_pool_alloc_block(EVENT_POOL);
 
-Event::Event(EventTarget* tgt, EventHandler h, void* h_ctx, int32_t expected, bool queue) :
-    status { expected }, target { tgt }, handler { h }, handler_ctx { h_ctx } {
+    event->success         = true;
+    event->expected_return = expected_return;
+    event->target          = target;
+    event->handler         = handler;
+    event->handler_ctx     = handler_ctx;
+
     if (queue)
-        a3_sll_push(tgt, &queue_link);
+        a3_sll_push(target, &event->queue_link);
+
+    return event;
+}
+
+Event* event_from_link(A3SLink* link) {
+    if (!link)
+        return NULL;
+    return A3_CONTAINER_OF(link, Event, queue_link);
+}
+
+void event_free(Event* event) {
+    assert(event);
+
+    a3_pool_free_block(EVENT_POOL, event);
 }
 
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
@@ -71,7 +89,7 @@ static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
 
 static bool event_submit(EventTarget* target, struct io_uring_sqe* sqe, EventHandler handler,
                          void* handler_ctx, int32_t expected_return, bool queue) {
-    Event* event = Event::create(target, handler, handler_ctx, expected_return, queue).release();
+    Event* event = event_new(target, handler, handler_ctx, expected_return, queue);
     A3_TRYB(event);
     io_uring_sqe_set_data(sqe, event);
     return true;
@@ -247,17 +265,16 @@ bool event_timeout_submit(EventTarget* target, struct io_uring* uring, EventHand
 bool event_cancel_all(EventTarget* target) {
     assert(target);
 
-    for (Event* victim = Event::from_link(a3_sll_pop(target)); victim;
-         victim        = Event::from_link(a3_sll_pop(target)))
-        victim->cancel();
+    for (Event* victim = event_from_link(a3_sll_pop(target)); victim;
+         victim        = event_from_link(a3_sll_pop(target)))
+        victim->target = NULL;
 
     return true;
 }
 
 Event* event_create(EventTarget* target, EventHandler handler, void* handler_ctx) {
     assert(target);
-    return Event::create(target, handler, handler_ctx, EXPECTED_STATUS_NONE, EVENT_NO_QUEUE)
-        .release();
+    return event_new(target, handler, handler_ctx, EXPECTED_STATUS_NONE, EVENT_NO_QUEUE);
 }
 
 A3SLink* event_queue_link(Event* event) {
