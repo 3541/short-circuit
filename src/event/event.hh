@@ -1,7 +1,7 @@
 /*
- * FILE HANDLE -- The file handle type. See file.h and file.c
+ * SHORT CIRCUIT: EVENT -- Event submission.
  *
- * Copyright (c) 2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -19,23 +19,4 @@
 
 #pragma once
 
-#include <linux/stat.h>
-
-#include <a3/rc.h>
-#include <a3/sll.h>
-#include <a3/str.h>
-
-#include "event.h"
-#include "forward.h"
-
-typedef struct FileHandle {
-    A3_REFCOUNTED;
-    EVENT_TARGET;
-    EventQueue waiting;
-
-    struct statx stat;
-
-    A3CString path;
-    fd        file;
-    int32_t   flags;
-} FileHandle;
+class Event {};

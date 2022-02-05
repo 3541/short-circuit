@@ -1,7 +1,7 @@
 /*
  * SHORT CIRCUIT -- A high-performance HTTP server for Linux, built on io_uring.
  *
- * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -21,53 +21,36 @@
  * final interface.
  */
 
-#include <errno.h>
+#include <filesystem>
+
 #include <getopt.h>
-#include <liburing.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include <a3/log.h>
-#include <a3/str.h>
+#include <a3/to_underlying.hh>
 #include <a3/util.h>
 
-#include "config.h"
-#include "config_runtime.h"
-#include "connection.h"
-#include "event.h"
-#include "event/handle.h"
-#include "file.h"
-#include "forward.h"
-#include "http/connection.h"
-#include "listen.h"
+#include "config.hh"
+#include "options.hh"
 
-Config CONFIG = { .web_root    = DEFAULT_WEB_ROOT,
-                  .listen_port = DEFAULT_LISTEN_PORT,
+namespace fs = std::filesystem;
+
+using namespace sc;
+
+namespace sc {
+Options CONFIG = { .web_root = config::DEFAULT_WEB_ROOT,
 #ifdef NDEBUG
-                  .log_level = LOG_WARN
+                   .log_level = LOG_WARN,
 #else
-                  .log_level = LOG_TRACE
+                   .log_level = LOG_TRACE,
 #endif
-};
+                   .listen_port = config::DEFAULT_LISTEN_PORT };
+} // namespace sc
 
-static bool cont = true;
-
-static void sigint_handle(int no) {
-    (void)no;
-    cont = false;
-}
-
-static void webroot_check_exists(A3CString root) {
-    struct stat s;
-
-    if (stat(A3_S_AS_C_STR(root), &s) < 0)
-        A3_PANIC_FMT("Web root %s is inaccessible.", root);
-    if (!S_ISDIR(s.st_mode))
-        A3_PANIC_FMT("Web root %s is not a directory.", root);
+static void webroot_check_exists(fs::path const& root) {
+    if (!fs::exists(root))
+        A3_PANIC_FMT("Web root %s is inaccessible.", root.c_str());
+    if (!fs::is_directory(root))
+        A3_PANIC_FMT("Web root %s is not a directory.", root.c_str());
 }
 
 static void usage(void) {
@@ -84,7 +67,7 @@ static void usage(void) {
 
 static void version(void) {
     printf("Short Circuit (sc) %s\n"
-           "Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>\n\n"
+           "Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>\n\n"
            "This program is free software: you can redistribute it and/or modify\n"
            "it under the terms of the GNU Affero General Public License as published\n"
            "by the Free Software Foundation, either version 3 of the License, or\n"
@@ -99,9 +82,9 @@ static void version(void) {
     exit(EXIT_SUCCESS);
 }
 
-enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
-
 static void config_parse(int argc, char** argv) {
+    enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
+
     static struct option options[] = {
         [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
         [OPT_PORT]    = { "port", required_argument, NULL, 'p' },
@@ -111,31 +94,31 @@ static void config_parse(int argc, char** argv) {
         [_OPT_COUNT]  = { 0, 0, 0, 0 },
     };
 
-    int      opt;
-    int      longindex;
-    uint64_t port_num;
+    int opt;
+    int longindex;
     while ((opt = getopt_long(argc, argv, "hqvp:", options, &longindex)) != -1) {
         switch (opt) {
         case 'h':
             usage();
             break;
-        case 'p':
-            port_num = strtoul(optarg, NULL, 10);
-            if (port_num > UINT16_MAX) {
-                a3_log_msg(LOG_ERROR, "Invalid port.");
-                exit(EXIT_FAILURE);
-            }
+        case 'p': {
+            uint64_t port_num = strtoul(optarg, NULL, 10);
+            if (port_num > std::numeric_limits<in_port_t>::max())
+                A3_PANIC_FMT("Invalid port %llu.", port_num);
 
-            CONFIG.listen_port = (in_port_t)port_num;
+            CONFIG.listen_port = static_cast<in_port_t>(port_num);
             break;
+        }
         case 'q':
-            if (CONFIG.log_level < LOG_ERROR)
-                CONFIG.log_level++;
+        case 'v': {
+            auto n = a3::to_underlying(CONFIG.log_level);
+            if (opt == 'v' && CONFIG.log_level < LOG_ERROR)
+                n++;
+            else if (opt == 'q' && CONFIG.log_level > LOG_TRACE)
+                n--;
+            CONFIG.log_level = static_cast<A3LogLevel>(n);
             break;
-        case 'v':
-            if (CONFIG.log_level > LOG_TRACE)
-                CONFIG.log_level--;
-            break;
+        }
         default:
             if (opt == 0) {
                 switch (longindex) {
@@ -161,79 +144,23 @@ static void config_parse(int argc, char** argv) {
             usage();
         }
 
-        CONFIG.web_root = A3_CS_OF(argv[optind]);
+        CONFIG.web_root = argv[optind];
     }
 
-    CONFIG.web_root = A3_CS_OF(realpath(A3_S_AS_C_STR(CONFIG.web_root), NULL));
+    CONFIG.web_root = fs::canonical(CONFIG.web_root);
 }
 
-int main(int argc, char** argv) {
-    (void)argv;
+int main(int argc, char* argv[]) {
+    a3_log_init(stderr, CONFIG.log_level);
 
     a3_log_init(stderr, CONFIG.log_level);
     config_parse(argc, argv);
     // Re-initialize with the potentially changed log level.
     a3_log_init(stderr, CONFIG.log_level);
 
-    srand((uint32_t)time(NULL));
+    srand(static_cast<uint32_t>(time(nullptr)));
 
     webroot_check_exists(CONFIG.web_root);
-    http_connection_pool_init();
-    file_cache_init();
-    connection_timeout_init();
-    struct io_uring uring = event_init();
-
-    Listener* listeners   = NULL;
-    size_t    n_listeners = 0;
-
-    // TODO: Support multiple listeners.
-    n_listeners = 1;
-    A3_UNWRAPN(listeners, calloc(1, sizeof(Listener)));
-    listener_init(&listeners[0], CONFIG.listen_port, TRANSPORT_PLAIN);
-
-    listener_accept_all(listeners, n_listeners, &uring);
-    A3_UNWRAPND(io_uring_submit(&uring));
-
-    A3_UNWRAPND(signal(SIGINT, sigint_handle) != SIG_ERR);
-    A3_UNWRAPND(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
-    a3_log_msg(LOG_TRACE, "Entering event loop.");
-
-#ifdef PROFILE
-    time_t init_time = time(NULL);
-#endif
-
-    EventQueue queue;
-    event_queue_init(&queue);
-    while (cont) {
-        struct io_uring_cqe* cqe;
-        int                  rc;
-#ifdef PROFILE
-        Timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
-        if (((rc = io_uring_wait_cqe_timeout(&uring, &cqe, &timeout)) < 0 && rc != -ETIME) ||
-            time(NULL) > init_time + 20) {
-            if (rc < 0)
-                a3_log_error(-rc, "Breaking event loop.");
-            break;
-        }
-#else
-        if ((rc = io_uring_wait_cqe(&uring, &cqe)) < 0 && rc != -ETIME) {
-            a3_log_error(-rc, "Breaking event loop.");
-            break;
-        }
-#endif
-
-        event_handle_all(&queue, &uring);
-        listener_accept_all(listeners, n_listeners, &uring);
-
-        if (io_uring_sq_ready(&uring) > 0) {
-            int ev = io_uring_submit(&uring);
-            a3_log_fmt(LOG_TRACE, "Submitted %d event(s).", ev);
-        }
-    }
-
-    http_connection_pool_free();
-    free(listeners);
-    file_cache_destroy(&uring);
 
     return EXIT_SUCCESS;
 }

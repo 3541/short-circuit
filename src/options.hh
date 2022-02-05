@@ -1,6 +1,5 @@
 /*
- * SHORT CIRCUIT: LISTEN -- Socket listener. Keeps an accept event queued on a
- * given socket.
+ * SHORT CIRCUIT: OPTIONS -- Global configuration.
  *
  * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
  *
@@ -20,20 +19,20 @@
 
 #pragma once
 
-#include <liburing.h>
+#include <filesystem>
+
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <stddef.h>
 
-#include "connection.h"
-#include "forward.h"
+#include <a3/log.h>
 
-typedef struct Listener {
-    fd                  socket;
-    ConnectionTransport transport;
-    bool                accept_queued;
-} Listener;
+namespace sc {
 
-void        listener_init(Listener*, in_port_t, ConnectionTransport);
-Connection* listener_accept_submit(Listener*, struct io_uring*);
-void        listener_accept_all(Listener*, size_t n_listeners, struct io_uring*);
+struct Options {
+    std::filesystem::path web_root;
+    A3LogLevel            log_level;
+    in_port_t             listen_port;
+};
+
+extern Options CONFIG;
+
+} // namespace sc

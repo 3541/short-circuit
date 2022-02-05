@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: HTTP PARSE -- Incremental HTTP request parser.
+ * SHORT CIRCUIT: COROUTINE -- Event orchestration.
  *
- * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -17,11 +17,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include <coroutine>
 
-#include "forward.h"
-#include "http/types.h"
+template <typename T>
+class Coro {
+private:
+    struct Promise {};
+    using promise_type = Promise;
 
-HttpRequestStateResult http_request_first_line_parse(HttpRequest*, struct io_uring*);
-HttpRequestStateResult http_request_headers_add(HttpRequest*, struct io_uring*);
-HttpRequestStateResult http_request_headers_parse(HttpRequest*, struct io_uring*);
+    std::coroutine_handle<Promise> m_handle;
+};

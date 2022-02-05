@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: HTTP RESPONSE -- HTTP response submission.
+ * SHORT CIRCUIT: EVENT LOOP -- Event management.
  *
- * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -19,22 +19,21 @@
 
 #pragma once
 
-#include <stdbool.h>
+#include <liburing.h>
 
-#include "forward.h"
-#include "http/types.h"
+#include <a3/util.hh>
 
-typedef struct HttpResponse {
-    HttpContentType      content_type;
-    HttpTransferEncoding transfer_encodings;
-    size_t               body_sent;
-} HttpResponse;
+namespace sc::ev {
 
-void http_response_init(HttpResponse*);
-void http_response_reset(HttpResponse*);
+class EventLoop {
+    A3_PINNED(EventLoop);
 
-#define HTTP_RESPONSE_CLOSE true
-#define HTTP_RESPONSE_ALLOW false
-bool http_response_error_submit(HttpResponse*, struct io_uring*, HttpStatus, bool close);
+private:
+    io_uring m_uring;
 
-bool http_response_file_submit(HttpResponse*, struct io_uring*);
+public:
+    EventLoop();
+    ~EventLoop();
+};
+
+} // namespace sc::ev
