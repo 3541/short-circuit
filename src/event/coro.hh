@@ -17,13 +17,28 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <cstdlib>
+
+#if __has_include(<experimental/coroutine>)
+#include <experimental/coroutine>
+namespace std {
+using namespace experimental;
+}
+#elif __has_include(<coroutine>)
 #include <coroutine>
+#else
+#error "C++20 coroutine support is required."
+#endif
+
+namespace sc {
 
 template <typename T>
-class Coro {
+class Coroutine {
 private:
-    struct Promise {};
-    using promise_type = Promise;
+    struct Future {};
+    using promise_type = Future;
 
-    std::coroutine_handle<Promise> m_handle;
+    std::coroutine_handle<Future> m_handle;
 };
+
+} // namespace sc
