@@ -23,6 +23,7 @@
 
 #include <filesystem>
 
+#include <fcntl.h>
 #include <getopt.h>
 
 #include <a3/log.h>
@@ -30,6 +31,8 @@
 #include <a3/util.h>
 
 #include "config.hh"
+#include "event/future.hh"
+#include "event/loop.hh"
 #include "options.hh"
 
 namespace fs = std::filesystem;
@@ -83,7 +86,7 @@ static void version(void) {
 }
 
 static void config_parse(int argc, char** argv) {
-    enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, _OPT_COUNT };
+    enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, OPT_COUNT };
 
     static struct option options[] = {
         [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
@@ -91,7 +94,7 @@ static void config_parse(int argc, char** argv) {
         [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
         [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
         [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
-        [_OPT_COUNT]  = { 0, 0, 0, 0 },
+        [OPT_COUNT]   = { 0, 0, 0, 0 },
     };
 
     int opt;
@@ -161,6 +164,23 @@ int main(int argc, char* argv[]) {
     srand(static_cast<uint32_t>(time(nullptr)));
 
     webroot_check_exists(CONFIG.web_root);
+
+    fs::path file { "build.ninja" };
+    int      fd = open(file.c_str(), O_RDONLY);
+    A3_UNWRAPSD(fd);
+
+    ev::EventLoop loop;
+
+    a3_log_msg(LOG_INFO, "About to start event loop.");
+    loop.run([](ev::EventLoop& loop, int fd) -> ev::Future<void> {
+        a3_log_msg(LOG_INFO, "Starting read future.");
+        auto buffer = std::make_unique<char[]>(512);
+
+        auto s = co_await loop.read(fd, std::as_writable_bytes(std::span { buffer.get(), 511 }));
+        buffer[511] = '\0';
+        printf("Read %zu bytes.\n", s);
+        printf("%s\n", buffer.get());
+    }(loop, fd));
 
     return EXIT_SUCCESS;
 }

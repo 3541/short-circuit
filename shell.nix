@@ -21,7 +21,7 @@ let
   stdenv = llvm.libcxxStdenv;
 in stdenv.mkDerivation {
   name = "short-circuit";
-  nativeBuildInputs = with pkgs; [ gdb rr meson ninja pkg-config clang-tools ];
+  nativeBuildInputs = with pkgs; [ gdb rr meson ninja pkg-config clang-tools valgrind ];
   buildInputs = with pkgs; [ liburing ];
   shellHook = ''
     export CPATH=$CPATH''${CPATH:+":"}${llvm.libcxx.dev}/include/c++/v1:${stdenv.glibc.dev}/include

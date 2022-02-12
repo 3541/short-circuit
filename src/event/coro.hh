@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: COROUTINE -- Event orchestration.
+ * SHORT CIRCUIT: COROUTINE
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -17,7 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
+#pragma once
 
 #if __has_include(<experimental/coroutine>)
 #include <experimental/coroutine>
@@ -29,16 +29,3 @@ using namespace experimental;
 #else
 #error "C++20 coroutine support is required."
 #endif
-
-namespace sc {
-
-template <typename T>
-class Coroutine {
-private:
-    struct Future {};
-    using promise_type = Future;
-
-    std::coroutine_handle<Future> m_handle;
-};
-
-} // namespace sc

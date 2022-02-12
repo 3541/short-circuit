@@ -20,6 +20,7 @@ cxx = meson.get_compiler('cpp')
 
 sc_common_flags = [
   '-DSC_VERSION="' + meson.project_version() + '"',
+  '-DSC_BACKEND_URING'
 ]
 sc_cxx_flags = []
 
@@ -49,7 +50,7 @@ sc_warnings_wanted = [
     '-Wmissing-include-dirs', '-Wnull-dereference', '-Wpacked', '-Wshadow', '-Wstack-protector',
     '-Wundef', '-Wcast-align', '-Wbad-function-cast', '-Wimplicit', '-Wmissing-prototypes',
     '-Wnested-externs', '-Wstrict-prototypes', '-Wctor-dtor-privacy', '-Wdelete-non-virtual-dtor',
-    '-Wno-c99-designator'
+    '-Wno-c99-designator', '-Wno-coroutine-missing-unhandled-exception'
 ]
 
 sc_cxx_flags += cxx.get_supported_arguments(sc_warnings_wanted)
@@ -63,7 +64,8 @@ sc_include = include_directories('src')
 sc_src = files(
   [
     'src/main.cc',
-    'src/event/loop.cc'
+    'src/event/loop.cc',
+    'src/event/backend/backend.cc'
   ]
 )
 

@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: EVENT LOOP -- Event management.
+ * SHORT CIRCUIT: EVENT IO_URING BACKEND
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -19,16 +19,46 @@
 
 #pragma once
 
+#include <span>
+
 #include <liburing.h>
 
-#include "backend/backend.hh"
-#include "future.hh"
+#include <a3/util.hh>
+
+#include "event/io.hh"
 
 namespace sc::ev {
 
-class EventLoop : public Backend {
+class Uring {
+    A3_PINNED(Uring);
+
+private:
+    class Sqe : public IOBase<Sqe, ssize_t> {
+    private:
+        io_uring_sqe& m_sqe;
+
+    public:
+        explicit Sqe(io_uring_sqe& sqe) : m_sqe { sqe } {}
+
+        using IOBase::complete;
+
+        void await_suspend(std::coroutine_handle<> caller) {
+            io_uring_sqe_set_data(&m_sqe, this);
+            IOBase::await_suspend(caller);
+        }
+    };
+
+    io_uring m_uring;
+
 public:
-    void run(Future<void> f);
+    Uring();
+    ~Uring();
+
+    Sqe read(int fd, std::span<std::byte> out, uint64_t offset = 0, uint32_t sqe_flags = 0);
+
+    void pump();
 };
+
+using Backend = Uring;
 
 } // namespace sc::ev

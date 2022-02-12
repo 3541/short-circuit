@@ -1,1 +1,1 @@
-Checks: '-clang-analyzer-core.UndefinedBinaryOperatorResult,-clang-diagnostic-c99-designator'
+Checks: '-clang-analyzer-core.UndefinedBinaryOperatorResult,-clang-diagnostic-c99-designator,bugprone*,misc*'

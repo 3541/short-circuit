@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: EVENT LOOP -- Event submission.
+ * SHORT CIRCUIT: EVENT BACKEND
  *
- * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -17,14 +17,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "loop.hh"
+#pragma once
 
-namespace sc::ev {
-
-void EventLoop::run(Future<void> f) {
-    f.start();
-    while (!f.done())
-        pump();
-}
-
-} // namespace sc::ev
+#ifdef SC_BACKEND_URING
+#include "uring.hh"
+#else
+#error "An IO backend is required."
+#endif

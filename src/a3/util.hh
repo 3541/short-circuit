@@ -7,6 +7,10 @@
  * the project root for details.
  */
 
+#pragma once
+
+#include <cstdlib>
+
 #define A3_NO_COPY(T)                                                                              \
 public:                                                                                            \
     T(T const&) = delete;                                                                          \
@@ -20,3 +24,11 @@ public:                                                                         
 #define A3_PINNED(T)                                                                               \
     A3_NO_COPY(T);                                                                                 \
     A3_NO_MOVE(T)
+
+namespace a3 {
+
+struct MallocDeleter {
+    void operator()(void* ptr) { free(ptr); }
+};
+
+} // namespace a3
