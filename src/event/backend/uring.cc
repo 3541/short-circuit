@@ -109,15 +109,10 @@ Uring::Uring() {
     ops_check();
     limits_init();
 
-    bool opened = false;
-    for (uint32_t queue_size = config::URING_ENTRIES; queue_size >= 512; queue_size /= 2) {
-        if (!io_uring_queue_init(queue_size, &m_uring, 0)) {
-            opened = true;
-            break;
-        }
-    }
-    if (!opened)
-        A3_PANIC("Unable to open queue. The memlock limit is probably too low.");
+    for (uint32_t queue_size = config::URING_ENTRIES; queue_size >= 512; queue_size /= 2)
+        if (!io_uring_queue_init(queue_size, &m_uring, 0))
+            return;
+    A3_PANIC("Unable to open io_uring queue. The memlock limit is probably too low.");
 }
 
 Uring::~Uring() { io_uring_queue_exit(&m_uring); }

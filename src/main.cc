@@ -27,7 +27,6 @@
 #include <getopt.h>
 
 #include <a3/log.h>
-#include <a3/to_underlying.hh>
 #include <a3/util.h>
 
 #include "config.hh"
