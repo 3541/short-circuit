@@ -91,17 +91,15 @@ static void limits_init(void) {
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
     if (lim_memlock.rlim_cur <= 96 * config::URING_ENTRIES)
-        a3_log_fmt(LOG_WARN,
-                   "The memlock limit (%d) is too low. The queue will probably "
-                   "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
-                   lim_memlock.rlim_cur);
+        A3_WARN_F("The memlock limit (%d) is too low. The queue will probably "
+                  "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
+                  lim_memlock.rlim_cur);
 
     struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
     if (lim_nofile.rlim_cur <= config::CONNECTION_POOL_SIZE * 3)
-        a3_log_fmt(LOG_WARN,
-                   "The open file limit (%d) is low. Large numbers of concurrent "
-                   "connections will probably cause \"too many open files\" errors.",
-                   lim_nofile.rlim_cur);
+        A3_WARN_F("The open file limit (%d) is low. Large numbers of concurrent "
+                  "connections will probably cause \"too many open files\" errors.",
+                  lim_nofile.rlim_cur);
 }
 
 Uring::Uring() {
@@ -122,7 +120,6 @@ Uring::Sqe Uring::read(int fd, std::span<std::byte> out, uint64_t offset, uint32
     auto* sqe = io_uring_get_sqe(&m_uring);
     A3_UNWRAPND(sqe);
 
-    a3_log_msg(LOG_INFO, "Creating read SQE.");
     io_uring_prep_read(sqe, fd, out.data(), static_cast<unsigned int>(out.size()), offset);
     io_uring_sqe_set_flags(sqe, sqe_flags);
 
@@ -130,11 +127,8 @@ Uring::Sqe Uring::read(int fd, std::span<std::byte> out, uint64_t offset, uint32
 }
 
 void Uring::pump() {
-    a3_log_fmt(LOG_INFO, "Submitting events.");
-    int submitted;
-    if (!(submitted = io_uring_submit_and_wait(&m_uring, 1)))
+    if (!io_uring_submit_and_wait(&m_uring, 1))
         return;
-    a3_log_fmt(LOG_INFO, "Submitted %d", submitted);
 
     size_t        head;
     io_uring_cqe* cqe;
@@ -145,7 +139,6 @@ void Uring::pump() {
         if (sqe)
             sqe->complete(cqe->res);
     }
-    a3_log_fmt(LOG_INFO, "Handled %u events.", count);
 
     io_uring_cq_advance(&m_uring, count);
 }

@@ -21,8 +21,6 @@
 
 #include <concepts>
 
-#include <a3/log.h>
-
 #include "coro.hh"
 
 namespace sc::ev {
@@ -35,7 +33,6 @@ private:
 
 protected:
     void complete(R result) {
-        a3_log_fmt(LOG_INFO, "Completing SQE. About to resume coroutine %p.", m_caller.address());
         m_result = result;
         m_caller.resume();
     }
@@ -43,14 +40,8 @@ protected:
 public:
     constexpr bool await_ready() const { return false; }
 
-    void await_suspend(std::coroutine_handle<> caller) {
-        a3_log_fmt(LOG_INFO, "Suspending IO op with coroutine %p.", caller.address());
-        m_caller = caller;
-    }
-    decltype(auto) await_resume() {
-        a3_log_msg(LOG_INFO, "Resuming IO op.");
-        return static_cast<I*>(this)->result();
-    }
+    void           await_suspend(std::coroutine_handle<> caller) { m_caller = caller; }
+    decltype(auto) await_resume() { return static_cast<I*>(this)->result(); }
 
     R result() { return m_result; }
 };

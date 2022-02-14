@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: OPTIONS -- Global configuration.
+ * SHORT CIRCUIT: SOCKET
  *
- * Copyright (c) 2020-2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -17,22 +17,31 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include "socket.hh"
 
-#include <filesystem>
+#include <utility>
 
-#include <netinet/in.h>
-
-#include <a3/log_internal.h>
+#include <unistd.h>
 
 namespace sc {
 
-struct Options {
-    std::filesystem::path web_root;
-    A3LogLevel            log_level;
-    in_port_t             listen_port;
-};
+Socket::Socket(int fd) : m_fd { fd } {}
 
-extern Options const CONFIG;
+Socket::Socket(Socket&& other) noexcept : m_fd { std::exchange(other.m_fd, -1) } {}
+
+Socket& Socket::operator=(Socket&& other) noexcept {
+    Socket::~Socket();
+    m_fd = std::exchange(other.m_fd, -1);
+    return *this;
+}
+
+Socket::~Socket() {
+    if (m_fd >= 0)
+        close(m_fd);
+}
+
+int Socket::fd() const { return m_fd; }
+
+int Socket::release() { return std::exchange(m_fd, -1); }
 
 } // namespace sc

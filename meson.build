@@ -24,6 +24,12 @@ sc_common_flags = [
 ]
 sc_cxx_flags = []
 
+if get_option('buildtype') == 'debug'
+  sc_common_flags += '-DA3_LOG_LEVEL=A3_LOG_TRACE'
+else
+  sc_common_flags += '-DA3_LOG_LEVEL=A3_LOG_INFO'
+endif
+
 if get_option('profile')
   sc_common_flags += '-DPROFILE'
 endif
@@ -64,6 +70,7 @@ sc_include = include_directories('src')
 sc_src = files(
   [
     'src/main.cc',
+    'src/socket.cc',
     'src/event/loop.cc',
     'src/event/backend/backend.cc'
   ]

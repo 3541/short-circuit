@@ -22,8 +22,6 @@
 #include <cstdlib>
 #include <optional>
 
-#include <a3/log.h>
-
 #include "coro.hh"
 
 namespace sc::ev {
@@ -97,7 +95,6 @@ private:
         bool await_ready() { return !coroutine || coroutine.done(); }
 
         std::coroutine_handle<> await_suspend(std::coroutine_handle<> caller) {
-            a3_log_fmt(LOG_INFO, "Suspending waiter with coroutine %p.", caller.address());
             coroutine.promise().set_caller(caller);
             return coroutine;
         }
@@ -109,12 +106,9 @@ public:
     using promise_type = Promise;
 
     Future() = default;
-    explicit Future(std::coroutine_handle<Promise> coroutine) : m_coroutine { coroutine } {
-        a3_log_fmt(LOG_INFO, "Creating future with coroutine %p.", m_coroutine.address());
-    }
+    explicit Future(std::coroutine_handle<Promise> coroutine) : m_coroutine { coroutine } {}
 
     ~Future() {
-        a3_log_msg(LOG_INFO, "Destroying future.");
         if (m_coroutine)
             m_coroutine.destroy();
     }

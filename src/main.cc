@@ -21,6 +21,7 @@
  * final interface.
  */
 
+#include <charconv>
 #include <filesystem>
 
 #include <fcntl.h>
@@ -39,13 +40,13 @@ namespace fs = std::filesystem;
 using namespace sc;
 
 namespace sc {
-Options CONFIG = { .web_root = config::DEFAULT_WEB_ROOT,
+Options const CONFIG { .web_root = config::DEFAULT_WEB_ROOT,
 #ifdef NDEBUG
-                   .log_level = LOG_WARN,
+                       .log_level = A3_LOG_WARN,
 #else
-                   .log_level = LOG_TRACE,
+                       .log_level = A3_LOG_TRACE,
 #endif
-                   .listen_port = config::DEFAULT_LISTEN_PORT };
+                       .listen_port = config::DEFAULT_LISTEN_PORT };
 } // namespace sc
 
 static void webroot_check_exists(fs::path const& root) {
@@ -55,70 +56,79 @@ static void webroot_check_exists(fs::path const& root) {
         A3_PANIC_FMT("Web root %s is not a directory.", root.c_str());
 }
 
-static void usage(void) {
+static void usage() {
     fprintf(stderr, "USAGE:\n\n"
                     "sc [options] [web root]\n"
                     "Options:\n"
                     "\t-h, --help\t\tShow this message and exit.\n"
                     "\t-p, --port <PORT>\tSpecify the port to listen on. (Default is 8000).\n"
                     "\t-q, --quiet\t\tBe quieter (more 'q's for more silence).\n"
-                    "\t-v, --verbose\t\tPrint verbose output (more 'v's for even more output).\n"
+                    "\t-v, --verbose\t\tPrint verbose output (more 'v's for even more "
+                    "output).\n"
                     "\t    --version\t\tPrint version information.\n");
-    exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE); // NOLINT(concurrency-mt-unsafe)
 }
 
-static void version(void) {
+static void version() {
     printf("Short Circuit (sc) %s\n"
            "Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>\n\n"
            "This program is free software: you can redistribute it and/or modify\n"
-           "it under the terms of the GNU Affero General Public License as published\n"
+           "it under the terms of the GNU Affero General Public License as "
+           "published\n"
            "by the Free Software Foundation, either version 3 of the License, or\n"
            "(at your option) any later version.\n\n"
            "This program is distributed in the hope that it will be useful,\n"
            "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
            "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
            "GNU Affero General Public License for more details.\n\n"
-           "You should have received a copy of the GNU Affero General Public License\n"
-           "along with this program.  If not, see <https://www.gnu.org/licenses/>.\n",
+           "You should have received a copy of the GNU Affero General Public "
+           "License\n"
+           "along with this program.  If not, see "
+           "<https://www.gnu.org/licenses/>.\n",
            SC_VERSION);
-    exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS); // NOLINT(concurrency-mt-unsafe)
 }
 
 static void config_parse(int argc, char** argv) {
     enum { OPT_HELP, OPT_PORT, OPT_QUIET, OPT_VERBOSE, OPT_VERSION, OPT_COUNT };
 
-    static struct option options[] = {
-        [OPT_HELP]    = { "help", no_argument, NULL, 'h' },
-        [OPT_PORT]    = { "port", required_argument, NULL, 'p' },
-        [OPT_QUIET]   = { "quiet", no_argument, NULL, 'q' },
-        [OPT_VERBOSE] = { "verbose", no_argument, NULL, 'v' },
-        [OPT_VERSION] = { "version", no_argument, NULL, '\0' },
-        [OPT_COUNT]   = { 0, 0, 0, 0 },
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static option options[] {
+        [OPT_HELP]    = { "help", no_argument, nullptr, 'h' },
+        [OPT_PORT]    = { "port", required_argument, nullptr, 'p' },
+        [OPT_QUIET]   = { "quiet", no_argument, nullptr, 'q' },
+        [OPT_VERBOSE] = { "verbose", no_argument, nullptr, 'v' },
+        [OPT_VERSION] = { "version", no_argument, nullptr, '\0' },
+        [OPT_COUNT]   = { nullptr, 0, nullptr, 0 },
     };
 
-    int opt;
-    int longindex;
+    auto& config = const_cast<Options&>(CONFIG); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+
+    int opt       = 0;
+    int longindex = 0;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     while ((opt = getopt_long(argc, argv, "hqvp:", options, &longindex)) != -1) {
         switch (opt) {
         case 'h':
             usage();
             break;
         case 'p': {
-            uint64_t port_num = strtoul(optarg, NULL, 10);
+            in_port_t port_num = 0;
+            std::from_chars(optarg, optarg + strlen(optarg), port_num);
             if (port_num > std::numeric_limits<in_port_t>::max())
                 A3_PANIC_FMT("Invalid port %llu.", port_num);
 
-            CONFIG.listen_port = static_cast<in_port_t>(port_num);
+            config.listen_port = static_cast<in_port_t>(port_num);
             break;
         }
         case 'q':
         case 'v': {
-            auto n = a3::to_underlying(CONFIG.log_level);
-            if (opt == 'v' && CONFIG.log_level < LOG_ERROR)
+            auto n = config.log_level;
+            if (opt == 'v' && CONFIG.log_level < A3_LOG_ERROR)
                 n++;
-            else if (opt == 'q' && CONFIG.log_level > LOG_TRACE)
+            else if (opt == 'q' && CONFIG.log_level > A3_LOG_TRACE)
                 n--;
-            CONFIG.log_level = static_cast<A3LogLevel>(n);
+            config.log_level = n;
             break;
         }
         default:
@@ -142,14 +152,14 @@ static void config_parse(int argc, char** argv) {
     // Non-option parameters to parse.
     if (optind < argc) {
         if (argc - optind > 1) {
-            a3_log_msg(LOG_ERROR, "Too many parameters.");
+            A3_ERROR("Too many parameters.");
             usage();
         }
 
-        CONFIG.web_root = argv[optind];
+        config.web_root = argv[optind];
     }
 
-    CONFIG.web_root = fs::canonical(CONFIG.web_root);
+    config.web_root = fs::canonical(CONFIG.web_root);
 }
 
 int main(int argc, char* argv[]) {
@@ -160,8 +170,6 @@ int main(int argc, char* argv[]) {
     // Re-initialize with the potentially changed log level.
     a3_log_init(stderr, CONFIG.log_level);
 
-    srand(static_cast<uint32_t>(time(nullptr)));
-
     webroot_check_exists(CONFIG.web_root);
 
     fs::path file { "build.ninja" };
@@ -170,16 +178,13 @@ int main(int argc, char* argv[]) {
 
     ev::EventLoop loop;
 
-    a3_log_msg(LOG_INFO, "About to start event loop.");
-    loop.run([](ev::EventLoop& loop, int fd) -> ev::Future<void> {
-        a3_log_msg(LOG_INFO, "Starting read future.");
-        auto buffer = std::make_unique<char[]>(512);
+    /*    loop.run([](ev::EventLoop& loop, int fd) -> ev::Future<void> {
+            auto buffer = std::make_unique<char[]>(512);
 
-        auto s = co_await loop.read(fd, std::as_writable_bytes(std::span { buffer.get(), 511 }));
-        buffer[511] = '\0';
-        printf("Read %zu bytes.\n", s);
-        printf("%s\n", buffer.get());
-    }(loop, fd));
+            auto s = co_await loop.read(fd, std::as_writable_bytes(std::span { buffer.get(), 511
+       })); buffer[511] = '\0'; printf("Read %zu bytes.\n", s.unwrap()); printf("%s\n",
+       buffer.get());
+            }(loop, fd));*/
 
     return EXIT_SUCCESS;
 }

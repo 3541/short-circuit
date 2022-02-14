@@ -21,7 +21,7 @@
 
 #if __has_include(<experimental/coroutine>)
 #include <experimental/coroutine>
-namespace std {
+namespace std { // NOLINT(cert-dcl58-cpp)
 using namespace experimental;
 }
 #elif __has_include(<coroutine>)

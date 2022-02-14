@@ -1,1 +1,5 @@
-Checks: '-clang-analyzer-core.UndefinedBinaryOperatorResult,-clang-diagnostic-c99-designator,bugprone*,misc*'
+Checks: 'bugprone*,cert*,clang-analyzer*,concurrency*,cppcoreguidelines*,misc*,modernize*,performance*,portability*,readability*,-bugprone-macro-parentheses,-cppcoreguidelines-pro-type-vararg,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,-readability-braces-around-statements'
+HeaderFilterRegex: '(sc|short-circuit)/src'
+CheckOptions:
+  - key: bugprone-easily-swappable-parameters.MinimumLength
+    value: 3

@@ -23,6 +23,7 @@
 
 #include <liburing.h>
 
+#include <a3/result.hh>
 #include <a3/util.hh>
 
 #include "event/io.hh"
@@ -33,14 +34,14 @@ class Uring {
     A3_PINNED(Uring);
 
 private:
-    class Sqe : public IOBase<Sqe, ssize_t> {
+    class Sqe : public IOBase<Sqe, a3::Result<size_t, std::error_code>> {
     private:
         io_uring_sqe& m_sqe;
 
     public:
         explicit Sqe(io_uring_sqe& sqe) : m_sqe { sqe } {}
 
-        using IOBase::complete;
+        void complete(ssize_t result) { IOBase::complete(a3::signed_result(result)); }
 
         void await_suspend(std::coroutine_handle<> caller) {
             io_uring_sqe_set_data(&m_sqe, this);
