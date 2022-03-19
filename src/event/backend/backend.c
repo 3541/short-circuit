@@ -1,7 +1,7 @@
 /*
- * FILE HANDLE -- The file handle type. See file.h and file.c
+ * SHORT CIRCUIT: EVENT BACKEND.
  *
- * Copyright (c) 2021, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -17,26 +17,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
-
-// Some weirdness on NixOS.
-#include <linux/stat.h>
-
-#include <a3/rc.h>
-#include <a3/sll.h>
-#include <a3/str.h>
-
-#include "event.h"
-#include "forward.h"
-
-typedef struct FileHandle {
-    A3_REFCOUNTED;
-    EVENT_TARGET;
-    EventQueue waiting;
-
-    struct statx stat;
-
-    A3CString path;
-    fd        file;
-    int32_t   flags;
-} FileHandle;
+#ifdef SC_IO_BACKEND_URING
+#include "uring.c"
+#else
+#error "No valid IO backend is selected."
+#endif
