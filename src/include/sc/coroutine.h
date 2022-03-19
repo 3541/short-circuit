@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: EVENT BACKEND.
+ * SHORT CIRCUIT: COROUTINE -- Single-threaded coroutines.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -17,8 +17,21 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifdef SC_IO_BACKEND_URING
-#include "uring.c"
-#else
-#error "No valid IO backend is selected."
-#endif
+#pragma once
+
+#include <stddef.h>
+
+#include <a3/types.h>
+
+#include <sc/forward.h>
+
+typedef ssize_t (*ScCoEntry)(ScCoroutine* self, void* data);
+
+A3_EXPORT ScCoCtx* sc_co_main_ctx_new(void);
+A3_EXPORT void     sc_co_main_ctx_free(ScCoCtx*);
+A3_EXPORT ScCoroutine* sc_co_new(ScCoCtx* caller, ScCoEntry entry, void* data);
+A3_EXPORT void         sc_co_free(ScCoroutine*);
+A3_EXPORT ssize_t      sc_co_yield(ScCoroutine*);
+A3_EXPORT ssize_t      sc_co_await(ScCoroutine*, ScIoFuture*);
+A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
+A3_EXPORT size_t       sc_co_count(void);

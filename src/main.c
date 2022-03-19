@@ -21,4 +21,45 @@
  * final interface.
  */
 
-int main(void) { return 0; }
+#include <fcntl.h>
+#include <stdio.h>
+
+#include <a3/log.h>
+#include <a3/str.h>
+
+#include <sc/coroutine.h>
+#include <sc/io.h>
+
+ssize_t cof(ScCoroutine* self, void* data) {
+    ScEventLoop* ev = data;
+
+    ssize_t res =
+        sc_co_await(self, sc_io_openat(ev, self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY));
+    if (res < 0) {
+        A3_ERRNO(-res, "failed to open file");
+        return -1;
+    }
+    ScFd fd = (ScFd)res;
+
+    A3String buf = a3_string_alloc(512);
+    res          = sc_co_await(self, sc_io_read(ev, self, fd, buf, 512, 0));
+
+    printf("Read %zd bytes\n", res);
+    printf("%s\n", buf.ptr);
+
+    a3_string_free(&buf);
+    return 0;
+}
+
+int main(void) {
+    ScCoCtx*     main_ctx = sc_co_main_ctx_new();
+    ScEventLoop* ev       = sc_io_event_loop_new();
+
+    ScCoroutine* co = sc_co_new(main_ctx, cof, ev);
+    sc_co_resume(co, 0);
+
+    sc_io_event_loop_run(ev);
+
+    sc_io_event_loop_free(ev);
+    sc_co_main_ctx_free(main_ctx);
+}

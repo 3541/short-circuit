@@ -54,7 +54,9 @@ a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 sc_include = include_directories(['src', 'src/include'])
 sc_src = files(
   [
-    'src/event/backend/backend.c',
+    'src/io/io.c',
+    'src/io/backend/backend.c',
+    'src/io/co/coroutine.c',
   ]
 )
 sc_deps = [a3, a3_hash]
@@ -75,6 +77,7 @@ sc_lib = library(
 )
 sc = declare_dependency(
   link_with: sc_lib,
+  dependencies: [a3, a3_hash],
   include_directories: include_directories('src/include'),
 )
 sc_dep = sc
