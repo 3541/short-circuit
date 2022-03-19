@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <netinet/in.h>
+
 #include <a3/str.h>
 
 #include <sc/forward.h>
@@ -30,5 +32,8 @@ void         sc_io_event_loop_run(ScEventLoop*);
 void         sc_io_event_loop_pump(ScEventLoop*);
 void         sc_io_event_loop_free(ScEventLoop*);
 
+ScIoFuture* sc_io_accept(ScEventLoop*, ScCoroutine*, ScFd sock, struct sockaddr* client_addr,
+                         socklen_t* addr_len);
+ScIoFuture* sc_io_recv(ScEventLoop*, ScCoroutine*, ScFd sock, A3String dst);
 ScIoFuture* sc_io_openat(ScEventLoop*, ScCoroutine*, ScFd dir, A3CString path, int open_flags);
-ScIoFuture* sc_io_read(ScEventLoop*, ScCoroutine*, ScFd, A3String dst, size_t, off_t);
+ScIoFuture* sc_io_read(ScEventLoop*, ScCoroutine*, ScFd, A3String dst, off_t);

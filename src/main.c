@@ -42,9 +42,8 @@ ssize_t cof(ScCoroutine* self, void* data) {
     ScFd fd = (ScFd)res;
 
     A3String buf = a3_string_alloc(512);
-    res          = sc_co_await(self, sc_io_read(ev, self, fd, buf, 512, 0));
+    res          = sc_co_await(self, sc_io_read(ev, self, fd, buf, 0));
 
-    printf("Read %zd bytes\n", res);
     printf("%s\n", buf.ptr);
 
     a3_string_free(&buf);

@@ -1,4 +1,3 @@
-
 /*
  * SHORT CIRCUIT: URING -- io_uring event backend.
  *
@@ -72,13 +71,13 @@ static void sc_io_limits_init(void) {
     struct rlimit lim_memlock = sc_io_limit_maximize(RLIMIT_MEMLOCK);
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
-    if (lim_memlock.rlim_cur <= 96 * SC_URING_ENTRIES)
+    if (lim_memlock.rlim_cur <= 96ULL * SC_URING_ENTRIES)
         A3_WARN_F("The memlock limit (%d) is too low. The queue will probably "
                   "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
                   lim_memlock.rlim_cur);
 
     struct rlimit lim_nofile = sc_io_limit_maximize(RLIMIT_NOFILE);
-    if (lim_nofile.rlim_cur <= SC_CONNECTION_POOL_SIZE * 3)
+    if (lim_nofile.rlim_cur <= 3ULL * SC_CONNECTION_POOL_SIZE)
         A3_WARN_F("The open file limit (%d) is low. Large numbers of concurrent "
                   "connections will probably cause \"too many open files\" errors.",
                   lim_nofile.rlim_cur);
@@ -134,6 +133,7 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
     unsigned             count = 0;
     io_uring_for_each_cqe(&ev->uring, head, cqe) {
         count++;
+
         ScCoroutine* co = io_uring_cqe_get_data(cqe);
         if (!co) {
             A3_WARN("Empty CQE.");
@@ -157,8 +157,7 @@ ssize_t sc_co_await(ScCoroutine* self, ScIoFuture* future) {
     assert(self);
     assert(future);
 
-    struct io_uring_sqe* sqe = (struct io_uring_sqe*)future;
-    io_uring_sqe_set_data(sqe, self);
+    io_uring_sqe_set_data((struct io_uring_sqe*)future, self);
 
     return sc_co_yield(self);
 }
@@ -177,6 +176,36 @@ static struct io_uring_sqe* sc_io_sqe_get(struct io_uring* uring) {
     return ret;
 }
 
+ScIoFuture* sc_io_accept(ScEventLoop* ev, ScCoroutine* co, ScFd sock, struct sockaddr* client_addr,
+                         socklen_t* addr_len) {
+    assert(ev);
+    assert(co);
+    assert(sock >= 0);
+    assert(client_addr);
+    assert(addr_len && *addr_len);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
+    A3_TRYB(sqe);
+
+    io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
+
+    return (ScIoFuture*)sqe;
+}
+
+ScIoFuture* sc_io_recv(ScEventLoop* ev, ScCoroutine* co, ScFd sock, A3String dst) {
+    assert(ev);
+    assert(co);
+    assert(sock >= 0);
+    assert(dst.ptr);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
+    A3_TRYB(sqe);
+
+    io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
+
+    return (ScIoFuture*)sqe;
+}
+
 ScIoFuture* sc_io_openat(ScEventLoop* ev, ScCoroutine* co, ScFd dir, A3CString path, int flags) {
     assert(ev);
     assert(co);
@@ -190,8 +219,7 @@ ScIoFuture* sc_io_openat(ScEventLoop* ev, ScCoroutine* co, ScFd dir, A3CString p
     return (ScIoFuture*)sqe;
 }
 
-ScIoFuture* sc_io_read(ScEventLoop* ev, ScCoroutine* co, ScFd fd, A3String dst, size_t size,
-                       off_t offset) {
+ScIoFuture* sc_io_read(ScEventLoop* ev, ScCoroutine* co, ScFd fd, A3String dst, off_t offset) {
     assert(ev);
     assert(co);
     assert(fd >= 0);
@@ -200,8 +228,7 @@ ScIoFuture* sc_io_read(ScEventLoop* ev, ScCoroutine* co, ScFd fd, A3String dst, 
     struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
     A3_TRYB(sqe);
 
-    unsigned read_size = (unsigned)MIN(dst.len, size);
-    io_uring_prep_read(sqe, fd, dst.ptr, read_size, (uint64_t)offset);
+    io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
 
     return (ScIoFuture*)sqe;
 }
