@@ -35,7 +35,9 @@ jobs:
         sudo make install
 
     - name: Install dependencies
-      run: pip install meson ninja
+      run: |
+        sudo apt-get install -y valgrind
+        pip install meson ninja
 
     - name: Configure
       run: meson setup --buildtype debug --werror -Db_sanitize=address,undefined build
