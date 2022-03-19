@@ -81,7 +81,7 @@ void http_connection_free(HttpConnection* conn, struct io_uring* uring) {
         int flags = fcntl(conn->conn.socket, F_GETFL);
         if (fcntl(conn->conn.socket, F_SETFL, flags | O_NONBLOCK) != 0 ||
             close(conn->conn.socket) != 0)
-            a3_log_error(errno, "Failed to close socket.");
+            A3_ERRNO(errno, "Failed to close socket.");
     }
 
     http_connection_reset(conn, uring);

@@ -22,7 +22,6 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <liburing.h>
-#include <liburing/io_uring.h>
 #include <linux/stat.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -45,6 +44,8 @@
 #include "http/connection.h"
 #include "http/request.h"
 #include "http/types.h"
+
+#include <liburing/io_uring.h>
 
 static bool http_response_splice_handle(Connection*, struct io_uring*, bool success,
                                         int32_t status);
@@ -115,9 +116,9 @@ static bool http_response_splice_chain_handle(Connection* connection, struct io_
         conn->response.body_sent += (size_t)status;
 
     if (!success) {
-        a3_log_fmt(LOG_TRACE, "Short splice %s of %d.", (dir == SPLICE_IN) ? "IN" : "OUT", status);
+        A3_TRACE_F("Short splice %s of %d.", (dir == SPLICE_IN) ? "IN" : "OUT", status);
         if (dir == SPLICE_OUT) {
-            A3_ERR("TODO: Handle short splice out.");
+            A3_ERROR("TODO: Handle short splice out.");
             return false;
         }
 
@@ -160,7 +161,7 @@ static bool http_response_prep_status_line(HttpResponse* resp, HttpStatus status
 
     A3CString reason = http_status_reason(status);
     if (!reason.ptr) {
-        a3_log_fmt(LOG_WARN, "Invalid HTTP status %d.", status_code);
+        A3_WARN_F("Invalid HTTP status %d.", status_code);
         return false;
     }
     A3_TRYB(a3_buf_write_str(buf, reason));
@@ -327,8 +328,7 @@ bool http_response_error_submit(HttpResponse* resp, struct io_uring* uring, Http
     if (!http_connection_keep_alive(conn))
         close = true;
 
-    a3_log_fmt(LOG_DEBUG, "HTTP error %d. %s", http_status_code(status),
-               close ? "Closing connection." : "");
+    A3_DEBUG_F("HTTP error %d. %s", http_status_code(status), close ? "Closing connection." : "");
 
     // Clear any previously written data.
     a3_buf_reset(http_response_send_buf(resp));

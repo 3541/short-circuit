@@ -18,8 +18,6 @@
  */
 #define _GNU_SOURCE
 
-#include "event.h"
-
 #include <assert.h>
 #include <fcntl.h>
 #include <liburing.h>
@@ -36,6 +34,7 @@
 #include <a3/util.h>
 
 #include "config.h"
+#include "event.h"
 #include "event/internal.h"
 #include "forward.h"
 
@@ -79,7 +78,7 @@ static struct io_uring_sqe* event_get_sqe(struct io_uring* uring) {
         if (io_uring_submit(uring) < 0)
             break;
     if (!ret)
-        a3_log_msg(LOG_WARN, "SQ full.");
+        A3_WARN("SQ full.");
     return ret;
 }
 

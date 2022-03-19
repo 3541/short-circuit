@@ -18,7 +18,6 @@
  */
 
 #include "file.h"
-#include "file_handle.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -36,6 +35,7 @@
 #include "config.h"
 #include "event.h"
 #include "event/handle.h"
+#include "file_handle.h"
 #include "forward.h"
 
 #define FILE_HANDLE_WAITING (-4242)
@@ -55,7 +55,7 @@ static void file_evict_callback(void* uring, A3CString* key, FileHandle** value)
     assert(key->ptr);
     assert(value);
 
-    a3_log_fmt(LOG_TRACE, "Evicting file " A3_S_F ".", A3_S_FORMAT(*key));
+    A3_TRACE_F("Evicting file " A3_S_F ".", A3_S_FORMAT(*key));
     file_handle_close(*value, uring);
 }
 
@@ -151,13 +151,13 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
     if (handle_ptr && (*handle_ptr)->flags == flags) {
         FileHandle* handle = *handle_ptr;
 
-        a3_log_fmt(LOG_TRACE, "File cache hit (openat) on " A3_S_F ".", A3_S_FORMAT(path));
+        A3_TRACE_F("File cache hit (openat) on " A3_S_F ".", A3_S_FORMAT(path));
         a3_string_free(&path);
 
         // The handle is not ready, but an open request is in flight. Synthesize
         // an event so the caller is notified when the file is opened.
         if (file_handle_waiting(handle)) {
-            a3_log_msg(LOG_TRACE, "  Open in-flight. Waiting.");
+            A3_TRACE("  Open in-flight. Waiting.");
             file_handle_wait(target, handle, handler, ctx);
             return handle;
         }
@@ -166,7 +166,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
         return handle;
     }
 
-    a3_log_fmt(LOG_TRACE, "File cache miss (openat) on " A3_S_F ".", A3_S_FORMAT(path));
+    A3_TRACE_F("File cache miss (openat) on " A3_S_F ".", A3_S_FORMAT(path));
     FileHandle* handle = NULL;
     A3_UNWRAPN(handle, calloc(1, sizeof(FileHandle)));
     A3_REF_INIT(handle);
@@ -177,7 +177,7 @@ FileHandle* file_openat(EventTarget* target, struct io_uring* uring, FileHandleH
                            handle->path, FILE_STATX_MASK, &handle->stat, IOSQE_IO_LINK) ||
         !event_openat_submit(file_handle_target(handle), uring, file_handle_openat_handle, NULL,
                              dir ? file_handle_fd(dir) : -1, handle->path, flags, 0)) {
-        a3_log_msg(LOG_WARN, "Unable to submit OPENAT event.");
+        A3_WARN("Unable to submit OPENAT event.");
         a3_string_free(&path);
         free(handle);
         return NULL;

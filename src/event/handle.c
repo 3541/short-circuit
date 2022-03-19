@@ -21,7 +21,6 @@
 
 #include <assert.h>
 #include <liburing.h>
-#include <liburing/io_uring.h>
 #include <stdint.h>
 
 #include <a3/log.h>
@@ -35,6 +34,8 @@
 #include "file.h"
 #include "file_handle.h"
 #include "timeout.h"
+
+#include <liburing/io_uring.h>
 
 void event_queue_init(EventQueue* queue) {
     assert(queue);
@@ -93,7 +94,7 @@ void event_handle_all(EventQueue* queue, struct io_uring* uring) {
 
         if (!event) {
             if (status < 0)
-                a3_log_error(-status, "event without target failed");
+                A3_ERRNO(-status, "event without target failed");
             continue;
         }
 

@@ -17,13 +17,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "event.h"
-
 #include <liburing.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
 
+#include <a3/log.h>
+
 #include "config.h"
+#include "event.h"
 #include "internal.h"
 
 // Check that the kernel is recent enough to support io_uring and
@@ -83,17 +84,15 @@ static void event_limits_init(void) {
     // This is a crude check, but opening the queue will almost certainly fail
     // if the limit is this low.
     if (lim_memlock.rlim_cur <= 96 * URING_ENTRIES)
-        a3_log_fmt(LOG_WARN,
-                   "The memlock limit (%d) is too low. The queue will probably "
-                   "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
-                   lim_memlock.rlim_cur);
+        A3_WARN_F("The memlock limit (%d) is too low. The queue will probably "
+                  "fail to open. Either raise the limit or lower `URING_ENTRIES`.",
+                  lim_memlock.rlim_cur);
 
     struct rlimit lim_nofile = rlimit_maximize(RLIMIT_NOFILE);
     if (lim_nofile.rlim_cur <= CONNECTION_POOL_SIZE * 3)
-        a3_log_fmt(LOG_WARN,
-                   "The open file limit (%d) is low. Large numbers of concurrent "
-                   "connections will probably cause \"too many open files\" errors.",
-                   lim_nofile.rlim_cur);
+        A3_WARN_F("The open file limit (%d) is low. Large numbers of concurrent "
+                  "connections will probably cause \"too many open files\" errors.",
+                  lim_nofile.rlim_cur);
 }
 
 struct io_uring event_init() {

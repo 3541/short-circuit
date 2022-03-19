@@ -21,7 +21,6 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <liburing/io_uring.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -31,6 +30,8 @@
 
 #include "event.h"
 #include "forward.h"
+
+#include <liburing/io_uring.h>
 
 // Compare a kernel timespec and libc timespec.
 static ssize_t timespec_compare(Timespec lhs, struct timespec rhs) {
@@ -55,7 +56,7 @@ static void timeout_handle(EventTarget* target, struct io_uring* uring, void* ct
 
     TimeoutQueue* timeouts = EVT_PTR(target, TimeoutQueue);
 
-    a3_log_msg(LOG_TRACE, "Timeout firing.");
+    A3_TRACE("Timeout firing.");
 
     struct timespec current;
     A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &current));
@@ -68,7 +69,7 @@ static void timeout_handle(EventTarget* target, struct io_uring* uring, void* ct
     }
 
     if (!timeout_schedule_next(timeouts, uring))
-        a3_log_msg(LOG_ERROR, "Unable to schedule timeout.");
+        A3_ERROR("Unable to schedule timeout.");
 }
 
 static bool timeout_schedule_next(TimeoutQueue* timeouts, struct io_uring* uring) {

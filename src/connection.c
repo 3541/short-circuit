@@ -25,7 +25,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <liburing/io_uring.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>
@@ -44,6 +43,8 @@
 #include "http/types.h"
 #include "listen.h"
 #include "timeout.h"
+
+#include <liburing/io_uring.h>
 
 static bool connection_timeout_submit(Connection* conn, struct io_uring* uring, time_t delay);
 
@@ -82,7 +83,7 @@ static inline void connection_drop(Connection* conn, struct io_uring* uring) {
     assert(conn);
     assert(uring);
 
-    a3_log_msg(LOG_TRACE, "Dropping connection.");
+    A3_TRACE("Dropping connection.");
     // TODO: Make generic.
     http_connection_free(connection_http(conn), uring);
 }
@@ -125,10 +126,10 @@ static void connection_accept_handle(EventTarget* target, struct io_uring* uring
 
     Connection* conn = EVT_PTR(target, Connection);
 
-    a3_log_msg(LOG_TRACE, "Accept connection.");
+    A3_TRACE("Accept connection.");
     conn->listener->accept_queued = false;
     if (!success) {
-        a3_log_error(-status, "accept failed");
+        A3_ERRNO(-status, "accept failed");
         connection_drop(conn, uring);
         return;
     }
@@ -147,7 +148,7 @@ static void connection_close_handle(EventTarget* target, struct io_uring* uring,
 
     conn->socket = -1;
     if (status < 0)
-        a3_log_error(-status, "close failed");
+        A3_ERRNO(-status, "close failed");
 
     if (ctx)
         connection_handler_call(conn, uring, ctx, success, status);
@@ -162,12 +163,12 @@ static void connection_recv_handle(EventTarget* target, struct io_uring* uring, 
     Connection* conn = EVT_PTR(target, Connection);
 
     if (status == 0 || status == -ECONNRESET) {
-        a3_log_msg(LOG_TRACE, "Connection closed by peer.");
+        A3_TRACE("Connection closed by peer.");
         connection_drop(conn, uring);
         return;
     }
     if (!success) {
-        a3_log_error(-status, "recv failed");
+        A3_ERRNO(-status, "recv failed");
         connection_drop(conn, uring);
         return;
     }
@@ -185,12 +186,12 @@ static void connection_send_handle(EventTarget* target, struct io_uring* uring, 
     Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
-        a3_log_error(-status, "send failed");
+        A3_ERRNO(-status, "send failed");
         connection_drop(conn, uring);
         return;
     }
     if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short send of %d.", status);
+        A3_ERROR_F("Short send of %d.", status);
         connection_drop(conn, uring);
         return;
     }
@@ -209,12 +210,12 @@ static void connection_splice_handle(EventTarget* target, struct io_uring* uring
     Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
-        a3_log_error(-status, "splice failed");
+        A3_ERRNO(-status, "splice failed");
         connection_drop(conn, uring);
         return;
     }
     if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short splice out of %d.", status);
+        A3_ERROR_F("Short splice out of %d.", status);
         connection_drop(conn, uring);
     }
 
@@ -230,12 +231,12 @@ static void connection_splice_in_handle(EventTarget* target, struct io_uring* ur
     Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
-        a3_log_error(-status, "splice in failed");
+        A3_ERRNO(-status, "splice in failed");
         connection_drop(conn, uring);
         return;
     }
     if (!success)
-        a3_log_fmt(LOG_WARN, "Short splice of %d.", status);
+        A3_WARN_F("Short splice of %d.", status);
 
     if (ctx) {
         ConnectionSpliceHandler handler = ctx;
@@ -252,12 +253,12 @@ static void connection_splice_out_handle(EventTarget* target, struct io_uring* u
     Connection* conn = EVT_PTR(target, Connection);
 
     if (status < 0) {
-        a3_log_error(-status, "splice out failed");
+        A3_ERRNO(-status, "splice out failed");
         connection_drop(conn, uring);
         return;
     }
     if (!success) {
-        a3_log_fmt(LOG_ERROR, "Short splice out of %d.", status);
+        A3_ERROR_F("Short splice out of %d.", status);
         connection_drop(conn, uring);
         return;
     }
@@ -335,9 +336,9 @@ bool connection_splice_submit(Connection* conn, struct io_uring* uring,
     assert(handler);
 
     if (!conn->pipe[0] && !conn->pipe[1]) {
-        a3_log_msg(LOG_TRACE, "Opening pipe.");
+        A3_TRACE("Opening pipe.");
         if (pipe(conn->pipe) < 0) {
-            a3_log_error(errno, "unable to open pipe");
+            A3_ERRNO(errno, "unable to open pipe");
             return false;
         }
     }
@@ -348,14 +349,14 @@ bool connection_splice_submit(Connection* conn, struct io_uring* uring,
         A3_TRYB_MSG(event_splice_submit(EVT(conn), uring, connection_splice_in_handle,
                                         splice_handler, src, len - remaining + file_offset,
                                         conn->pipe[1], req_len, 0, sqe_flags | IOSQE_IO_LINK),
-                    LOG_ERROR, "Failed to submit splice in.");
+                    A3_LOG_ERROR, "Failed to submit splice in.");
         A3_TRYB_MSG(
             event_splice_submit(EVT(conn), uring,
                                 more ? connection_splice_out_handle : connection_splice_handle,
                                 more ? (void*)splice_handler : (void*)handler, conn->pipe[0],
                                 (uint64_t)-1, conn->socket, req_len, more ? SPLICE_F_MORE : 0,
                                 sqe_flags | (more ? IOSQE_IO_LINK : 0)),
-            LOG_ERROR, "Failed to submit splice out.");
+            A3_LOG_ERROR, "Failed to submit splice out.");
         if (more)
             remaining -= PIPE_BUF_SIZE;
         else
@@ -384,7 +385,7 @@ bool connection_splice_retry(Connection* conn, struct io_uring* uring,
                              more ? (void*)splice_handler : (void*)handler, conn->pipe[0],
                              (uint64_t)-1, conn->socket, in_buf, more ? SPLICE_F_MORE : 0,
                              sqe_flags | (more ? IOSQE_IO_LINK : 0))) {
-        A3_ERR("Failed to submit splice.");
+        A3_ERROR("Failed to submit splice.");
         return false;
     }
 
