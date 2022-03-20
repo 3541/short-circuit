@@ -153,18 +153,13 @@ void sc_io_event_loop_free(ScEventLoop* ev) {
     free(ev);
 }
 
-ssize_t sc_co_await(ScCoroutine* self, ScIoFuture* future) {
-    assert(self);
-    assert(future);
-
-    io_uring_sqe_set_data((struct io_uring_sqe*)future, self);
-
-    return sc_co_yield(self);
-}
-
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
 // return a null pointer if the SQ is full and, for whatever reason, it does not empty in time.
-static struct io_uring_sqe* sc_io_sqe_get(struct io_uring* uring) {
+static struct io_uring_sqe* sc_io_sqe_get(ScCoroutine* co) {
+    assert(co);
+
+    struct io_uring* uring = &sc_co_event_loop(co)->uring;
+
     struct io_uring_sqe* ret = io_uring_get_sqe(uring);
     // Try to submit events until an SQE is available or too many retries have elapsed.
     for (size_t retries = 0; !ret && retries < SC_URING_SQE_RETRY_MAX;
@@ -176,59 +171,62 @@ static struct io_uring_sqe* sc_io_sqe_get(struct io_uring* uring) {
     return ret;
 }
 
-ScIoFuture* sc_io_accept(ScEventLoop* ev, ScCoroutine* co, ScFd sock, struct sockaddr* client_addr,
-                         socklen_t* addr_len) {
-    assert(ev);
-    assert(co);
+static ssize_t sc_io_submit(ScCoroutine* self, struct io_uring_sqe* sqe) {
+    assert(self);
+    assert(sqe);
+
+    io_uring_sqe_set_data(sqe, self);
+    return sc_co_yield(self);
+}
+
+int sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
+    assert(self);
     assert(sock >= 0);
     assert(client_addr);
     assert(addr_len && *addr_len);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB(sqe);
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
-    return (ScIoFuture*)sqe;
+    return (int)sc_io_submit(self, sqe);
 }
 
-ScIoFuture* sc_io_recv(ScEventLoop* ev, ScCoroutine* co, ScFd sock, A3String dst) {
-    assert(ev);
-    assert(co);
-    assert(sock >= 0);
-    assert(dst.ptr);
-
-    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
-    A3_TRYB(sqe);
-
-    io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
-
-    return (ScIoFuture*)sqe;
-}
-
-ScIoFuture* sc_io_openat(ScEventLoop* ev, ScCoroutine* co, ScFd dir, A3CString path, int flags) {
-    assert(ev);
-    assert(co);
+int sc_io_openat(ScCoroutine* self, ScFd dir, A3CString path, int flags) {
+    assert(self);
     assert(path.ptr);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB(sqe);
 
     io_uring_prep_openat(sqe, dir, a3_string_cstr(path), flags, 0);
 
-    return (ScIoFuture*)sqe;
+    return (int)sc_io_submit(self, sqe);
 }
 
-ScIoFuture* sc_io_read(ScEventLoop* ev, ScCoroutine* co, ScFd fd, A3String dst, off_t offset) {
-    assert(ev);
-    assert(co);
+ssize_t sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
+    assert(self);
+    assert(sock >= 0);
+    assert(dst.ptr);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    A3_TRYB(sqe);
+
+    io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
+
+    return sc_io_submit(self, sqe);
+}
+
+ssize_t sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
+    assert(self);
     assert(fd >= 0);
     assert(dst.ptr);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(&ev->uring);
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB(sqe);
 
     io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
 
-    return (ScIoFuture*)sqe;
+    return sc_io_submit(self, sqe);
 }

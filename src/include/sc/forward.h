@@ -22,7 +22,6 @@
 typedef int ScFd;
 
 typedef struct ScEventLoop ScEventLoop;
-typedef struct ScIoFuture  ScIoFuture;
 
 typedef struct ScCoroutine ScCoroutine;
 typedef struct ScCoCtx     ScCoCtx;

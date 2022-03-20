@@ -24,16 +24,17 @@
 #include <netinet/in.h>
 
 #include <a3/str.h>
+#include <a3/types.h>
 
 #include <sc/forward.h>
 
-ScEventLoop* sc_io_event_loop_new(void);
-void         sc_io_event_loop_run(ScEventLoop*);
-void         sc_io_event_loop_pump(ScEventLoop*);
-void         sc_io_event_loop_free(ScEventLoop*);
+A3_EXPORT ScEventLoop* sc_io_event_loop_new(void);
+A3_EXPORT void         sc_io_event_loop_run(ScEventLoop*);
+A3_EXPORT void         sc_io_event_loop_pump(ScEventLoop*);
+A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 
-ScIoFuture* sc_io_accept(ScEventLoop*, ScCoroutine*, ScFd sock, struct sockaddr* client_addr,
-                         socklen_t* addr_len);
-ScIoFuture* sc_io_recv(ScEventLoop*, ScCoroutine*, ScFd sock, A3String dst);
-ScIoFuture* sc_io_openat(ScEventLoop*, ScCoroutine*, ScFd dir, A3CString path, int open_flags);
-ScIoFuture* sc_io_read(ScEventLoop*, ScCoroutine*, ScFd, A3String dst, off_t);
+A3_EXPORT int     sc_io_accept(ScCoroutine*, ScFd sock, struct sockaddr* client_addr,
+                               socklen_t* addr_len);
+A3_EXPORT int     sc_io_openat(ScCoroutine*, ScFd dir, A3CString path, int open_flags);
+A3_EXPORT ssize_t sc_io_recv(ScCoroutine*, ScFd sock, A3String dst);
+A3_EXPORT ssize_t sc_io_read(ScCoroutine*, ScFd, A3String dst, off_t);

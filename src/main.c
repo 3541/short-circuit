@@ -31,10 +31,9 @@
 #include <sc/io.h>
 
 ssize_t cof(ScCoroutine* self, void* data) {
-    ScEventLoop* ev = data;
+    (void)data;
 
-    ssize_t res =
-        sc_co_await(self, sc_io_openat(ev, self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY));
+    ssize_t res = sc_io_openat(self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY);
     if (res < 0) {
         A3_ERRNO(-res, "failed to open file");
         return -1;
@@ -42,7 +41,7 @@ ssize_t cof(ScCoroutine* self, void* data) {
     ScFd fd = (ScFd)res;
 
     A3String buf = a3_string_alloc(512);
-    res          = sc_co_await(self, sc_io_read(ev, self, fd, buf, 0));
+    res          = sc_io_read(self, fd, buf, 0);
 
     printf("%s\n", buf.ptr);
 
@@ -54,7 +53,7 @@ int main(void) {
     ScCoCtx*     main_ctx = sc_co_main_ctx_new();
     ScEventLoop* ev       = sc_io_event_loop_new();
 
-    ScCoroutine* co = sc_co_new(main_ctx, cof, ev);
+    ScCoroutine* co = sc_co_new(main_ctx, ev, cof, NULL);
     sc_co_resume(co, 0);
 
     sc_io_event_loop_run(ev);

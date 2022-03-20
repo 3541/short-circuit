@@ -28,6 +28,7 @@
 #include <sc/coroutine.h>
 
 #include "config.h"
+#include "sc/forward.h"
 
 #ifndef NDEBUG
 #include <valgrind/memcheck.h>
@@ -38,10 +39,11 @@ typedef struct ScCoCtx {
 } ScCoCtx;
 
 typedef struct ScCoroutine {
-    uint8_t  stack[SC_CO_STACK_SIZE];
-    ScCoCtx  ctx;
-    ScCoCtx* caller;
-    ssize_t  value;
+    uint8_t      stack[SC_CO_STACK_SIZE];
+    ScCoCtx      ctx;
+    ScCoCtx*     caller;
+    ScEventLoop* ev;
+    ssize_t      value;
 #ifndef NDEBUG
     uint32_t vg_stack_id;
 #endif
@@ -96,11 +98,13 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
     self->done  = true;
 }
 
-ScCoroutine* sc_co_new(ScCoCtx* caller, ScCoEntry entry, void* data) {
+ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* data) {
     assert(caller);
+    assert(ev);
     assert(entry);
 
     A3_UNWRAPNI(ScCoroutine*, ret, calloc(1, sizeof(*ret)));
+    ret->ev     = ev;
     ret->caller = caller;
     ret->done   = false;
 #ifndef NDEBUG
@@ -117,7 +121,14 @@ ScCoroutine* sc_co_new(ScCoCtx* caller, ScCoEntry entry, void* data) {
     return ret;
 }
 
-void sc_co_free(ScCoroutine* co) {
+ssize_t sc_co_yield(ScCoroutine* self) {
+    assert(self);
+
+    A3_UNWRAPSD(swapcontext(&self->ctx.ctx, &self->caller->ctx));
+    return self->value;
+}
+
+static void sc_co_free(ScCoroutine* co) {
     assert(co);
 
 #ifndef NDEBUG
@@ -126,13 +137,6 @@ void sc_co_free(ScCoroutine* co) {
 
     SC_CO_COUNT--;
     free(co);
-}
-
-ssize_t sc_co_yield(ScCoroutine* self) {
-    assert(self);
-
-    A3_UNWRAPSD(swapcontext(&self->ctx.ctx, &self->caller->ctx));
-    return self->value;
 }
 
 ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
@@ -149,3 +153,8 @@ ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
 }
 
 size_t sc_co_count() { return SC_CO_COUNT; }
+
+ScEventLoop* sc_co_event_loop(ScCoroutine* co) {
+    assert(co);
+    return co->ev;
+}
