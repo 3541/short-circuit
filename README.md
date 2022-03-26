@@ -14,7 +14,6 @@ interface) over its competitors (POSIX `aio`, `epoll`, etc...).
 ## Building
 Dependencies:
 * A C compiler supporting C11.
-* A C++ compiler supporting C++11.
 * Meson 0.55 or later.
 * [liburing](https://github.com/axboe/liburing).
 * Linux 5.7 or later.
