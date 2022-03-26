@@ -1,7 +1,7 @@
 /*
  * SHORT CIRCUIT -- A high-performance HTTP server for Linux, built on io_uring.
  *
- * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -29,19 +29,27 @@
 
 #include <sc/coroutine.h>
 #include <sc/io.h>
+#include <sc/listen.h>
+
+#include "config.h"
+#include "sc/forward.h"
 
 ssize_t cof(ScCoroutine* self, void* data) {
     (void)data;
 
-    ssize_t res = sc_io_openat(self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY);
+    int res = sc_io_openat(self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY);
     if (res < 0) {
         A3_ERRNO(-res, "failed to open file");
         return -1;
     }
-    ScFd fd = (ScFd)res;
+    ScFd fd = res;
 
-    A3String buf = a3_string_alloc(512);
-    res          = sc_io_read(self, fd, buf, 0);
+    A3String buf  = a3_string_alloc(512);
+    ssize_t  read = sc_io_read(self, fd, buf, 0);
+    if (read < 0) {
+        A3_ERRNO(-read, "failed to read file");
+        return -1;
+    }
 
     printf("%s\n", buf.ptr);
 
@@ -49,12 +57,22 @@ ssize_t cof(ScCoroutine* self, void* data) {
     return 0;
 }
 
+static ssize_t handler(ScHttpConnection* conn) {
+    assert(conn);
+
+    printf("Handler.\n");
+
+    return 0;
+}
+
 int main(void) {
+    a3_log_init(stderr, A3_LOG_TRACE);
+
     ScCoCtx*     main_ctx = sc_co_main_ctx_new();
     ScEventLoop* ev       = sc_io_event_loop_new();
 
-    ScCoroutine* co = sc_co_new(main_ctx, ev, cof, NULL);
-    sc_co_resume(co, 0);
+    ScListener* listener = sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, handler);
+    sc_listener_start(listener, main_ctx, ev);
 
     sc_io_event_loop_run(ev);
 

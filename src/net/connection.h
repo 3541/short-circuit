@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: IO -- IO event loop.
+ * SHORT CIRCUIT: CONNECTION -- Internal details of Connection.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -17,33 +17,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
-#include <errno.h>
-#include <signal.h>
-#include <stdlib.h>
+#pragma once
 
-#include <a3/log.h>
+#include <sc/connection.h>
 
-#include <sc/coroutine.h>
-#include <sc/io.h>
-
-static volatile sig_atomic_t SC_TERMINATE = false;
-
-static void sc_signal_handler(int signum) {
-    (void)signum;
-
-    SC_TERMINATE = true;
-}
-
-void sc_io_event_loop_run(ScEventLoop* ev) {
-    assert(ev);
-
-    if (signal(SIGINT, sc_signal_handler) == SIG_ERR) {
-        A3_ERRNO(errno, "failed to register signal handler");
-        abort();
-    }
-
-    A3_TRACE("Starting event loop.");
-    while (!SC_TERMINATE && sc_co_count() > 0)
-        sc_io_event_loop_pump(ev);
-}
+ssize_t sc_connection_handle(ScCoroutine*, void* data);

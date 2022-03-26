@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: FORWARD -- Forward declarations.
+ * SHORT CIRCUIT: HTTP REQUEST -- HTTP request handling.
  *
- * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -19,13 +19,6 @@
 
 #pragma once
 
-typedef int ScFd;
+#include <sc/http.h>
 
-typedef struct ScEventLoop ScEventLoop;
-
-typedef struct ScCoroutine ScCoroutine;
-typedef struct ScCoCtx     ScCoCtx;
-
-typedef struct ScListener       ScListener;
-typedef struct ScConnection     ScConnection;
-typedef struct ScHttpConnection ScHttpConnection;
+ssize_t sc_http_request_handle(ScConnection*);

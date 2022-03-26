@@ -23,12 +23,12 @@
 #include <threads.h>
 #include <ucontext.h>
 
+#include <a3/log.h>
 #include <a3/util.h>
 
 #include <sc/coroutine.h>
 
 #include "config.h"
-#include "sc/forward.h"
 
 #ifndef NDEBUG
 #include <valgrind/memcheck.h>
@@ -55,6 +55,8 @@ typedef void (*ScCoTrampoline)(void);
 static thread_local size_t SC_CO_COUNT = 0;
 
 ScCoCtx* sc_co_main_ctx_new() {
+    A3_TRACE("Creating main coroutine context.");
+
     A3_UNWRAPNI(ScCoCtx*, ret, malloc(sizeof(*ret)));
     A3_UNWRAPSD(getcontext(&ret->ctx));
     return ret;
@@ -119,6 +121,13 @@ ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* 
 
     SC_CO_COUNT++;
     return ret;
+}
+
+ScCoroutine* sc_co_spawn(ScCoroutine* caller, ScCoEntry entry, void* data) {
+    assert(caller);
+    assert(entry);
+
+    return sc_co_new(&caller->ctx, caller->ev, entry, data);
 }
 
 ssize_t sc_co_yield(ScCoroutine* self) {

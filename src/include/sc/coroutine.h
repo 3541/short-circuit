@@ -35,6 +35,7 @@ typedef struct ScCoAwaitAny {
 A3_EXPORT ScCoCtx*     sc_co_main_ctx_new(void);
 A3_EXPORT void         sc_co_main_ctx_free(ScCoCtx*);
 A3_EXPORT ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop*, ScCoEntry entry, void* data);
+A3_EXPORT ScCoroutine* sc_co_spawn(ScCoroutine* caller, ScCoEntry entry, void* data);
 A3_EXPORT ssize_t      sc_co_yield(ScCoroutine*);
 A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
 A3_EXPORT size_t       sc_co_count(void);

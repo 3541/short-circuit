@@ -1,7 +1,7 @@
 /*
- * SHORT CIRCUIT: IO -- IO event loop.
+ * SHORT CIRCUIT: HTTP REQUEST -- HTTP request handling.
  *
- * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -18,32 +18,17 @@
  */
 
 #include <assert.h>
-#include <errno.h>
-#include <signal.h>
-#include <stdlib.h>
 
 #include <a3/log.h>
 
-#include <sc/coroutine.h>
-#include <sc/io.h>
+#include <sc/connection.h>
 
-static volatile sig_atomic_t SC_TERMINATE = false;
+#include "request.h"
 
-static void sc_signal_handler(int signum) {
-    (void)signum;
+ssize_t sc_http_request_handle(ScConnection* conn) {
+    assert(conn);
 
-    SC_TERMINATE = true;
-}
+    A3_TRACE("Handling HTTP connection.");
 
-void sc_io_event_loop_run(ScEventLoop* ev) {
-    assert(ev);
-
-    if (signal(SIGINT, sc_signal_handler) == SIG_ERR) {
-        A3_ERRNO(errno, "failed to register signal handler");
-        abort();
-    }
-
-    A3_TRACE("Starting event loop.");
-    while (!SC_TERMINATE && sc_co_count() > 0)
-        sc_io_event_loop_pump(ev);
+    return 0;
 }

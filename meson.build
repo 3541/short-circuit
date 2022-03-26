@@ -23,6 +23,10 @@ if get_option('profile')
   sc_cflags += '-DPROFILE'
 endif
 
+if get_option('trace')
+  sc_cflags += '-DA3_LOG_LEVEL=A3_LOG_TRACE'
+endif
+
 if get_option('io_backend') == 'uring' and host_machine.system() == 'linux'
   sc_cflags += '-DSC_IO_BACKEND_URING'
 else
@@ -57,6 +61,9 @@ sc_src = files(
     'src/io/io.c',
     'src/io/backend/backend.c',
     'src/io/co/coroutine.c',
+    'src/net/connection.c',
+    'src/net/listen.c',
+    'src/proto/http/request.c',
   ]
 )
 sc_deps = [a3, a3_hash]
@@ -85,6 +92,6 @@ sc_dep = sc
 sc_main = executable(
   'sc',
   ['src/main.c'],
-  dependencies: [sc],
+  dependencies: sc,
   build_by_default: true,
 )

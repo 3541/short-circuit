@@ -1,7 +1,8 @@
 /*
- * SHORT CIRCUIT: FORWARD -- Forward declarations.
+ * SHORT CIRCUIT: CONNECTION -- Abstract connection on top of the event
+ * interface.
  *
- * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -19,13 +20,26 @@
 
 #pragma once
 
-typedef int ScFd;
+#include <netinet/in.h>
 
-typedef struct ScEventLoop ScEventLoop;
+#include <a3/buffer.h>
+#include <a3/types.h>
 
-typedef struct ScCoroutine ScCoroutine;
-typedef struct ScCoCtx     ScCoCtx;
+#include <sc/forward.h>
 
-typedef struct ScListener       ScListener;
-typedef struct ScConnection     ScConnection;
-typedef struct ScHttpConnection ScHttpConnection;
+typedef ssize_t (*ScConnectionHandler)(ScConnection*);
+
+typedef struct ScConnection {
+    A3Buffer send_buf;
+    A3Buffer recv_buf;
+
+    struct sockaddr_in6 client_addr;
+    socklen_t           addr_len;
+
+    ScCoroutine* coroutine;
+    ScListener*  listener;
+
+    ScFd socket;
+} ScConnection;
+
+A3_EXPORT ScConnection* sc_connection_new(ScListener*);

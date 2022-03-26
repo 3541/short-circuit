@@ -29,7 +29,6 @@
 #include <sc/io.h>
 
 #include "config.h"
-#include "sc/forward.h"
 
 typedef struct ScEventLoop {
     struct io_uring uring;
@@ -103,6 +102,8 @@ static void sc_io_ops_check(void) {
 }
 
 ScEventLoop* sc_io_event_loop_new() {
+    A3_TRACE("Creating event loop.");
+
     sc_io_ops_check();
     sc_io_limits_init();
 
@@ -125,6 +126,7 @@ ScEventLoop* sc_io_event_loop_new() {
 void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
+    A3_TRACE("Waiting for events.");
     if (!io_uring_submit_and_wait(&ev->uring, 1))
         return;
 
@@ -134,6 +136,7 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
     io_uring_for_each_cqe(&ev->uring, head, cqe) {
         count++;
 
+        A3_TRACE("Handling event.");
         ScCoroutine* co = io_uring_cqe_get_data(cqe);
         if (!co) {
             A3_WARN("Empty CQE.");

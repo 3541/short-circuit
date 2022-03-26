@@ -1,7 +1,8 @@
 /*
- * SHORT CIRCUIT: FORWARD -- Forward declarations.
+ * SHORT CIRCUIT: LISTEN -- Socket listener. Keeps an accept event queued on a
+ * given socket.
  *
- * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
+ * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the Free
@@ -19,13 +20,19 @@
 
 #pragma once
 
-typedef int ScFd;
+#include <netinet/in.h>
 
-typedef struct ScEventLoop ScEventLoop;
+#include <a3/types.h>
 
-typedef struct ScCoroutine ScCoroutine;
-typedef struct ScCoCtx     ScCoCtx;
+#include <sc/connection.h>
+#include <sc/forward.h>
+#include <sc/http.h>
 
-typedef struct ScListener       ScListener;
-typedef struct ScConnection     ScConnection;
-typedef struct ScHttpConnection ScHttpConnection;
+typedef struct ScListener ScListener;
+
+typedef ScConnection* (*ScListenHandler)(ScListener*);
+
+A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScListenHandler, ScConnectionHandler);
+A3_EXPORT ScListener* sc_listener_tcp_new(in_port_t, ScConnectionHandler);
+A3_EXPORT ScListener* sc_listener_http_new(in_port_t, ScHttpRequestHandler);
+A3_EXPORT void        sc_listener_start(ScListener*, ScCoCtx* caller, ScEventLoop*);
