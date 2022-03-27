@@ -20,11 +20,16 @@ Dependencies:
 
 To build, first ensure all submodules have been downloaded (`git submodule update --init
 --recursive`), and then run `meson setup <BUILDDIR>` to configure the build system in `BUILDDIR`.
-Alternatively, a script to generate various build configurations is provided (`./configure`). After,
-run `meson compile -C <BUILDDIR>` to build the project.
+Alternatively, a script to generate various build configurations is provided (`./configure`).
 
-This produces a binary `sc`, which can be run directly. By default, the server listens on port
-`8000`. `sc --help` will show the available options and parameters.
+Some versions of Meson may refuse to pull in transitive dependencies, and produce error messages of
+the form `WARNING: Dependency highwayhash not found but it is available in a sub-subproject.`. If
+this occurs, simply run the command `meson wrap promote
+subprojects/a3/subprojects/highwayhash.wrap`.
+
+After, run `meson compile -C <BUILDDIR>` to build the project. This produces a binary `sc`, which
+can be run directly. By default, the server listens on port `8000`. `sc --help` will show the
+available options and parameters.
 
 Note: on most Linux distributions, you may see warnings about the locked memory and open file
 resource limits. See [here](#queue-size) for more information.
