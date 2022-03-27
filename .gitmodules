@@ -2,7 +2,3 @@
 	path = boilerplate
 	url = ../boilerplate.git
 	branch = trunk
-[submodule "extern/liba3"]
-	path = extern/liba3
-	url = ../liba3.git
-	branch = trunk
