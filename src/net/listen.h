@@ -26,5 +26,5 @@
 typedef struct ScListener {
     ScConnectionHandler connection_handler;
     ScFd                socket;
-    void*               data;
+    void*               data; // TODO: Replace this with prefix tree routing.
 } ScListener;
