@@ -227,6 +227,7 @@ int main(int argc, char** argv) {
 
         if (io_uring_sq_ready(&uring) > 0) {
             int ev = io_uring_submit(&uring);
+            (void)ev;
             A3_TRACE_F("Submitted %d event(s).", ev);
         }
     }
