@@ -189,7 +189,7 @@ int sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, soc
     assert(addr_len && *addr_len);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB(sqe);
+    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
@@ -201,9 +201,21 @@ int sc_io_openat(ScCoroutine* self, ScFd dir, A3CString path, int flags) {
     assert(path.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB(sqe);
+    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
 
     io_uring_prep_openat(sqe, dir, a3_string_cstr(path), flags, 0);
+
+    return (int)sc_io_submit(self, sqe);
+}
+
+int sc_io_close(ScCoroutine* self, ScFd file) {
+    assert(self);
+    assert(file >= 0);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+
+    io_uring_prep_close(sqe, file);
 
     return (int)sc_io_submit(self, sqe);
 }
@@ -214,7 +226,7 @@ ssize_t sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
     assert(dst.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB(sqe);
+    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
 
     io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
 
@@ -227,7 +239,7 @@ ssize_t sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
     assert(dst.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB(sqe);
+    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
 
     io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
 

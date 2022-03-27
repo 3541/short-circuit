@@ -30,9 +30,7 @@
 
 typedef struct ScListener ScListener;
 
-typedef ScConnection* (*ScListenHandler)(ScListener*);
-
-A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScListenHandler, ScConnectionHandler);
+A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScConnectionHandler);
 A3_EXPORT ScListener* sc_listener_tcp_new(in_port_t, ScConnectionHandler);
 A3_EXPORT ScListener* sc_listener_http_new(in_port_t, ScHttpRequestHandler);
 A3_EXPORT void        sc_listener_start(ScListener*, ScCoCtx* caller, ScEventLoop*);

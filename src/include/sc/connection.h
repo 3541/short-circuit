@@ -27,7 +27,7 @@
 
 #include <sc/forward.h>
 
-typedef ssize_t (*ScConnectionHandler)(ScConnection*);
+typedef void (*ScConnectionHandler)(ScConnection*);
 
 typedef struct ScConnection {
     A3Buffer send_buf;
@@ -42,4 +42,9 @@ typedef struct ScConnection {
     ScFd socket;
 } ScConnection;
 
+A3_EXPORT void          sc_connection_init(ScConnection*, ScListener*);
 A3_EXPORT ScConnection* sc_connection_new(ScListener*);
+A3_EXPORT void          sc_connection_destroy(ScConnection*);
+A3_EXPORT void          sc_connection_free(void*);
+
+A3_EXPORT ssize_t sc_connection_recv(ScConnection*);

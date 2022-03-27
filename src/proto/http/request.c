@@ -23,12 +23,13 @@
 
 #include <sc/connection.h>
 
+#include "connection.h"
 #include "request.h"
 
-ssize_t sc_http_request_handle(ScConnection* conn) {
+void sc_http_request_handle(ScConnection* conn) {
     assert(conn);
 
     A3_TRACE("Handling HTTP connection.");
-
-    return 0;
+    ScHttpConnection http = { .conn = conn, .request = { { 0 } } };
+    (void)http;
 }

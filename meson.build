@@ -58,11 +58,13 @@ a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 sc_include = include_directories(['src', 'src/include'])
 sc_src = files(
   [
+    'src/uri.c',
     'src/io/io.c',
     'src/io/backend/backend.c',
     'src/io/co/coroutine.c',
     'src/net/connection.c',
     'src/net/listen.c',
+    'src/proto/http/connection.c',
     'src/proto/http/request.c',
   ]
 )

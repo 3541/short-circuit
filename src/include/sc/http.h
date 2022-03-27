@@ -24,5 +24,3 @@
 #include <sc/forward.h>
 
 typedef ssize_t (*ScHttpRequestHandler)(ScHttpConnection*);
-
-A3_EXPORT ScHttpConnection* sc_http_connection_new(ScListener*);

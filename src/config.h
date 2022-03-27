@@ -71,6 +71,9 @@
 #ifndef SC_SEND_BUF_MAX_CAP
 #define SC_SEND_BUF_MAX_CAP 20480
 #endif
+#ifndef SC_RECV_BUF_MIN_SPACE
+#define SC_RECV_BUF_MIN_SPACE 512
+#endif
 
 #ifndef SC_CO_STACK_SIZE
 #define SC_CO_STACK_SIZE 16384

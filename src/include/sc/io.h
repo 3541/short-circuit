@@ -28,6 +28,8 @@
 
 #include <sc/forward.h>
 
+#define SC_IO_SUBMIT_FAILED (~0LL)
+
 A3_EXPORT ScEventLoop* sc_io_event_loop_new(void);
 A3_EXPORT void         sc_io_event_loop_run(ScEventLoop*);
 A3_EXPORT void         sc_io_event_loop_pump(ScEventLoop*);
@@ -36,5 +38,6 @@ A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 A3_EXPORT int     sc_io_accept(ScCoroutine*, ScFd sock, struct sockaddr* client_addr,
                                socklen_t* addr_len);
 A3_EXPORT int     sc_io_openat(ScCoroutine*, ScFd dir, A3CString path, int open_flags);
+A3_EXPORT int     sc_io_close(ScCoroutine*, ScFd);
 A3_EXPORT ssize_t sc_io_recv(ScCoroutine*, ScFd sock, A3String dst);
 A3_EXPORT ssize_t sc_io_read(ScCoroutine*, ScFd, A3String dst, off_t);

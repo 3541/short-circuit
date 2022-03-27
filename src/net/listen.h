@@ -24,7 +24,6 @@
 #include <sc/listen.h>
 
 typedef struct ScListener {
-    ScListenHandler     handler;
     ScConnectionHandler connection_handler;
     ScFd                socket;
     void*               data;

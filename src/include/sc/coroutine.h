@@ -26,6 +26,7 @@
 #include <sc/forward.h>
 
 typedef ssize_t (*ScCoEntry)(ScCoroutine* self, void* data);
+typedef void (*ScCoDeferredCb)(void* data);
 
 typedef struct ScCoAwaitAny {
     size_t  index;
@@ -38,5 +39,6 @@ A3_EXPORT ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop*, ScCoEntry entry,
 A3_EXPORT ScCoroutine* sc_co_spawn(ScCoroutine* caller, ScCoEntry entry, void* data);
 A3_EXPORT ssize_t      sc_co_yield(ScCoroutine*);
 A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
+A3_EXPORT void         sc_co_defer(ScCoroutine*, ScCoDeferredCb, void* data);
 A3_EXPORT size_t       sc_co_count(void);
 A3_EXPORT ScEventLoop* sc_co_event_loop(ScCoroutine*);

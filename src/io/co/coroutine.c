@@ -24,6 +24,7 @@
 #include <ucontext.h>
 
 #include <a3/log.h>
+#include <a3/sll.h>
 #include <a3/util.h>
 
 #include <sc/coroutine.h>
@@ -38,9 +39,16 @@ typedef struct ScCoCtx {
     ucontext_t ctx;
 } ScCoCtx;
 
+typedef struct ScCoDeferred {
+    ScCoDeferredCb f;
+    void*          data;
+    A3SLink        list;
+} ScCoDeferred;
+
 typedef struct ScCoroutine {
     uint8_t      stack[SC_CO_STACK_SIZE];
     ScCoCtx      ctx;
+    A3SLL        deferred;
     ScCoCtx*     caller;
     ScEventLoop* ev;
     ssize_t      value;
@@ -98,6 +106,8 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 
     self->value = entry(self, data);
     self->done  = true;
+
+    A3_SLL_FOR_EACH(ScCoDeferred, deferred, &self->deferred, list) { deferred->f(deferred->data); }
 }
 
 ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* data) {
@@ -112,6 +122,8 @@ ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* 
 #ifndef NDEBUG
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
+
+    a3_sll_init(&ret->deferred);
 
     A3_UNWRAPSD(getcontext(&ret->ctx.ctx));
 
@@ -159,6 +171,19 @@ ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
         sc_co_free(co);
 
     return ret;
+}
+
+void sc_co_defer(ScCoroutine* self, ScCoDeferredCb f, void* data) {
+    assert(self);
+    assert(f);
+
+    A3_UNWRAPNI(ScCoDeferred*, def, calloc(1, sizeof(*def)));
+    *def = (ScCoDeferred) {
+        .f    = f,
+        .data = data,
+    };
+
+    a3_sll_push(&self->deferred, &def->list);
 }
 
 size_t sc_co_count() { return SC_CO_COUNT; }

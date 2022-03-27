@@ -34,15 +34,12 @@
 #include "listen.h"
 #include "proto/http/request.h"
 
-ScListener* sc_listener_new(ScFd socket, ScListenHandler handler,
-                            ScConnectionHandler connection_handler) {
+ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler) {
     assert(socket >= 0);
-    assert(handler);
     assert(connection_handler);
 
     A3_UNWRAPNI(ScListener*, ret, calloc(1, sizeof(*ret)));
     *ret = (ScListener) {
-        .handler            = handler,
         .connection_handler = connection_handler,
         .socket             = socket,
         .data               = NULL,
@@ -51,8 +48,9 @@ ScListener* sc_listener_new(ScFd socket, ScListenHandler handler,
     return ret;
 }
 
-ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler handler) {
-    assert(handler);
+ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_handler) {
+    assert(port);
+    assert(connection_handler);
 
     ScFd sock = -1;
     A3_UNWRAPS(sock, socket(AF_INET6, SOCK_STREAM, 0));
@@ -63,11 +61,10 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler handler) {
     struct sockaddr_in6 addr = { .sin6_family = AF_INET6,
                                  .sin6_port   = htons(port),
                                  .sin6_addr   = IN6ADDR_ANY_INIT };
-
     A3_UNWRAPSD(bind(sock, (struct sockaddr*)&addr, sizeof(addr)));
     A3_UNWRAPSD(listen(sock, SC_LISTEN_BACKLOG));
 
-    return sc_listener_new(sock, sc_connection_new, handler);
+    return sc_listener_new(sock, connection_handler);
 }
 
 ScListener* sc_listener_http_new(in_port_t port, ScHttpRequestHandler handler) {
@@ -86,8 +83,9 @@ static ssize_t sc_listen(ScCoroutine* self, void* data) {
     ScListener* listener = data;
 
     while (true) {
-        ScConnection* conn = listener->handler(listener);
+        ScConnection* conn = sc_connection_new(listener);
         conn->coroutine    = sc_co_spawn(self, sc_connection_handle, conn);
+        sc_co_defer(conn->coroutine, sc_connection_free, conn);
 
         ScFd res = sc_io_accept(self, listener->socket, (struct sockaddr*)(&conn->client_addr),
                                 &conn->addr_len);
@@ -95,6 +93,7 @@ static ssize_t sc_listen(ScCoroutine* self, void* data) {
             A3_ERRNO(-res, "accept failed");
             abort();
         }
+        conn->socket = res;
         A3_TRACE("Accepted connection.");
 
         sc_co_resume(conn->coroutine, 0);

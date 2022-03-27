@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: HTTP REQUEST -- HTTP request handling.
+ * SHORT CIRCUIT: HTTP CONNECTION -- HTTP-specific layer on top of a connection.
  *
  * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -19,11 +19,12 @@
 
 #pragma once
 
-#include <sc/http.h>
-#include <sc/uri.h>
+#include <sc/connection.h>
 
-typedef struct ScHttpRequest {
-    ScUri target;
-} ScHttpRequest;
+#include "request.h"
 
-void sc_http_request_handle(ScConnection*);
+typedef struct ScHttpConnection {
+    ScConnection* conn;
+
+    ScHttpRequest request;
+} ScHttpConnection;
