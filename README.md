@@ -22,7 +22,7 @@ To build, first ensure all submodules have been downloaded (`git submodule updat
 --recursive`), and then run `meson setup <BUILDDIR>` to configure the build system in `BUILDDIR`.
 Alternatively, a script to generate various build configurations is provided (`./configure`).
 
-Some versions of Meson may refuse to pull in transitive dependencies, and produce error messages of
+Some versions of Meson (before 0.56) may refuse to pull in transitive dependencies, and produce error messages of
 the form `WARNING: Dependency highwayhash not found but it is available in a sub-subproject.`. If
 this occurs, simply run the command `meson wrap promote
 subprojects/a3/subprojects/highwayhash.wrap`.
