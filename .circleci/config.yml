@@ -10,6 +10,12 @@ jobs:
           pip3 install meson
           sudo apt-get update
           sudo apt-get install ninja-build gcc-10 g++-10 valgrind
+          LIBURING=$(mktemp -d)
+          git clone https://github.com/axboe/liburing $LIBURING
+          cd $LIBURING
+          ./configure
+          make -j$(nproc)
+          sudo make install
       - checkout
       - run:
           name: "Configure"
