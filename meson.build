@@ -27,13 +27,6 @@ if get_option('trace')
   sc_cflags += '-DA3_LOG_LEVEL=A3_LOG_TRACE'
 endif
 
-if get_option('io_backend') == 'uring' and host_machine.system() == 'linux'
-  sc_cflags += '-DSC_IO_BACKEND_URING'
-else
-  error('Unsupported IO backend ' + get_option('io_backend') +
-        ' on platform ' + host_machine.system())
-endif
-
 # NOTE: If this ever goes cross-platform, this will need to support other syntaxes.
 sc_sec_cflags_wanted = ['-fstack-protector', '-fstack-clash-protection']
 add_project_arguments(c.get_supported_arguments(sc_sec_cflags_wanted), language: 'c')
@@ -70,9 +63,30 @@ sc_src = files(
 )
 sc_deps = [a3, a3_hash]
 
-if get_option('io_backend') == 'uring'
-  liburing = dependency('liburing')
+backend = get_option('io_backend')
+
+if host_machine.system() == 'linux'
+  liburing = dependency('liburing', required: false)
+endif
+
+if backend == 'default'
+  if host_machine.system() == 'linux' and liburing.found()
+    backend = 'uring'
+  else
+    # TODO: Other backends.
+    error('There is no supported IO backend for platform ' + host_machine.system() + '.')
+  endif
+endif
+
+if get_option('io_backend') == 'uring' and host_machine.system() == 'linux'
+  if not liburing.found()
+    error('liburing is required for the io_uring backend.')
+  endif
+  sc_cflags += '-DSC_IO_BACKEND_URING'
   sc_deps += liburing
+else
+  error('Unsupported IO backend ' + get_option('io_backend') + ' on platform '
+        + host_machine.system())
 endif
 
 sc_lib = library(
