@@ -169,7 +169,7 @@ ScUriParseResult sc_uri_parse(ScUri* uri, A3String str) {
     if (buf.data.ptr[buf.head] != '/') {
         if (uri->form != SC_URI_FORM_ABSOLUTE)
             uri->form = SC_URI_FORM_AUTHORITY;
-        uri->authority = A3_S_CONST(a3_buf_token_next(&buf, A3_CS("/"), A3_PRES_END_NO));
+        uri->authority = A3_S_CONST(a3_buf_token_next(&buf, A3_CS("/"), A3_PRES_END_YES));
     }
 
     // <path>[?<query>][#<fragment>]
