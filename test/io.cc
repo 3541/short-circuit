@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <thread>
@@ -9,11 +8,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <a3/log.h>
+
 #include <sc/coroutine.h>
 #include <sc/io.h>
 
 using namespace testing;
-namespace fs = std::filesystem;
 
 class IoTest;
 static ssize_t trampoline(ScCoroutine*, void*);
@@ -22,7 +22,7 @@ static thread_local IoTest* test = nullptr;
 
 class IoTest : public Test {
 private:
-    ScEventLoop* loop     = sc_io_event_loop_new();
+    ScEventLoop* loop;
     ScCoCtx*     main_ctx = sc_co_main_ctx_new();
     ScCoEntry    entry    = nullptr;
     ssize_t      result   = -1;
@@ -41,7 +41,11 @@ protected:
         return result;
     }
 
-    IoTest() { test = this; }
+    IoTest() {
+        a3_log_init(stderr, A3_LOG_WARN);
+        loop = sc_io_event_loop_new();
+        test = this;
+    }
 
     ~IoTest() {
         sc_io_event_loop_free(loop);
