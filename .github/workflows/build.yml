@@ -31,7 +31,7 @@ jobs:
       run: |
         cd ${{runner.workspace}}/short-circuit/liburing
         ./configure
-        make -j$(nproc)
+        make -C src -j$(nproc)
         sudo make install
 
     - name: Install dependencies
