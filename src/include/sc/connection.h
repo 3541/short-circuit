@@ -23,9 +23,12 @@
 #include <netinet/in.h>
 
 #include <a3/buffer.h>
+#include <a3/cpp.h>
 #include <a3/types.h>
 
 #include <sc/forward.h>
+
+A3_H_BEGIN
 
 typedef void (*ScConnectionHandler)(ScConnection*);
 
@@ -48,3 +51,5 @@ A3_EXPORT void          sc_connection_destroy(ScConnection*);
 A3_EXPORT void          sc_connection_free(void*);
 
 A3_EXPORT ssize_t sc_connection_recv(ScConnection*);
+
+A3_H_END

@@ -19,6 +19,10 @@
 
 #pragma once
 
+#include <a3/cpp.h>
+
+A3_H_BEGIN
+
 typedef int ScFd;
 
 typedef struct ScEventLoop ScEventLoop;
@@ -29,3 +33,5 @@ typedef struct ScCoCtx     ScCoCtx;
 typedef struct ScListener       ScListener;
 typedef struct ScConnection     ScConnection;
 typedef struct ScHttpConnection ScHttpConnection;
+
+A3_H_END

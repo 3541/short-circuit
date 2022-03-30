@@ -21,9 +21,12 @@
 
 #include <stddef.h>
 
+#include <a3/cpp.h>
 #include <a3/types.h>
 
 #include <sc/forward.h>
+
+A3_H_BEGIN
 
 typedef ssize_t (*ScCoEntry)(ScCoroutine* self, void* data);
 typedef void (*ScCoDeferredCb)(void* data);
@@ -42,3 +45,5 @@ A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
 A3_EXPORT void         sc_co_defer(ScCoroutine*, ScCoDeferredCb, void* data);
 A3_EXPORT size_t       sc_co_count(void);
 A3_EXPORT ScEventLoop* sc_co_event_loop(ScCoroutine*);
+
+A3_H_END

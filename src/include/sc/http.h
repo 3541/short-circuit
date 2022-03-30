@@ -19,8 +19,13 @@
 
 #pragma once
 
+#include <a3/cpp.h>
 #include <a3/types.h>
 
 #include <sc/forward.h>
 
+A3_H_BEGIN
+
 typedef ssize_t (*ScHttpRequestHandler)(ScHttpConnection*);
+
+A3_H_END

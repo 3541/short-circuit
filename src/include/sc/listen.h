@@ -22,11 +22,14 @@
 
 #include <netinet/in.h>
 
+#include <a3/cpp.h>
 #include <a3/types.h>
 
 #include <sc/connection.h>
 #include <sc/forward.h>
 #include <sc/http.h>
+
+A3_H_BEGIN
 
 typedef struct ScListener ScListener;
 
@@ -34,3 +37,5 @@ A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScConnectionHandler);
 A3_EXPORT ScListener* sc_listener_tcp_new(in_port_t, ScConnectionHandler);
 A3_EXPORT ScListener* sc_listener_http_new(in_port_t, ScHttpRequestHandler);
 A3_EXPORT void        sc_listener_start(ScListener*, ScCoCtx* caller, ScEventLoop*);
+
+A3_H_END

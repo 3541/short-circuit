@@ -22,6 +22,8 @@
 #include <a3/str.h>
 #include <a3/types.h>
 
+A3_H_BEGIN
+
 #define SC_URI_SCHEME_ENUM                                                                         \
     SCHEME(SC_URI_SCHEME_UNSPECIFIED, "")                                                          \
     SCHEME(SC_URI_SCHEME_HTTP, "http")                                                             \
@@ -58,3 +60,5 @@ typedef struct ScUri {
 } ScUri;
 
 A3_EXPORT ScUriParseResult sc_uri_parse(ScUri*, A3String);
+
+A3_H_END

@@ -23,10 +23,13 @@
 
 #include <netinet/in.h>
 
+#include <a3/cpp.h>
 #include <a3/str.h>
 #include <a3/types.h>
 
 #include <sc/forward.h>
+
+A3_H_BEGIN
 
 #define SC_IO_SUBMIT_FAILED (~0LL)
 
@@ -41,3 +44,5 @@ A3_EXPORT int     sc_io_openat(ScCoroutine*, ScFd dir, A3CString path, int open_
 A3_EXPORT int     sc_io_close(ScCoroutine*, ScFd);
 A3_EXPORT ssize_t sc_io_recv(ScCoroutine*, ScFd sock, A3String dst);
 A3_EXPORT ssize_t sc_io_read(ScCoroutine*, ScFd, A3String dst, off_t);
+
+A3_H_END
