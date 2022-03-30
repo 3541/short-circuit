@@ -111,3 +111,5 @@ sc_main = executable(
   dependencies: sc,
   build_by_default: true,
 )
+
+subdir('test')
