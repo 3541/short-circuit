@@ -48,3 +48,10 @@ jobs:
 
     - name: Test
       run: meson test -C build
+
+    - name: Upload failed test logs
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: Test logs
+        path: build/meson-logs/testlog.txt
