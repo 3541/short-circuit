@@ -2,8 +2,8 @@
 pkgs.mkShell {
   buildInputs = [ pkgs.liburing ];
   nativeBuildInputs = with pkgs; [
-    gcc
     llvmPackages.clang
+    gcc
     doxygen
     meson
     gtest
