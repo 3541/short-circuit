@@ -1,0 +1,28 @@
+version: 2.1
+
+jobs:
+  build-aarch64:
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+    steps:
+      - run: |
+          pip3 install meson
+          sudo apt-get update
+          sudo apt-get install ninja-build gcc-10 g++-10 valgrind
+      - checkout
+      - run:
+          name: "Configure"
+          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Db_sanitize=address,undefined build"
+      - run:
+          name: "Build"
+          command: "meson compile -C build"
+      - run:
+          name: "Test"
+          command: "meson test -C build"
+      - store_test_results:
+          path: build/sc_gtest.xml
+workflows:
+  build-and-test:
+    jobs:
+      - build-aarch64
