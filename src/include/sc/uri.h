@@ -19,6 +19,9 @@
 
 #pragma once
 
+#include <stdbool.h>
+
+#include <a3/cpp.h>
 #include <a3/str.h>
 #include <a3/types.h>
 
@@ -60,5 +63,6 @@ typedef struct ScUri {
 } ScUri;
 
 A3_EXPORT ScUriParseResult sc_uri_parse(ScUri*, A3String);
+A3_EXPORT bool             sc_uri_is_initialized(ScUri*);
 
 A3_H_END

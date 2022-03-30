@@ -187,3 +187,9 @@ ScUriParseResult sc_uri_parse(ScUri* uri, A3String str) {
     // Fragment need not be parsed.
     return SC_URI_PARSE_OK;
 }
+
+bool sc_uri_is_initialized(ScUri* uri) {
+    assert(uri);
+
+    return uri->data.ptr;
+}
