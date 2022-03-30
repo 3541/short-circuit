@@ -1,6 +1,7 @@
 # Short Circuit
 
 [![.github/workflows/build.yml](https://github.com/3541/short-circuit/actions/workflows/build.yml/badge.svg)](https://github.com/3541/short-circuit/actions/workflows/build.yml)
+[![Build and test (aarch64)](https://circleci.com/gh/3541/short-circuit.svg?style=shield)](https://circleci.com/gh/3541/short-circuit)
 
 A lightweight and performant web server for Linux, built on top of io_uring. Capable of ~~60,000~~
 ~~80,000~~ ~~120,000~~ ~~135,000 requests per second on static files~~. Suffice it to say, it is
