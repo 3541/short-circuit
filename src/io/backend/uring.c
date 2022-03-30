@@ -34,6 +34,7 @@ typedef struct ScEventLoop {
     struct io_uring uring;
 } ScEventLoop;
 
+#ifndef SC_TEST
 // Check that the kernel is sufficiently recent to support io_uring and io_uring_probe, which will
 // allow more specific feature checks.
 static void sc_io_kver_check(void) {
@@ -100,12 +101,15 @@ static void sc_io_ops_check(void) {
 
     io_uring_free_probe(probe);
 }
+#endif
 
 ScEventLoop* sc_io_event_loop_new() {
     A3_TRACE("Creating event loop.");
 
+#ifndef SC_TEST
     sc_io_ops_check();
     sc_io_limits_init();
+#endif
 
     A3_UNWRAPNI(ScEventLoop*, ret, calloc(1, sizeof(*ret)));
 
