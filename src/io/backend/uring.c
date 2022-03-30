@@ -245,7 +245,8 @@ ssize_t sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
 
-    io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
+    struct iovec vec[] = { { .iov_base = dst.ptr, .iov_len = dst.len } };
+    io_uring_prep_readv(sqe, fd, vec, 1, (uint64_t)offset);
 
     return sc_io_submit(self, sqe);
 }

@@ -92,6 +92,10 @@ else
         + host_machine.system())
 endif
 
+if get_option('ci')
+  sc_cflags += '-DSC_TEST'
+endif
+
 sc_lib = library(
   'sc',
   sc_src,

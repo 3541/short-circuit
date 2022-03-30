@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <linux/version.h>
 
 #include <a3/log.h>
 
@@ -58,6 +59,7 @@ static ssize_t trampoline(ScCoroutine* self, void* data) {
     return test->result;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 TEST_F(IoTest, openat) {
     int fd = static_cast<int>(run_on_coroutine(
         [](ScCoroutine* self, void* data) -> ssize_t {
@@ -97,6 +99,7 @@ TEST_F(IoTest, close) {
         &fd);
     EXPECT_THAT(res, Eq(0));
 }
+#endif
 
 TEST_F(IoTest, read) {
     int fd = open("build.ninja", O_RDONLY);

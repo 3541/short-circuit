@@ -19,7 +19,7 @@ jobs:
       - checkout
       - run:
           name: "Configure"
-          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Db_sanitize=address,undefined build"
+          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Db_sanitize=address,undefined -Dci=true build"
       - run:
           name: "Build"
           command: "meson compile -C build"

@@ -7,7 +7,7 @@ sc_test_src = files(
   ]
 )
 
-sc_test_args = ['-DGTEST_HAS_EXCEPTIONS=0', '-DSC_TEST']
+sc_test_args = ['-DGTEST_HAS_EXCEPTIONS=0']
 
 sc_test = executable(
   'sc_test',

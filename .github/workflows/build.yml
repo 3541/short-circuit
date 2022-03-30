@@ -41,7 +41,7 @@ jobs:
         pip install meson ninja
 
     - name: Configure
-      run: meson setup --buildtype debug --werror -Db_sanitize=address,undefined build
+      run: meson setup --buildtype debug --werror -Db_sanitize=address,undefined -Dci=true build
 
     - name: Build
       run: meson compile -C build
