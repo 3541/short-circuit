@@ -4,11 +4,14 @@ project(
   version: '0.1.0-alpha',
   default_options: [
     'c_std=c11',
+    'cpp_std=c++17',
 
     'warning_level=2',
     'buildtype=debug',
     'b_ndebug=if-release',
-    'default_library=static'
+    'default_library=static',
+    'cpp_eh=none',
+    'cpp_rtti=false',
   ]
 )
 

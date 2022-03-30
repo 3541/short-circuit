@@ -31,11 +31,6 @@ A3_H_BEGIN
 typedef ssize_t (*ScCoEntry)(ScCoroutine* self, void* data);
 typedef void (*ScCoDeferredCb)(void* data);
 
-typedef struct ScCoAwaitAny {
-    size_t  index;
-    ssize_t result;
-} ScCoAwaitAny;
-
 A3_EXPORT ScCoCtx*     sc_co_main_ctx_new(void);
 A3_EXPORT void         sc_co_main_ctx_free(ScCoCtx*);
 A3_EXPORT ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop*, ScCoEntry entry, void* data);
