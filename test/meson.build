@@ -8,6 +8,9 @@ sc_test_src = files(
 )
 
 sc_test_args = ['-DGTEST_HAS_EXCEPTIONS=0']
+if backend == 'uring'
+  sc_test_args += '-DSC_IO_BACKEND_URING'
+endif
 
 sc_test = executable(
   'sc_test',

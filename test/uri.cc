@@ -8,7 +8,7 @@ using namespace testing;
 
 class UriTest : public Test {
 protected:
-    ScUri uri {}; // NOLINT(misc-non-private-member-variables-in-classes)
+    ScUri uri; // NOLINT(misc-non-private-member-variables-in-classes)
 
     void TearDown() override {
         if (sc_uri_is_initialized(&uri))
