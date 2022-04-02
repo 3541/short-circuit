@@ -1,7 +1,7 @@
 [wrap-git]
 url = https://github.com/3541/liba3.git
 push-url = git@github.com:3541/liba3.git
-revision = v0.3.7
+revision = v0.3.9
 
 [provide]
 dependency_names = a3, a3_hash

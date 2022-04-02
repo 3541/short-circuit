@@ -16,6 +16,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        backend: [uring]
+        architecture: [amd64, s390x, arm, ppc]
+        exclude:
+          - os: ubuntu-latest
+            architecture: s390x
+            backend: uring
+          - os: ubuntu-latest
+            architecture: arm
+            backend: uring
+          - os: ubuntu-latest
+            architecture: ppc
+            backend: uring
 
     steps:
     - uses: actions/checkout@v2
@@ -27,10 +42,44 @@ jobs:
         repository: axboe/liburing
         path: liburing
 
+    - name: Fixup cross triple quirks.
+      if: matrix.os == 'ubuntu-latest' && matrix.architecture != 'amd64' && matrix.architecture != 'ppc' && matrix.architecture != 'arm'
+      run: |
+        echo "DEB_ARCH=${{ matrix.architecture }}" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=${{ matrix.architecture }}-linux-gnu" >> $GITHUB_ENV
+
+    - name: Fixup cross triple quirks.
+      if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'arm'
+      run: |
+        echo "DEB_ARCH=armel" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
+
+    - name: Fixup cross triple quirks.
+      if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'ppc'
+      run: |
+        echo "DEB_ARCH=powerpc" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=powerpc-linux-gnu" >> $GITHUB_ENV
+
+    - name: Set up cross toolchain and emulator.
+      if: matrix.os == 'ubuntu-latest' && matrix.architecture != 'amd64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev qemu-user meson gcc-$CROSS_TRIPLE g++-$CROSS_TRIPLE pkg-config-$CROSS_TRIPLE
+        sudo mkdir /etc/qemu-binfmt
+        sudo ln -s /usr/$CROSS_TRIPLE /etc/qemu-binfmt/${{ matrix.architecture }}
+        /usr/share/meson/debcrossgen --arch $DEB_ARCH -o ${{ matrix.architecture }}.ini
+        sed -i "/^\[binaries\]/a exe_wrapper = 'qemu-${{ matrix.architecture }}'" ${{ matrix.architecture }}.ini
+        sudo apt-get remove -y meson
+        echo "MESON_CROSS_ARG=--cross-file ${{ matrix.architecture }}.ini" >> $GITHUB_ENV
+
     - name: Build and install liburing
       run: |
         cd ${{runner.workspace}}/short-circuit/liburing
-        ./configure
+        if [ -z "$CROSS_TRIPLE" ]; then
+            ./configure
+        else
+            ./configure --prefix=/usr/$CROSS_TRIPLE --cc=$CROSS_TRIPLE-gcc --cxx=$CROSS_TRIPLE-g++
+        fi
         make -C src -j$(nproc)
         sudo make install
 
@@ -40,8 +89,12 @@ jobs:
         sudo apt-get install -y valgrind
         pip install meson ninja
 
+    - name: Enable sanitizers.
+      if: matrix.architecture == 'amd64'
+      run: echo "MESON_SAN_ARG=-Db_sanitize=address,undefined" >> $GITHUB_ENV
+
     - name: Configure
-      run: meson setup --buildtype debug --werror -Db_sanitize=address,undefined -Dci=true build
+      run: meson setup $MESON_CROSS_ARG $MESON_SAN_ARG --buildtype debug --werror -Dio_backend=${{ matrix.backend }} -Dci=true build
 
     - name: Build
       run: meson compile -C build
@@ -49,9 +102,9 @@ jobs:
     - name: Test
       run: meson test -C build
 
-    - name: Upload failed test logs
-      if: ${{ failure() }}
+    - name: Upload failed logs
+      if: failure()
       uses: actions/upload-artifact@v3
       with:
         name: Test logs
-        path: build/meson-logs/testlog.txt
+        path: build/meson-logs/
