@@ -2,6 +2,7 @@ gmock_main = dependency('gmock_main', fallback: ['gtest', 'gmock_main_dep'])
 
 sc_test_src = files(
   [
+    'coroutine.cc',
     'io.cc',
     'uri.cc',
   ]
