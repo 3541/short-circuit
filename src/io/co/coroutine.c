@@ -112,7 +112,6 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 
 ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* data) {
     assert(caller);
-    assert(ev);
     assert(entry);
 
     A3_UNWRAPNI(ScCoroutine*, ret, calloc(1, sizeof(*ret)));
