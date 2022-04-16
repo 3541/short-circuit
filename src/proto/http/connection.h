@@ -22,9 +22,16 @@
 #include <sc/connection.h>
 
 #include "request.h"
+#include "response.h"
 
 typedef struct ScHttpConnection {
     ScConnection* conn;
 
-    ScHttpRequest request;
+    ScHttpRequest  request;
+    ScHttpResponse response;
+
+    ScHttpVersion        version;
+    ScHttpConnectionType connection_type;
 } ScHttpConnection;
+
+void sc_http_connection_handle(ScConnection*);

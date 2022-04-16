@@ -1,6 +1,5 @@
 /*
- * SHORT CIRCUIT: LISTEN -- Socket listener. Keeps an accept event queued on a
- * given socket.
+ * SHORT CIRCUIT: ROUTE -- Request routing.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -18,13 +17,29 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include "route.h"
 
-#include <sc/connection.h>
-#include <sc/listen.h>
+#include <assert.h>
 
-typedef struct ScListener {
-    ScConnectionHandler connection_handler;
-    ScFd                socket;
-    ScRouter*           router;
-} ScListener;
+#include <a3/util.h>
+
+#include <sc/route.h>
+
+ScRouter* sc_router_new(ScRouteHandler handler, ScRouteData data) {
+    A3_UNWRAPNI(ScRouter*, ret, calloc(1, sizeof(*ret)));
+    *ret = (ScRouter) { .handler = handler, .data = data };
+    return ret;
+}
+
+void sc_router_free(ScRouter* router) {
+    assert(router);
+
+    free(router);
+}
+
+void sc_router_dispatch(ScRouter* router, void* ctx) {
+    assert(router);
+    assert(router->handler);
+
+    router->handler(ctx, router->data);
+}

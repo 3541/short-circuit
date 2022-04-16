@@ -18,8 +18,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "listen.h"
+
 #include <assert.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include <a3/buffer.h>
 #include <a3/log.h>
@@ -31,10 +34,9 @@
 
 #include "config.h"
 #include "connection.h"
-#include "listen.h"
-#include "proto/http/request.h"
+#include "proto/http/connection.h"
 
-ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler) {
+ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler, ScRouter* router) {
     assert(socket >= 0);
     assert(connection_handler);
 
@@ -42,13 +44,14 @@ ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler)
     *ret = (ScListener) {
         .connection_handler = connection_handler,
         .socket             = socket,
-        .data               = NULL,
+        .router             = router,
     };
 
     return ret;
 }
 
-ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_handler) {
+ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_handler,
+                                ScRouter* router) {
     assert(port);
     assert(connection_handler);
 
@@ -64,16 +67,27 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_h
     A3_UNWRAPSD(bind(sock, (struct sockaddr*)&addr, sizeof(addr)));
     A3_UNWRAPSD(listen(sock, SC_LISTEN_BACKLOG));
 
-    return sc_listener_new(sock, connection_handler);
+    return sc_listener_new(sock, connection_handler, router);
 }
 
-ScListener* sc_listener_http_new(in_port_t port, ScHttpRequestHandler handler) {
-    assert(handler);
+ScListener* sc_listener_http_new(in_port_t port, ScRouter* router) {
+    assert(router);
 
-    ScListener* ret = sc_listener_tcp_new(port, sc_http_request_handle);
-    ret->data       = handler;
+    ScListener* ret = sc_listener_tcp_new(port, sc_http_connection_handle, router);
 
     return ret;
+}
+
+void sc_listener_free(ScListener* listener) {
+    assert(listener);
+
+    if (listener->socket >= 0)
+        A3_UNWRAPSD(close(listener->socket));
+
+    if (listener->router)
+        sc_router_free(listener->router);
+
+    free(listener);
 }
 
 static ssize_t sc_listen(ScCoroutine* self, void* data) {
@@ -87,13 +101,8 @@ static ssize_t sc_listen(ScCoroutine* self, void* data) {
         conn->coroutine    = sc_co_spawn(self, sc_connection_handle, conn);
         sc_co_defer(conn->coroutine, sc_connection_free, conn);
 
-        ScFd res = sc_io_accept(self, listener->socket, (struct sockaddr*)(&conn->client_addr),
-                                &conn->addr_len);
-        if (res < 0) {
-            A3_ERRNO(-res, "accept failed");
-            abort();
-        }
-        conn->socket = res;
+        conn->socket = SC_IO_UNWRAP(sc_io_accept(
+            self, listener->socket, (struct sockaddr*)(&conn->client_addr), &conn->addr_len));
         A3_TRACE("Accepted connection.");
 
         sc_co_resume(conn->coroutine, 0);
@@ -108,4 +117,10 @@ void sc_listener_start(ScListener* listener, ScCoCtx* caller, ScEventLoop* ev) {
     A3_TRACE("Starting listener coroutine.");
     ScCoroutine* co = sc_co_new(caller, ev, sc_listen, listener);
     sc_co_resume(co, 0);
+}
+
+ScRouter* sc_listener_router(ScListener* listener) {
+    assert(listener && listener->router);
+
+    return listener->router;
 }

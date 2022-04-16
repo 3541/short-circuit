@@ -24,9 +24,11 @@
 
 #include <a3/buffer.h>
 #include <a3/cpp.h>
+#include <a3/str.h>
 #include <a3/types.h>
 
 #include <sc/forward.h>
+#include <sc/io.h>
 
 A3_H_BEGIN
 
@@ -50,6 +52,8 @@ A3_EXPORT ScConnection* sc_connection_new(ScListener*);
 A3_EXPORT void          sc_connection_destroy(ScConnection*);
 A3_EXPORT void          sc_connection_free(void*);
 
-A3_EXPORT ssize_t sc_connection_recv(ScConnection*);
+A3_EXPORT void sc_connection_close(ScConnection*);
+A3_EXPORT      SC_IO_RESULT(size_t) sc_connection_recv(ScConnection*);
+A3_EXPORT SC_IO_RESULT(size_t) sc_connection_recv_until(ScConnection*, A3CString delim, size_t max);
 
 A3_H_END

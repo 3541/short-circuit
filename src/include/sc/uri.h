@@ -39,12 +39,7 @@ typedef enum ScUriScheme {
 #undef SCHEME
 } ScUriScheme;
 
-typedef enum ScUriParseResult {
-    SC_URI_PARSE_ERROR,
-    SC_URI_PARSE_BAD_URI,
-    SC_URI_PARSE_TOO_LONG,
-    SC_URI_PARSE_OK
-} ScUriParseResult;
+typedef enum ScUriParseResult { SC_URI_PARSE_BAD_URI, SC_URI_PARSE_OK } ScUriParseResult;
 
 typedef enum ScUriForm {
     SC_URI_FORM_ORIGIN,

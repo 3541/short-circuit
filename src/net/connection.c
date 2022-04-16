@@ -37,12 +37,7 @@ ssize_t sc_connection_handle(ScCoroutine* self, void* data) {
     A3_TRACE("Handling connection.");
     ScConnection* conn = data;
 
-    ssize_t res = sc_connection_recv(conn);
-    if (res < 0) {
-        A3_ERRNO((int)-res, "recv failed");
-        return res;
-    }
-
+    SC_IO_UNWRAP(sc_connection_recv(conn));
     conn->listener->connection_handler(conn);
 
     return 0;
@@ -79,8 +74,7 @@ void sc_connection_destroy(ScConnection* conn) {
     a3_buf_destroy(&conn->send_buf);
     a3_buf_destroy(&conn->recv_buf);
 
-    if (conn->socket >= 0)
-        sc_io_close(conn->coroutine, conn->socket);
+    sc_connection_close(conn);
 }
 
 void sc_connection_free(void* conn) {
@@ -90,10 +84,46 @@ void sc_connection_free(void* conn) {
     free(conn);
 }
 
-ssize_t sc_connection_recv(ScConnection* conn) {
+void sc_connection_close(ScConnection* conn) {
+    assert(conn);
+
+    if (conn->socket < 0)
+        return;
+
+    SC_IO_UNWRAP(sc_io_close(conn->coroutine, conn->socket));
+    conn->socket = -1;
+}
+
+SC_IO_RESULT(size_t) sc_connection_recv(ScConnection* conn) {
     assert(conn);
 
     a3_buf_ensure_cap(&conn->recv_buf, SC_RECV_BUF_MIN_SPACE);
 
-    return sc_io_recv(conn->coroutine, conn->socket, a3_buf_write_ptr(&conn->recv_buf));
+    size_t res = SC_IO_TRY(
+        size_t, sc_io_recv(conn->coroutine, conn->socket, a3_buf_write_ptr(&conn->recv_buf)));
+    assert(res <= a3_buf_space(&conn->recv_buf));
+    a3_buf_wrote(&conn->recv_buf, res);
+
+    return SC_IO_OK(size_t, res);
+}
+
+SC_IO_RESULT(size_t) sc_connection_recv_until(ScConnection* conn, A3CString delim, size_t max) {
+    assert(conn);
+    assert(delim.ptr && *delim.ptr);
+
+    A3Buffer* buf = &conn->recv_buf;
+
+    if (a3_buf_memmem(buf, delim).ptr)
+        return SC_IO_OK(size_t, 0);
+
+    size_t prev_len = a3_buf_len(buf);
+    size_t back     = MIN(a3_buf_len(buf), delim.len);
+    while (true) {
+        a3_buf_ensure_cap(&conn->recv_buf, SC_RECV_BUF_MIN_SPACE);
+        SC_IO_TRY(size_t, sc_connection_recv(conn));
+
+        if (a3_string_memmem(a3_string_offset_back(buf->data, back), delim).ptr ||
+            a3_buf_len(buf) >= max || a3_buf_space(buf) == 0)
+            return SC_IO_OK(size_t, a3_buf_len(buf) - prev_len);
+    }
 }

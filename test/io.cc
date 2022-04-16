@@ -136,8 +136,9 @@ TEST_F(IoTest, accept) {
         [](ScCoroutine* self, void* data) -> ssize_t {
             sockaddr_in peer_addr;
             socklen_t   addr_len = sizeof(peer_addr);
-            return sc_io_accept(self, *static_cast<int*>(data),
-                                reinterpret_cast<sockaddr*>(&peer_addr), &addr_len);
+            return (ssize_t)sc_io_accept(self, *static_cast<int*>(data),
+                                         reinterpret_cast<sockaddr*>(&peer_addr), &addr_len)
+                .ok;
         },
         &sock));
     ASSERT_THAT(client_sock, Ge(0));
@@ -154,8 +155,9 @@ TEST_F(IoTest, openat) {
 
     int fd = static_cast<int>(run_on_coroutine(
         [](ScCoroutine* self, void* data) -> ssize_t {
-            return sc_io_openat(self, AT_FDCWD, a3_cstring_from(static_cast<char const*>(data)),
-                                O_RDONLY);
+            return (ssize_t)sc_io_open_under(
+                       self, AT_FDCWD, a3_cstring_from(static_cast<char const*>(data)), O_RDONLY)
+                .ok;
         },
         const_cast<char*>("build.ninja")));
 
@@ -190,7 +192,7 @@ TEST_F(IoTest, close) {
 
     ssize_t res = run_on_coroutine(
         [](ScCoroutine* self, void* data) -> ssize_t {
-            return sc_io_close(self, *static_cast<int*>(data));
+            return SC_IO_IS_OK(sc_io_close(self, *static_cast<int*>(data))) ? 0 : -1;
         },
         &fd);
     EXPECT_THAT(res, Eq(0));
@@ -240,7 +242,7 @@ TEST_F(IoTest, recv) {
     ssize_t  ret = run_on_coroutine(
          [](ScCoroutine* self, void* data) {
             auto* d = static_cast<Data*>(data);
-            return sc_io_recv(self, d->fd, d->buf);
+            return (ssize_t)sc_io_recv(self, d->fd, d->buf).ok;
          },
          &d);
     EXPECT_THAT(ret, Gt(0));
@@ -279,10 +281,11 @@ TEST_F(IoTest, read) {
         ssize_t res = run_on_coroutine(
             [](ScCoroutine* self, void* data) -> ssize_t {
                 auto* d = static_cast<Data*>(data);
-                return sc_io_read(
-                    self, d->fd,
-                    a3_string_new(reinterpret_cast<uint8_t*>(d->buf.data()), d->buf.size()),
-                    d->off);
+                return (ssize_t)sc_io_read(
+                           self, d->fd,
+                           a3_string_new(reinterpret_cast<uint8_t*>(d->buf.data()), d->buf.size()),
+                           d->off)
+                    .ok;
             },
             &data);
         if (res <= 0)

@@ -32,38 +32,6 @@
 #include <sc/listen.h>
 
 #include "config.h"
-#include "sc/forward.h"
-
-ssize_t cof(ScCoroutine* self, void* data) {
-    (void)data;
-
-    int res = sc_io_openat(self, AT_FDCWD, A3_CS("build.ninja"), O_RDONLY);
-    if (res < 0) {
-        A3_ERRNO(-res, "failed to open file");
-        return -1;
-    }
-    ScFd fd = res;
-
-    A3String buf  = a3_string_alloc(512);
-    ssize_t  read = sc_io_read(self, fd, buf, 0);
-    if (read < 0) {
-        A3_ERRNO(-read, "failed to read file");
-        return -1;
-    }
-
-    printf("%s\n", buf.ptr);
-
-    a3_string_free(&buf);
-    return 0;
-}
-
-static ssize_t handler(ScHttpConnection* conn) {
-    assert(conn);
-
-    printf("Handler.\n");
-
-    return 0;
-}
 
 int main(void) {
     a3_log_init(stderr, A3_LOG_TRACE);
@@ -71,11 +39,13 @@ int main(void) {
     ScCoCtx*     main_ctx = sc_co_main_ctx_new();
     ScEventLoop* ev       = sc_io_event_loop_new();
 
-    ScListener* listener = sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, handler);
+    ScListener* listener =
+        sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, sc_http_handle_file_serve(A3_CS(".")));
     sc_listener_start(listener, main_ctx, ev);
 
     sc_io_event_loop_run(ev);
 
+    sc_listener_free(listener);
     sc_io_event_loop_free(ev);
     sc_co_main_ctx_free(main_ctx);
 }

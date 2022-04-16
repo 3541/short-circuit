@@ -33,5 +33,8 @@ typedef struct ScCoCtx     ScCoCtx;
 typedef struct ScListener       ScListener;
 typedef struct ScConnection     ScConnection;
 typedef struct ScHttpConnection ScHttpConnection;
+typedef struct ScHttpRequest    ScHttpRequest;
+typedef struct ScHttpResponse   ScHttpResponse;
+typedef struct ScRouter         ScRouter;
 
 A3_H_END

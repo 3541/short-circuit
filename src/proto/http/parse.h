@@ -1,6 +1,5 @@
 /*
- * SHORT CIRCUIT: LISTEN -- Socket listener. Keeps an accept event queued on a
- * given socket.
+ * SHORT CIRCUIT: HTTP PARSE -- HTTP request parser.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -20,11 +19,8 @@
 
 #pragma once
 
-#include <sc/connection.h>
-#include <sc/listen.h>
+#include <stdbool.h>
 
-typedef struct ScListener {
-    ScConnectionHandler connection_handler;
-    ScFd                socket;
-    ScRouter*           router;
-} ScListener;
+#include <sc/forward.h>
+
+bool sc_http_request_parse(ScHttpRequest*);

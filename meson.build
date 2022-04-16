@@ -5,13 +5,13 @@ project(
   default_options: [
     'c_std=c11',
     'cpp_std=c++17',
+    'cpp_eh=none',
+    'cpp_rtti=false',
 
     'warning_level=2',
     'buildtype=debug',
     'b_ndebug=if-release',
     'default_library=static',
-    'cpp_eh=none',
-    'cpp_rtti=false',
   ]
 )
 
@@ -39,7 +39,7 @@ sc_warnings_wanted = [
     '-Wformat-nonliteral', '-Wformat-security', '-Wlogical-op', '-Wmissing-declarations',
     '-Wmissing-include-dirs', '-Wnull-dereference', '-Wpacked', '-Wshadow', '-Wstack-protector',
     '-Wundef', '-Wcast-align', '-Wbad-function-cast', '-Wimplicit', '-Wmissing-prototypes',
-    '-Wnested-externs', '-Wstrict-prototypes'
+    '-Wnested-externs', '-Wstrict-prototypes', '-Werror=incompatible-pointer-types'
 ]
 sc_cflags += c.get_supported_arguments(sc_warnings_wanted)
 
@@ -54,6 +54,8 @@ a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 sc_include = include_directories(['src', 'src/include'])
 sc_src = files(
   [
+    'src/mime.c',
+    'src/route.c',
     'src/uri.c',
     'src/io/io.c',
     'src/io/backend/backend.c',
@@ -61,6 +63,10 @@ sc_src = files(
     'src/net/connection.c',
     'src/net/listen.c',
     'src/proto/http/connection.c',
+    'src/proto/http/handle.c',
+    'src/proto/http/headers.c',
+    'src/proto/http/parse.c',
+    'src/proto/http/response.c',
     'src/proto/http/request.c',
   ]
 )
@@ -116,6 +122,7 @@ sc_main = executable(
   'sc',
   ['src/main.c'],
   dependencies: sc,
+  c_args: sc_cflags,
   build_by_default: true,
 )
 

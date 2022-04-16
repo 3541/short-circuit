@@ -1,6 +1,5 @@
 /*
- * SHORT CIRCUIT: LISTEN -- Socket listener. Keeps an accept event queued on a
- * given socket.
+ * SHORT CIRCUIT: HTTP RESPONSE -- HTTP response submission.
  *
  * Copyright (c) 2020-2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -20,25 +19,20 @@
 
 #pragma once
 
-#include <netinet/in.h>
-
-#include <a3/cpp.h>
-#include <a3/types.h>
-
-#include <sc/connection.h>
-#include <sc/forward.h>
 #include <sc/http.h>
+#include <sc/mime.h>
 
-A3_H_BEGIN
+#include "headers.h"
 
-typedef struct ScListener ScListener;
+typedef struct ScHttpResponse {
+    ScHttpHeaders headers;
+    ScMimeType    content_type;
+} ScHttpResponse;
 
-A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScConnectionHandler, ScRouter*);
-A3_EXPORT ScListener* sc_listener_tcp_new(in_port_t, ScConnectionHandler, ScRouter*);
-A3_EXPORT ScListener* sc_listener_http_new(in_port_t, ScRouter*);
-A3_EXPORT void        sc_listener_free(ScListener*);
-A3_EXPORT void        sc_listener_start(ScListener*, ScCoCtx* caller, ScEventLoop*);
+void sc_http_response_init(ScHttpResponse*);
+void sc_http_response_reset(ScHttpResponse*);
+void sc_http_response_destroy(ScHttpResponse*);
 
-A3_EXPORT ScRouter* sc_listener_router(ScListener*);
-
-A3_H_END
+void sc_http_response_send(ScHttpResponse*, ScHttpStatus);
+void sc_http_response_error_send(ScHttpResponse*, ScHttpStatus);
+void sc_http_response_file_send(ScHttpResponse*, ScFd file);

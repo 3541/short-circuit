@@ -28,9 +28,14 @@
 #include <a3/util.h>
 
 #include <sc/coroutine.h>
+#include <sc/forward.h>
 #include <sc/io.h>
 
 #include "config.h"
+
+#define RESOLVE_BENEATH 0x08
+#define RESOLVE_IN_ROOT 0x10
+#define AT_EMPTY_PATH   0x1000
 
 typedef struct ScEventLoop {
     struct io_uring uring;
@@ -97,7 +102,13 @@ static void sc_io_ops_check(void) {
             A3_PANIC_FMT("Required io_uring op %s is not supported by the kernel.", #OP);          \
     } while (0)
 
-    REQUIRE_OP(probe, IORING_OP_READ);
+    REQUIRE_OP(probe, IORING_OP_ACCEPT);
+    REQUIRE_OP(probe, IORING_OP_OPENAT2);
+    REQUIRE_OP(probe, IORING_OP_CLOSE);
+    REQUIRE_OP(probe, IORING_OP_RECV);
+    REQUIRE_OP(probe, IORING_OP_READV);
+    REQUIRE_OP(probe, IORING_OP_WRITEV);
+    REQUIRE_OP(probe, IORING_OP_STATX);
 
 #undef REQUIRE_OP
 
@@ -188,65 +199,86 @@ static ssize_t sc_io_submit(ScCoroutine* self, struct io_uring_sqe* sqe) {
     return sc_co_yield(self);
 }
 
-int sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
+SC_IO_RESULT(ScFd)
+sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
     assert(self);
     assert(sock >= 0);
     assert(client_addr);
     assert(addr_len && *addr_len);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(ScFd, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
-    return (int)sc_io_submit(self, sqe);
+    ScFd res = -1;
+    A3_UNWRAPS(res, (ScFd)sc_io_submit(self, sqe));
+    return SC_IO_OK(ScFd, res);
 }
 
-int sc_io_openat(ScCoroutine* self, ScFd dir, A3CString path, int flags) {
+SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path, uint64_t flags) {
     assert(self);
+    assert(dir >= 0);
     assert(path.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(ScFd, SC_IO_SUBMIT_FAILED));
 
-    io_uring_prep_openat(sqe, dir, a3_string_cstr(path), flags, 0);
+    io_uring_prep_openat2(sqe, dir, a3_string_cstr(path),
+                          &(struct open_how) { .flags = flags, .resolve = RESOLVE_IN_ROOT });
 
-    return (int)sc_io_submit(self, sqe);
+    ScFd res = -1;
+    if ((res = (ScFd)sc_io_submit(self, sqe)) < 0) {
+        switch (-res) {
+        case EAGAIN:
+            return sc_io_open_under(self, dir, path, flags);
+        case EACCES:
+        case ENOENT:
+            return SC_IO_ERR(ScFd, SC_IO_FILE_NOT_FOUND);
+        }
+        A3_ERRNO_F(-res, "open of \"" A3_S_F "\" failed", A3_S_FORMAT(path));
+        A3_PANIC("open failed");
+    }
+
+    return SC_IO_OK(ScFd, res);
 }
 
-int sc_io_close(ScCoroutine* self, ScFd file) {
+SC_IO_RESULT(bool) sc_io_close(ScCoroutine* self, ScFd file) {
     assert(self);
     assert(file >= 0);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_close(sqe, file);
 
-    return (int)sc_io_submit(self, sqe);
+    A3_UNWRAPSD(sc_io_submit(self, sqe));
+    return SC_IO_OK(bool, true);
 }
 
-ssize_t sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
+SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
     assert(self);
     assert(sock >= 0);
     assert(dst.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
 
-    return sc_io_submit(self, sqe);
+    ssize_t res = -1;
+    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    return SC_IO_OK(size_t, (size_t)res);
 }
 
-ssize_t sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
+SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
     assert(self);
     assert(fd >= 0);
     assert(dst.ptr);
     assert(dst.len <= UINT_MAX);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
-    A3_TRYB_MAP(sqe, SC_IO_SUBMIT_FAILED);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
     io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
@@ -255,5 +287,48 @@ ssize_t sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
     io_uring_prep_readv(sqe, fd, vec, 1, (uint64_t)offset);
 #endif
 
-    return sc_io_submit(self, sqe);
+    ssize_t res = -1;
+    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    return SC_IO_OK(size_t, (size_t)res);
+}
+
+SC_IO_RESULT(size_t)
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count, off_t offset) {
+    assert(self);
+    assert(fd >= 0);
+    assert(iov);
+    assert(count > 0);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
+
+    io_uring_prep_writev(sqe, fd, iov, count, (uint64_t)offset);
+
+    ssize_t res = -1;
+    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    return SC_IO_OK(size_t, (size_t)res);
+}
+
+SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct statx* statbuf, unsigned mask) {
+    assert(self);
+    assert(file >= 0);
+    assert(statbuf);
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
+
+    io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH, mask, statbuf);
+
+    ssize_t res = sc_io_submit(self, sqe);
+    if (res < 0) {
+        switch (-res) {
+        case EACCES:
+        case ENOENT:
+            return SC_IO_ERR(bool, SC_IO_FILE_NOT_FOUND);
+        }
+        A3_ERRNO(-(int)res, "statx");
+        A3_PANIC("statx failed.");
+    }
+
+    return SC_IO_OK(bool, true);
 }

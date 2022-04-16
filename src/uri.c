@@ -139,6 +139,13 @@ static bool sc_uri_path_normalize(A3String path) {
     A3_TRYB(sc_uri_decode(path));
     sc_uri_path_collapse(path);
 
+    // After collapse of legal '..' segments, there should be none remaining. Anything else is a
+    // directory escape.
+    for (size_t i = 0; i < path.len - 1; i++) {
+        if (path.ptr[i] == '.' && path.ptr[i + 1] == '.')
+            return false;
+    }
+
     return true;
 }
 

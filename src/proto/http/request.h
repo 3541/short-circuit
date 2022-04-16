@@ -19,11 +19,25 @@
 
 #pragma once
 
+#include <sc/forward.h>
 #include <sc/http.h>
 #include <sc/uri.h>
 
+#include "headers.h"
+
 typedef struct ScHttpRequest {
-    ScUri target;
+    ScHttpHeaders          headers;
+    ScUri                  target;
+    A3CString              host;
+    ScHttpMethod           method;
+    ScHttpTransferEncoding transfer_encodings;
+    ssize_t                content_length;
 } ScHttpRequest;
 
-void sc_http_request_handle(ScConnection*);
+void sc_http_request_init(ScHttpRequest*);
+void sc_http_request_reset(ScHttpRequest*);
+void sc_http_request_destroy(ScHttpRequest*);
+void sc_http_request_handle(ScHttpRequest*);
+
+ScHttpConnection* sc_http_request_connection(ScHttpRequest*);
+ScHttpResponse*   sc_http_request_response(ScHttpRequest*);

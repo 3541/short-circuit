@@ -17,19 +17,90 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
-
-#include <a3/log.h>
-
-#include <sc/connection.h>
-
-#include "connection.h"
 #include "request.h"
 
-void sc_http_request_handle(ScConnection* conn) {
-    assert(conn);
+#include <assert.h>
+#include <stdbool.h>
 
-    A3_TRACE("Handling HTTP connection.");
-    ScHttpConnection http = { .conn = conn, .request = { { 0 } } };
-    (void)http;
+#include <a3/log.h>
+#include <a3/util.h>
+
+#include <sc/connection.h>
+#include <sc/listen.h>
+#include <sc/route.h>
+
+#include "connection.h"
+#include "headers.h"
+#include "parse.h"
+
+static ScRouter* sc_http_request_router(ScHttpRequest* req) {
+    return sc_listener_router(sc_http_request_connection(req)->conn->listener);
+}
+
+void sc_http_request_init(ScHttpRequest* req) {
+    assert(req);
+
+    sc_http_request_reset(req);
+}
+
+void sc_http_request_reset(ScHttpRequest* req) {
+    req->method             = SC_HTTP_METHOD_UNKNOWN;
+    req->target.data        = A3_S_NULL;
+    req->host               = A3_CS_NULL;
+    req->transfer_encodings = SC_HTTP_TRANSFER_ENCODING_IDENTITY;
+    req->content_length     = SC_HTTP_CONTENT_LENGTH_UNSPECIFIED;
+    if (req->target.data.ptr)
+        a3_string_free(&req->target.data);
+
+    if (sc_http_headers_count(&req->headers) > 0)
+        sc_http_headers_destroy(&req->headers);
+    sc_http_headers_init(&req->headers);
+}
+
+void sc_http_request_destroy(ScHttpRequest* req) {
+    assert(req);
+
+    if (req->target.data.ptr)
+        a3_string_free(&req->target.data);
+    sc_http_headers_destroy(&req->headers);
+}
+
+void sc_http_request_handle(ScHttpRequest* req) {
+    assert(req);
+
+    if (!sc_http_request_parse(req))
+        return;
+
+    A3_TRACE("Handling HTTP request.");
+
+    ScHttpResponse* resp = sc_http_request_response(req);
+
+    switch (req->method) {
+    case SC_HTTP_METHOD_HEAD:
+    case SC_HTTP_METHOD_GET:
+        sc_router_dispatch(sc_http_request_router(req), sc_http_request_connection(req));
+        break;
+    case SC_HTTP_METHOD_BREW:
+        sc_http_request_connection(req)->version = SC_HTCPCP_VERSION_10;
+        sc_http_response_error_send(resp, SC_HTCPCP_STATUS_IM_A_TEAPOT);
+        break;
+    case SC_HTTP_METHOD_UNKNOWN:
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED);
+        sc_connection_close(sc_http_request_connection(req)->conn);
+        break;
+    default:
+        A3_UNREACHABLE();
+    }
+}
+
+ScHttpConnection* sc_http_request_connection(ScHttpRequest* req) {
+    assert(req);
+
+    return A3_CONTAINER_OF(req, ScHttpConnection, request);
+}
+
+ScHttpResponse* sc_http_request_response(ScHttpRequest* req) {
+    assert(req);
+
+    return &sc_http_request_connection(req)->response;
 }
