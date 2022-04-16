@@ -27,6 +27,7 @@
 #include <sc/http.h>
 #include <sc/io.h>
 #include <sc/route.h>
+#include <sc/uri.h>
 
 #include "connection.h"
 #include "response.h"
@@ -36,7 +37,9 @@ static void sc_http_file_handle(void* conn, ScRouteData dir) {
     assert(dir.fd >= 0);
 
     ScHttpConnection* http = conn;
-    A3CString         path = http->request.target.path;
+    A3CString         path = sc_uri_path_relative(&http->request.target);
+    if (path.len == 0)
+        path = A3_CS(".");
 
     SC_IO_RESULT(ScFd) maybe_file = sc_io_open_under(http->conn->coroutine, dir.fd, path, O_RDONLY);
     if (SC_IO_IS_ERR(maybe_file)) {

@@ -35,7 +35,6 @@
 #include "config.h"
 
 #define RESOLVE_BENEATH 0x08
-#define RESOLVE_IN_ROOT 0x10
 #define AT_EMPTY_PATH   0x1000
 
 typedef struct ScEventLoop {
@@ -226,7 +225,7 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
     A3_TRYB_MAP(sqe, SC_IO_ERR(ScFd, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_openat2(sqe, dir, a3_string_cstr(path),
-                          &(struct open_how) { .flags = flags, .resolve = RESOLVE_IN_ROOT });
+                          &(struct open_how) { .flags = flags, .resolve = RESOLVE_BENEATH });
 
     ScFd res = -1;
     if ((res = (ScFd)sc_io_submit(self, sqe)) < 0) {

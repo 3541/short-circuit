@@ -59,5 +59,6 @@ typedef struct ScUri {
 
 A3_EXPORT ScUriParseResult sc_uri_parse(ScUri*, A3String);
 A3_EXPORT bool             sc_uri_is_initialized(ScUri*);
+A3_EXPORT A3CString        sc_uri_path_relative(ScUri*);
 
 A3_H_END

@@ -200,3 +200,9 @@ bool sc_uri_is_initialized(ScUri* uri) {
 
     return uri->data.ptr;
 }
+
+A3CString sc_uri_path_relative(ScUri* uri) {
+    assert(uri);
+
+    return uri->path.ptr ? A3_S_CONST(a3_string_offset(A3_CS_MUT(uri->path), 1)) : A3_CS_NULL;
+}
