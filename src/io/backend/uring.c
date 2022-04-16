@@ -18,6 +18,7 @@
  */
 
 #include <assert.h>
+#include <fcntl.h>
 #include <liburing.h>
 #include <limits.h>
 #include <linux/version.h>
@@ -218,7 +219,7 @@ sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen
 
 SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path, uint64_t flags) {
     assert(self);
-    assert(dir >= 0);
+    assert(dir >= 0 || dir == AT_FDCWD);
     assert(path.ptr);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);

@@ -147,7 +147,7 @@ TEST_F(IoTest, accept) {
     client_thread.join();
 }
 
-TEST_F(IoTest, openat) {
+TEST_F(IoTest, open_under) {
 #ifdef SC_IO_BACKEND_URING
     if (kver_major == 5 && kver_minor < 6)
         GTEST_SKIP();

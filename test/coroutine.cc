@@ -11,9 +11,12 @@ using namespace testing;
 class CoroutineTest : public Test {
 protected:
     // NOLINTNEXTLINE(misc-non-private-member-variables-in-classes)
-    ScCoCtx* main_ctx = sc_co_main_ctx_new();
+    ScCoCtx* main_ctx;
 
-    CoroutineTest() { a3_log_init(stderr, A3_LOG_WARN); }
+    CoroutineTest() {
+        a3_log_init(stderr, A3_LOG_WARN);
+        main_ctx = sc_co_main_ctx_new();
+    }
     ~CoroutineTest() { sc_co_main_ctx_free(main_ctx); }
 };
 
