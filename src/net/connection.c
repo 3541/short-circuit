@@ -33,6 +33,7 @@
 ssize_t sc_connection_handle(ScCoroutine* self, void* data) {
     assert(self);
     assert(data);
+    (void)self;
 
     A3_TRACE("Handling connection.");
     ScConnection* conn = data;
