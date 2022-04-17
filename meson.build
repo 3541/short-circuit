@@ -105,6 +105,14 @@ else
         + host_machine.system())
 endif
 
+if get_option('buildtype') == 'debug'
+  valgrind = dependency('valgrind', required: false)
+  if valgrind.found()
+    sc_cflags += '-DSC_HAVE_VALGRIND'
+    sc_deps += valgrind
+  endif
+endif
+
 if c.check_header('linux/openat2.h')
   sc_cflags += '-DSC_HAVE_OPENAT2'
 endif

@@ -30,8 +30,8 @@
 
 #include "config.h"
 
-#ifndef NDEBUG
-#include <valgrind/memcheck.h>
+#if !defined(NDEBUG) && defined(SC_HAVE_VALGRIND)
+#include <memcheck.h>
 #endif
 
 typedef struct ScCoCtx {
@@ -182,7 +182,7 @@ ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
     ret->value      = 0;
     ret->done       = false;
     ret->extra_data = 0;
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(SC_HAVE_VALGRIND)
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
 
@@ -213,7 +213,7 @@ ssize_t sc_co_yield(ScCoroutine* self) {
 static void sc_co_free(ScCoroutine* co) {
     assert(co);
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(SC_HAVE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(co->vg_stack_id);
 #endif
 
