@@ -17,10 +17,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifdef __linux__
-#define _GNU_SOURCE // For O_PATH.
-#endif
-
 #include <fcntl.h>
 #include <sys/stat.h>
 

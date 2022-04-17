@@ -17,15 +17,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifdef __linux__
-#define _GNU_SOURCE // For accept4 and statx.
-#endif
-
+#include "shim/openat.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/version.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -40,10 +36,6 @@
 #include <sc/coroutine.h>
 #include <sc/forward.h>
 #include <sc/io.h>
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-#include <linux/openat2.h>
-#endif
 
 typedef struct ScEventLoop {
     struct pollfd* poll_fds;
@@ -181,15 +173,7 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
     assert(dir >= 0 || dir == AT_FDCWD);
     assert(path.ptr);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-    ScFd res = (ScFd)syscall(
-        SYS_openat2, dir, a3_string_cstr(path),
-        &(struct open_how) { .flags = flags | O_NONBLOCK, .resolve = RESOLVE_BENEATH },
-        sizeof(struct open_how));
-#else
-    ScFd res = openat(dir, a3_string_cstr(path), (int)flags | O_NONBLOCK | O_NOFOLLOW);
-    // TODO: Validate path is child of dir.
-#endif
+    ScFd res = sc_shim_openat(dir, a3_string_cstr(path), flags | O_NONBLOCK, RESOLVE_BENEATH);
 
     if (res < 0) {
         if (errno == EACCES || errno == ENOENT || errno == ELOOP)

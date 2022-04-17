@@ -21,7 +21,6 @@
 
 #include <fcntl.h>
 #include <linux/limits.h>
-#include <linux/stat.h>
 #include <sys/stat.h>
 
 #include <a3/buffer.h>

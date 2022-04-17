@@ -34,8 +34,9 @@
 
 #include "config.h"
 
+// Defined here because including openat2.h duplicates struct open_how, which is also defined by
+// liburing.
 #define RESOLVE_BENEATH 0x08
-#define AT_EMPTY_PATH   0x1000
 
 typedef struct ScEventLoop {
     struct io_uring uring;

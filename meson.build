@@ -22,6 +22,10 @@ sc_cflags = [
   '-Dtypeof=__typeof__',
 ]
 
+if host_machine.system() == 'linux'
+  sc_cflags += '-D_GNU_SOURCE'
+endif
+
 if get_option('profile')
   sc_cflags += '-DPROFILE'
 endif
@@ -68,6 +72,7 @@ sc_src = files(
     'src/proto/http/parse.c',
     'src/proto/http/response.c',
     'src/proto/http/request.c',
+    'src/shim/openat.c',
   ]
 )
 sc_deps = [a3, a3_hash]
@@ -97,6 +102,14 @@ elif backend == 'poll'
 else
   error('Unsupported IO backend ' + backend + ' on platform '
         + host_machine.system())
+endif
+
+if c.check_header('linux/openat2.h')
+  sc_cflags += '-DSC_HAVE_OPENAT2'
+endif
+
+if c.has_header_symbol('fcntl.h', 'O_RESOLVE_BENEATH')
+  sc_cflags += '-DSC_HAVE_O_RESOLVE_BENEATH'
 endif
 
 if get_option('ci')
