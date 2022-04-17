@@ -109,6 +109,8 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
     struct iovec* iov = iov_local;
 
     size_t iov_count = 4 * sc_http_headers_count(&resp->headers) + 3;
+    if (conn->request.method == SC_HTTP_METHOD_HEAD)
+        iov_count--;
     if (iov_count > sizeof(iov_local) / sizeof(iov_local[0]))
         A3_UNWRAPN(iov, calloc(iov_count, sizeof(*iov)));
 
@@ -133,8 +135,9 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
             (struct iovec) { .iov_base = (void*)SC_HTTP_EOL.ptr, .iov_len = SC_HTTP_EOL.len };
     }
     iov[++i] = (struct iovec) { .iov_base = (void*)SC_HTTP_EOL.ptr, .iov_len = SC_HTTP_EOL.len };
-    iov[++i] =
-        (struct iovec) { .iov_base = (void*)a3_buf_read_ptr(buf).ptr, .iov_len = a3_buf_len(buf) };
+    if (conn->request.method != SC_HTTP_METHOD_HEAD)
+        iov[++i] = (struct iovec) { .iov_base = (void*)a3_buf_read_ptr(buf).ptr,
+                                    .iov_len  = a3_buf_len(buf) };
 
     if (SC_IO_IS_ERR(sc_io_writev(sc_http_response_coroutine(resp), conn->conn->socket, iov,
                                   (unsigned)iov_count, 0)))
