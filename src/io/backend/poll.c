@@ -233,16 +233,20 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
     assert(dst.ptr);
 
     size_t to_read = MIN(count, dst.len);
-    size_t total   = 0;
+    size_t left    = to_read;
 
     while (true) {
-        ssize_t res = pread(fd, dst.ptr, dst.len, offset);
+        ssize_t res = pread(fd, dst.ptr, left, offset);
 
         if (res >= 0) {
-            total += (size_t)res;
+            left -= (size_t)res;
+            dst = a3_string_offset(dst, (size_t)res);
+            offset += res;
 
-            if (total >= to_read)
-                return SC_IO_OK(size_t, (size_t)total);
+            if (!left || !res)
+                return SC_IO_OK(size_t, to_read - left);
+
+            continue;
         }
 
         switch (errno) {

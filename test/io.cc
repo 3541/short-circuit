@@ -294,5 +294,6 @@ TEST_F(IoTest, read) {
         std::copy(buf.begin(), buf.begin() + res, std::back_inserter(got));
     }
 
+    EXPECT_THAT(got.size(), Eq(expected.size()));
     EXPECT_THAT(got, ContainerEq(expected));
 }
