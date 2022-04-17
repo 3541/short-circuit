@@ -28,6 +28,7 @@
 #include <a3/str.h>
 
 #include <sc/coroutine.h>
+#include <sc/http.h>
 #include <sc/io.h>
 #include <sc/listen.h>
 
@@ -36,16 +37,16 @@
 int main(void) {
     a3_log_init(stderr, A3_LOG_TRACE);
 
-    ScCoCtx*     main_ctx = sc_co_main_ctx_new();
-    ScEventLoop* ev       = sc_io_event_loop_new();
+    ScEventLoop* ev = sc_io_event_loop_new();
+    ScCoMain*    co = sc_co_main_new(ev);
 
     ScListener* listener =
         sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, sc_http_handle_file_serve(A3_CS(".")));
-    sc_listener_start(listener, main_ctx, ev);
+    sc_listener_start(listener, co);
 
-    sc_io_event_loop_run(ev);
+    sc_io_event_loop_run(co);
 
     sc_listener_free(listener);
     sc_io_event_loop_free(ev);
-    sc_co_main_ctx_free(main_ctx);
+    sc_co_main_free(co);
 }

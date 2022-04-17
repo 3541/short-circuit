@@ -82,7 +82,7 @@ void sc_http_connection_handle(ScConnection* conn) {
     } while (http.connection_type == SC_HTTP_CONNECTION_TYPE_KEEP_ALIVE && conn->socket > 0 &&
              SC_IO_IS_OK(rc = sc_connection_recv(conn)) && rc.ok > 0);
 
-    if (SC_IO_IS_ERR(rc)) {
+    if (SC_IO_IS_ERR(rc) && rc.err != SC_IO_SOCKET_CLOSED) {
         A3_ERROR("recv failed");
     }
 

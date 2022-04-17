@@ -35,7 +35,8 @@ A3_H_BEGIN
 
 #define SC_IO_ERROR_ENUM                                                                           \
     ERR(SC_IO_SUBMIT_FAILED, (-1), "IO event submission failed.")                                  \
-    ERR(SC_IO_FILE_NOT_FOUND, (-2), "Target file not found.")
+    ERR(SC_IO_FILE_NOT_FOUND, (-2), "Target file not found.")                                      \
+    ERR(SC_IO_SOCKET_CLOSED, (-3), "Connection closed by peer.")
 
 typedef enum ScIoError {
 #define ERR(N, V, S) N = (V),
@@ -96,7 +97,7 @@ struct statx;
 A3_EXPORT A3CString sc_io_error_to_string(ScIoError);
 
 A3_EXPORT ScEventLoop* sc_io_event_loop_new(void);
-A3_EXPORT void         sc_io_event_loop_run(ScEventLoop*);
+A3_EXPORT void         sc_io_event_loop_run(ScCoMain*);
 A3_EXPORT void         sc_io_event_loop_pump(ScEventLoop*);
 A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <sc/connection.h>
+#include <sc/coroutine.h>
 #include <sc/listen.h>
 
 typedef struct ScListener {

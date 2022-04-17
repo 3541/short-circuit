@@ -11,19 +11,19 @@ using namespace testing;
 class CoroutineTest : public Test {
 protected:
     // NOLINTNEXTLINE(misc-non-private-member-variables-in-classes)
-    ScCoCtx* main_ctx;
+    ScCoMain* main;
 
     CoroutineTest() {
         a3_log_init(stderr, A3_LOG_WARN);
-        main_ctx = sc_co_main_ctx_new();
+        main = sc_co_main_new(nullptr);
     }
-    ~CoroutineTest() { sc_co_main_ctx_free(main_ctx); }
+    ~CoroutineTest() { sc_co_main_free(main); }
 };
 
 TEST_F(CoroutineTest, construction) {
     bool  ran = false;
     auto* co  = sc_co_new(
-         main_ctx, nullptr,
+         main,
          [](ScCoroutine* self, void* data) -> ssize_t {
             (void)self;
             *static_cast<bool*>(data) = true;
@@ -47,10 +47,10 @@ TEST_F(CoroutineTest, spawn) {
     Data d { ran, ran1 };
 
     auto* co = sc_co_new(
-        main_ctx, nullptr,
+        main,
         [](ScCoroutine* self, void* data) -> ssize_t {
-            auto* d   = static_cast<Data*>(data);
-            auto* co1 = sc_co_spawn(
+            auto* d = static_cast<Data*>(data);
+            sc_co_spawn(
                 self,
                 [](ScCoroutine* self, void* data) -> ssize_t {
                     (void)self;
@@ -58,20 +58,21 @@ TEST_F(CoroutineTest, spawn) {
                     return 42;
                 },
                 &d->ran1);
-            auto res = sc_co_resume(co1, 0);
-            d->ran   = true;
-            return res;
+            d->ran = true;
+            return 41;
         },
         &d);
 
-    EXPECT_EQ(sc_co_resume(co, 0), 42);
+    EXPECT_EQ(sc_co_resume(co, 0), 41);
+    sc_co_main_pending_resume(main);
+
     EXPECT_TRUE(ran);
     EXPECT_TRUE(ran1);
 }
 
 TEST_F(CoroutineTest, yield) {
     auto* co = sc_co_new(
-        main_ctx, nullptr,
+        main,
         [](ScCoroutine* self, void* data) -> ssize_t {
             (void)data;
 
@@ -97,7 +98,7 @@ TEST_F(CoroutineTest, defer) {
     bool defer_ran = false;
 
     auto* co = sc_co_new(
-        main_ctx, nullptr,
+        main,
         [](ScCoroutine* self, void* data) -> ssize_t {
             sc_co_defer(
                 self, [](void* data) { *static_cast<bool*>(data) = true; }, data);
@@ -114,7 +115,7 @@ TEST_F(CoroutineTest, defer_many_yield) {
     bool defer_ran = false;
 
     auto* co = sc_co_new(
-        main_ctx, nullptr,
+        main,
         [](ScCoroutine* self, void* data) -> ssize_t {
             sc_co_defer(
                 self, [](void* data) { *static_cast<bool*>(data) = true; }, data);
@@ -140,7 +141,7 @@ TEST_F(CoroutineTest, many_coroutines) {
     size_t                    n = 0;
     std::generate_n(std::back_inserter(coroutines), 400, [this, &n] {
         return sc_co_new(
-            main_ctx, nullptr,
+            main,
             [](ScCoroutine* self, void* data) -> ssize_t {
                 ssize_t val = 0;
                 ssize_t res = static_cast<ssize_t>(reinterpret_cast<uintptr_t>(data));

@@ -20,7 +20,6 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
-#include <threads.h>
 #include <ucontext.h>
 
 #include <a3/log.h>
@@ -39,6 +38,13 @@ typedef struct ScCoCtx {
     ucontext_t ctx;
 } ScCoCtx;
 
+typedef struct ScCoMain {
+    ScCoCtx      ctx;
+    A3SLL        spawn_queue;
+    ScEventLoop* ev;
+    size_t       count;
+} ScCoMain;
+
 typedef struct ScCoDeferred {
     ScCoDeferredCb f;
     void*          data;
@@ -46,12 +52,12 @@ typedef struct ScCoDeferred {
 } ScCoDeferred;
 
 typedef struct ScCoroutine {
-    uint8_t      stack[SC_CO_STACK_SIZE];
-    ScCoCtx      ctx;
-    A3SLL        deferred;
-    ScCoCtx*     caller;
-    ScEventLoop* ev;
-    ssize_t      value;
+    uint8_t   stack[SC_CO_STACK_SIZE];
+    ScCoCtx   ctx;
+    A3SLL     deferred;
+    A3SLink   pending;
+    ScCoMain* parent;
+    ssize_t   value;
 #ifndef NDEBUG
     uint32_t vg_stack_id;
 #endif
@@ -59,21 +65,6 @@ typedef struct ScCoroutine {
 } ScCoroutine;
 
 typedef void (*ScCoTrampoline)(void);
-
-static thread_local size_t SC_CO_COUNT = 0;
-
-ScCoCtx* sc_co_main_ctx_new() {
-    A3_TRACE("Creating main coroutine context.");
-
-    A3_UNWRAPNI(ScCoCtx*, ret, malloc(sizeof(*ret)));
-    A3_UNWRAPSD(getcontext(&ret->ctx));
-    return ret;
-}
-
-void sc_co_main_ctx_free(ScCoCtx* ctx) {
-    assert(ctx);
-    free(ctx);
-}
 
 // Standards-compliant ucontext requires that all arguments to the entry point be ints. On platforms
 // where sizeof(int) == sizeof(void*), this works fine. Where sizeof(int) < sizeof(void*), annoying
@@ -104,47 +95,116 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 #error "Unsupported pointer size."
 #endif
 
+    assert(entry);
+    assert(self);
+
     self->value = entry(self, data);
 
     A3_SLL_FOR_EACH(ScCoDeferred, deferred, &self->deferred, list) { deferred->f(deferred->data); }
     self->done = true;
+
+    sc_co_yield(self);
+
+    // NOTE: Returning from here will terminate the process.
 }
 
-ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* data) {
-    assert(caller);
+static void sc_co_ctx_init(ScCoroutine* self, void* stack, size_t stack_size, ScCoEntry entry,
+                           void* data) {
+    assert(self);
+    assert(stack);
+    assert(stack_size);
+    assert(entry);
+
+    ucontext_t* ctx = &self->ctx.ctx;
+
+    A3_UNWRAPSD(getcontext(ctx));
+    ctx->uc_stack = (stack_t) { .ss_sp = stack, .ss_size = stack_size };
+    ctx->uc_link  = NULL;
+    makecontext(ctx, (ScCoTrampoline)sc_co_begin, SC_CO_BEGIN_ARGS(entry, self, data));
+}
+
+static void sc_co_ctx_swap(ScCoCtx* dst, ScCoCtx* src) {
+    assert(dst);
+    assert(src);
+
+    A3_UNWRAPSD(swapcontext(&dst->ctx, &src->ctx));
+}
+
+ScCoMain* sc_co_main_new(ScEventLoop* ev) {
+    A3_TRACE("Creating main coroutine context.");
+
+    A3_UNWRAPNI(ScCoMain*, ret, malloc(sizeof(*ret)));
+    A3_UNWRAPSD(getcontext(&ret->ctx.ctx));
+
+    ret->ev    = ev;
+    ret->count = 0;
+
+    a3_sll_init(&ret->spawn_queue);
+
+    return ret;
+}
+
+void sc_co_main_free(ScCoMain* main) {
+    assert(main);
+
+    free(main);
+}
+
+ScEventLoop* sc_co_main_event_loop(ScCoMain* main) {
+    assert(main);
+
+    return main->ev;
+}
+
+void sc_co_main_pending_resume(ScCoMain* main) {
+    assert(main);
+
+    for (A3SLink* l = a3_sll_dequeue(&main->spawn_queue); l;
+         l          = a3_sll_dequeue(&main->spawn_queue)) {
+        ScCoroutine* co = A3_CONTAINER_OF(l, ScCoroutine, pending);
+        sc_co_resume(co, 0);
+    }
+}
+
+size_t sc_co_count(ScCoMain* main) {
+    assert(main);
+
+    return main->count;
+}
+
+ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
+    assert(main);
     assert(entry);
 
     A3_UNWRAPNI(ScCoroutine*, ret, calloc(1, sizeof(*ret)));
-    ret->ev     = ev;
-    ret->caller = caller;
+    ret->parent = main;
+    ret->value  = 0;
     ret->done   = false;
 #ifndef NDEBUG
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
 
     a3_sll_init(&ret->deferred);
+    sc_co_ctx_init(ret, &ret->stack, sizeof(ret->stack), entry, data);
 
-    A3_UNWRAPSD(getcontext(&ret->ctx.ctx));
-
-    ret->ctx.ctx.uc_stack = (stack_t) { .ss_sp = ret->stack, .ss_size = sizeof(ret->stack) };
-    ret->ctx.ctx.uc_link  = &ret->caller->ctx;
-    makecontext(&ret->ctx.ctx, (ScCoTrampoline)sc_co_begin, SC_CO_BEGIN_ARGS(entry, ret, data));
-
-    SC_CO_COUNT++;
+    main->count++;
     return ret;
 }
 
-ScCoroutine* sc_co_spawn(ScCoroutine* caller, ScCoEntry entry, void* data) {
-    assert(caller);
+ScCoroutine* sc_co_spawn(ScCoroutine* self, ScCoEntry entry, void* data) {
+    assert(self);
     assert(entry);
 
-    return sc_co_new(&caller->ctx, caller->ev, entry, data);
+    ScCoroutine* ret = sc_co_new(self->parent, entry, data);
+    a3_sll_enqueue(&self->parent->spawn_queue, &ret->pending);
+
+    return ret;
 }
 
 ssize_t sc_co_yield(ScCoroutine* self) {
     assert(self);
 
-    A3_UNWRAPSD(swapcontext(&self->ctx.ctx, &self->caller->ctx));
+    sc_co_ctx_swap(&self->ctx, &self->parent->ctx);
     return self->value;
 }
 
@@ -155,7 +215,7 @@ static void sc_co_free(ScCoroutine* co) {
     VALGRIND_STACK_DEREGISTER(co->vg_stack_id);
 #endif
 
-    SC_CO_COUNT--;
+    co->parent->count--;
     free(co);
 }
 
@@ -163,7 +223,7 @@ ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
     assert(co);
 
     co->value = param;
-    A3_UNWRAPSD(swapcontext(&co->caller->ctx, &co->ctx.ctx));
+    sc_co_ctx_swap(&co->parent->ctx, &co->ctx);
 
     ssize_t ret = co->value;
     if (co->done)
@@ -185,9 +245,7 @@ void sc_co_defer(ScCoroutine* self, ScCoDeferredCb f, void* data) {
     a3_sll_push(&self->deferred, &def->list);
 }
 
-size_t sc_co_count() { return SC_CO_COUNT; }
-
 ScEventLoop* sc_co_event_loop(ScCoroutine* co) {
     assert(co);
-    return co->ev;
+    return co->parent->ev;
 }

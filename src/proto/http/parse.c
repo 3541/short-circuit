@@ -118,8 +118,7 @@ static bool sc_http_request_first_line_parse(ScHttpRequest* req) {
     conn->version     = sc_http_version_parse(version);
     // There must be at least one EOL. The version must be valid. If on HTTP/0.9, there must be no
     // headers.
-    if (!a3_buf_consume(buf, SC_HTTP_EOL) || conn->version == SC_HTTP_VERSION_INVALID ||
-        (conn->version == SC_HTTP_VERSION_09 && !a3_buf_consume(buf, SC_HTTP_EOL))) {
+    if (!a3_buf_consume(buf, SC_HTTP_EOL) || conn->version == SC_HTTP_VERSION_INVALID) {
         A3_TRACE_F("Bad HTTP version \"", A3_S_F, "\".", A3_S_FORMAT(version));
         sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
         sc_connection_close(conn->conn);
@@ -155,6 +154,13 @@ static bool sc_http_request_headers_recv(ScHttpRequest* req) {
     // No headers.
     if (a3_buf_consume(buf, SC_HTTP_EOL))
         return true;
+
+    // No headers allowed for HTTP/0.9.
+    if (conn->version == SC_HTTP_VERSION_09) {
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
+        sc_connection_close(conn->conn);
+        return false;
+    }
 
     SC_IO_TRY_MAP(sc_connection_recv_until(conn->conn, SC_HTTP_EOL_2, buf->max_cap), false);
 

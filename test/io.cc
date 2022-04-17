@@ -27,9 +27,9 @@ static thread_local IoTest* test = nullptr;
 class IoTest : public Test {
 private:
     ScEventLoop* loop;
-    ScCoCtx*     main_ctx = sc_co_main_ctx_new();
-    ScCoEntry    entry    = nullptr;
-    ssize_t      result   = -1;
+    ScCoMain*    main;
+    ScCoEntry    entry  = nullptr;
+    ssize_t      result = -1;
 
     friend ssize_t trampoline(ScCoroutine*, void*);
 
@@ -39,6 +39,7 @@ protected:
     IoTest() {
         a3_log_init(stderr, A3_LOG_WARN);
         loop = sc_io_event_loop_new();
+        main = sc_co_main_new(loop);
         test = this;
     }
 
@@ -60,16 +61,16 @@ protected:
 
     ~IoTest() {
         sc_io_event_loop_free(loop);
-        sc_co_main_ctx_free(main_ctx);
+        sc_co_main_free(main);
     }
 
     ssize_t run_on_coroutine(ScCoEntry f, void* data) {
         entry = f;
 
-        auto* co = sc_co_new(main_ctx, loop, trampoline, data);
+        auto* co = sc_co_new(main, trampoline, data);
         sc_co_resume(co, 0);
 
-        sc_io_event_loop_run(loop);
+        sc_io_event_loop_run(main);
 
         return result;
     }

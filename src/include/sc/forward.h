@@ -29,6 +29,7 @@ typedef struct ScEventLoop ScEventLoop;
 
 typedef struct ScCoroutine ScCoroutine;
 typedef struct ScCoCtx     ScCoCtx;
+typedef struct ScCoMain    ScCoMain;
 
 typedef struct ScListener       ScListener;
 typedef struct ScConnection     ScConnection;

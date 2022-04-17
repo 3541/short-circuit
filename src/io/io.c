@@ -44,15 +44,19 @@ A3CString sc_io_error_to_string(ScIoError error) {
     return ERRORS[-error];
 }
 
-void sc_io_event_loop_run(ScEventLoop* ev) {
-    assert(ev);
+void sc_io_event_loop_run(ScCoMain* co) {
+    assert(co);
 
     if (signal(SIGINT, sc_signal_handler) == SIG_ERR) {
         A3_ERRNO(errno, "failed to register signal handler");
         abort();
     }
 
+    ScEventLoop* ev = sc_co_main_event_loop(co);
+
     A3_TRACE("Starting event loop.");
-    while (!SC_TERMINATE && sc_co_count() > 0)
+    while (!SC_TERMINATE && sc_co_count(co) > 0) {
+        sc_co_main_pending_resume(co);
         sc_io_event_loop_pump(ev);
+    }
 }

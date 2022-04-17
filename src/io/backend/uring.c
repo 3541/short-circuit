@@ -144,8 +144,7 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
     A3_TRACE("Waiting for events.");
-    if (!io_uring_submit_and_wait(&ev->uring, 1))
-        return;
+    io_uring_submit_and_wait(&ev->uring, 1);
 
     struct io_uring_cqe* cqe;
     size_t               head;
@@ -266,8 +265,16 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
 
     io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
 
-    ssize_t res = -1;
-    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    ssize_t res = sc_io_submit(self, sqe);
+    if (res <= 0) {
+        switch (-res) {
+        case 0:
+        case ECONNRESET:
+            return SC_IO_ERR(size_t, SC_IO_SOCKET_CLOSED);
+        }
+        A3_ERRNO(-(int)res, "recv");
+        A3_PANIC("recv failed");
+    }
     return SC_IO_OK(size_t, (size_t)res);
 }
 

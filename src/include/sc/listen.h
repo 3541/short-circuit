@@ -27,7 +27,6 @@
 
 #include <sc/connection.h>
 #include <sc/forward.h>
-#include <sc/http.h>
 
 A3_H_BEGIN
 
@@ -37,7 +36,7 @@ A3_EXPORT ScListener* sc_listener_new(ScFd socket, ScConnectionHandler, ScRouter
 A3_EXPORT ScListener* sc_listener_tcp_new(in_port_t, ScConnectionHandler, ScRouter*);
 A3_EXPORT ScListener* sc_listener_http_new(in_port_t, ScRouter*);
 A3_EXPORT void        sc_listener_free(ScListener*);
-A3_EXPORT void        sc_listener_start(ScListener*, ScCoCtx* caller, ScEventLoop*);
+A3_EXPORT void        sc_listener_start(ScListener*, ScCoMain*);
 
 A3_EXPORT ScRouter* sc_listener_router(ScListener*);
 

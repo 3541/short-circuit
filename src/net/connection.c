@@ -38,7 +38,12 @@ ssize_t sc_connection_handle(ScCoroutine* self, void* data) {
     A3_TRACE("Handling connection.");
     ScConnection* conn = data;
 
-    SC_IO_UNWRAP(sc_connection_recv(conn));
+    SC_IO_RESULT(size_t) res = sc_connection_recv(conn);
+    if (SC_IO_IS_ERR(res)) {
+        if (res.err != SC_IO_SOCKET_CLOSED)
+            SC_IO_UNWRAP(res);
+        return 0;
+    }
     conn->listener->connection_handler(conn);
 
     return 0;

@@ -28,7 +28,7 @@
 #include <a3/log.h>
 
 #include <sc/connection.h>
-#include <sc/coroutine.h>
+#include <sc/forward.h>
 #include <sc/io.h>
 #include <sc/listen.h>
 
@@ -98,24 +98,22 @@ static ssize_t sc_listen(ScCoroutine* self, void* data) {
 
     while (true) {
         ScConnection* conn = sc_connection_new(listener);
-        conn->coroutine    = sc_co_spawn(self, sc_connection_handle, conn);
-        sc_co_defer(conn->coroutine, sc_connection_free, conn);
 
         conn->socket = SC_IO_UNWRAP(sc_io_accept(
             self, listener->socket, (struct sockaddr*)(&conn->client_addr), &conn->addr_len));
         A3_TRACE("Accepted connection.");
 
-        sc_co_resume(conn->coroutine, 0);
+        conn->coroutine = sc_co_spawn(self, sc_connection_handle, conn);
+        sc_co_defer(conn->coroutine, sc_connection_free, conn);
     }
 }
 
-void sc_listener_start(ScListener* listener, ScCoCtx* caller, ScEventLoop* ev) {
+void sc_listener_start(ScListener* listener, ScCoMain* co_main) {
     assert(listener);
-    assert(caller);
-    assert(ev);
+    assert(co_main);
 
     A3_TRACE("Starting listener coroutine.");
-    ScCoroutine* co = sc_co_new(caller, ev, sc_listen, listener);
+    ScCoroutine* co = sc_co_new(co_main, sc_listen, listener);
     sc_co_resume(co, 0);
 }
 
