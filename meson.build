@@ -74,6 +74,7 @@ sc_src = files(
     'src/proto/http/request.c',
     'src/shim/accept.c',
     'src/shim/openat.c',
+    'src/shim/pwritev.c',
   ]
 )
 sc_deps = [a3, a3_hash]
@@ -133,6 +134,10 @@ if c.has_header_symbol('fcntl.h', 'O_PATH', args: '-D_GNU_SOURCE')
   sc_cflags += '-DSC_HAVE_O_PATH'
 elif c.has_header_symbol('fcntl.h', 'O_SEARCH')
   sc_cflags += '-DSC_HAVE_O_SEARCH'
+endif
+
+if c.has_function('pwritev2')
+  sc_cflags += '-DSC_HAVE_PWRITEV2'
 endif
 
 if get_option('ci')

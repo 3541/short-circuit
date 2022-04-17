@@ -20,8 +20,9 @@
 #include "response.h"
 
 #include <fcntl.h>
-#include <linux/limits.h>
+#include <limits.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 
 #include <a3/buffer.h>
 #include <a3/log.h>
