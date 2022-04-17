@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: OPENAT SHIM -- Cross-platform openat wrapper.
+ * SHORT CIRCUIT: ACCEPT SHIM -- Cross-platform accept wrapper.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -15,23 +15,27 @@
  * If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "openat.h"
+#include "accept.h"
 
 #include <fcntl.h>
+#include <sys/socket.h>
 
-#ifdef SC_HAVE_OPENAT2
-#include <sys/syscall.h>
-#include <unistd.h>
-#endif
+#include <a3/util.h>
 
-int sc_shim_openat(int dir, char const* path, uint64_t flags, uint64_t resolve) {
-#ifdef SC_HAVE_OPENAT2
-    return (int)syscall(SYS_openat2, dir, path,
-                        &(struct open_how) { .flags = flags, .resolve = resolve },
-                        sizeof(struct open_how));
-#elif defined(SC_HAVE_O_RESOLVE_BENEATH)
-    return openat(dir, path, flags | (resolve & RESOLVE_BENEATH) ? O_RESOLVE_BENEATH : 0);
+int sc_shim_accept(int sock, struct sockaddr* addr, socklen_t* addr_len, int flags) {
+#ifdef SC_HAVE_ACCEPT4
+    return accept4(sock, addr, addr_len, flags);
 #else
-#error "No openat shim for this platform."
+    int res = accept(sock, addr, addr_len);
+    if (res < 0)
+        return res;
+
+    if (flags & SOCK_NONBLOCK) {
+        int old_flags = fcntl(sock, F_GETFL, 0);
+        A3_UNWRAPSD(old_flags);
+        A3_UNWRAPSD(fcntl(sock, F_SETFL, old_flags | O_NONBLOCK));
+    }
+
+    return res;
 #endif
 }

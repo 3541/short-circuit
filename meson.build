@@ -72,6 +72,7 @@ sc_src = files(
     'src/proto/http/parse.c',
     'src/proto/http/response.c',
     'src/proto/http/request.c',
+    'src/shim/accept.c',
     'src/shim/openat.c',
   ]
 )
@@ -110,6 +111,14 @@ endif
 
 if c.has_header_symbol('fcntl.h', 'O_RESOLVE_BENEATH')
   sc_cflags += '-DSC_HAVE_O_RESOLVE_BENEATH'
+endif
+
+if c.has_header_symbol('sys/socket.h', 'SOCK_NONBLOCK')
+  sc_cflags += '-DSC_HAVE_SOCK_NONBLOCK'
+endif
+
+if c.has_function('accept4')
+  sc_cflags += '-DSC_HAVE_ACCEPT4'
 endif
 
 if get_option('ci')

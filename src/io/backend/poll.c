@@ -17,6 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "shim/accept.h"
 #include "shim/openat.h"
 #include <assert.h>
 #include <errno.h>
@@ -146,9 +147,8 @@ sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen
     assert(addr_len && *addr_len);
 
     while (true) {
-#ifdef __linux__
-        ScFd ret = accept4(sock, client_addr, addr_len, SOCK_NONBLOCK);
-#endif
+        ScFd ret = sc_shim_accept(sock, client_addr, addr_len, SOCK_NONBLOCK);
+
         if (ret >= 0)
             return SC_IO_OK(ScFd, ret);
 

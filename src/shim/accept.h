@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: OPENAT SHIM -- Cross-platform openat wrapper.
+ * SHORT CIRCUIT: ACCEPT SHIM -- Cross-platform accept wrapper.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -13,25 +13,12 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program.
  * If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Ensures SOCK_NONBLOCK functionality.
  */
 
-#include "openat.h"
+#pragma once
 
-#include <fcntl.h>
+#include <sys/socket.h>
 
-#ifdef SC_HAVE_OPENAT2
-#include <sys/syscall.h>
-#include <unistd.h>
-#endif
-
-int sc_shim_openat(int dir, char const* path, uint64_t flags, uint64_t resolve) {
-#ifdef SC_HAVE_OPENAT2
-    return (int)syscall(SYS_openat2, dir, path,
-                        &(struct open_how) { .flags = flags, .resolve = resolve },
-                        sizeof(struct open_how));
-#elif defined(SC_HAVE_O_RESOLVE_BENEATH)
-    return openat(dir, path, flags | (resolve & RESOLVE_BENEATH) ? O_RESOLVE_BENEATH : 0);
-#else
-#error "No openat shim for this platform."
-#endif
-}
+int sc_shim_accept(int sock, struct sockaddr*, socklen_t*, int flags);
