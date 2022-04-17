@@ -10,5 +10,14 @@ pkgs.mkShell {
     pkg-config
     ninja
   ];
-  packages = with pkgs; [ gdb rr clang-tools wrk valgrind inetutils ];
+  packages = with pkgs; [
+    gdb
+    rr
+    clang-tools
+    wrk
+    valgrind
+    inetutils
+    hotspot
+    linuxPackages.perf
+  ];
 }
