@@ -92,6 +92,7 @@ SC_DEFINE_IO_RESULT(bool);
         _unwrap_res.ok;                                                                            \
     })
 
+struct iovec;
 struct stat;
 
 A3_EXPORT A3CString sc_io_error_to_string(ScIoError);

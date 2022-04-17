@@ -129,6 +129,12 @@ if c.has_function('accept4')
   sc_cflags += '-DSC_HAVE_ACCEPT4'
 endif
 
+if c.has_header_symbol('fcntl.h', 'O_PATH')
+  sc_cflags += '-DSC_HAVE_O_PATH'
+elif c.has_header_symbol('fcntl.h', 'O_SEARCH')
+  sc_cflags += '-DSC_HAVE_O_SEARCH'
+endif
+
 if get_option('ci')
   sc_cflags += '-DSC_TEST'
 endif
