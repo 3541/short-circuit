@@ -266,5 +266,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         a3_buf_wrote(buf, maybe_size.ok);
     }
 
+    SC_IO_UNWRAP(sc_io_close(coroutine, file));
+
     sc_http_response_send(resp, SC_HTTP_STATUS_OK);
 }
