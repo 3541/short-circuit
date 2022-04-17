@@ -17,6 +17,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#ifdef __linux__
+#define _GNU_SOURCE // For O_PATH.
+#endif
+
 #include <fcntl.h>
 #include <sys/stat.h>
 
@@ -56,7 +60,7 @@ ScRouter* sc_http_handle_file_serve(A3CString path) {
     assert(path.ptr && *path.ptr);
 
     ScFd dir = -1;
-    A3_UNWRAPS(dir, open(a3_string_cstr(path), O_RDONLY));
+    A3_UNWRAPS(dir, open(a3_string_cstr(path), O_PATH));
 
     struct stat statbuf;
     A3_UNWRAPSD(fstat(dir, &statbuf));

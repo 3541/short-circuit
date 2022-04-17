@@ -187,11 +187,12 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
         &(struct open_how) { .flags = flags | O_NONBLOCK, .resolve = RESOLVE_BENEATH },
         sizeof(struct open_how));
 #else
-    ScFd res = openat(dir, a3_string_cstr(path), (int)flags | O_NONBLOCK);
+    ScFd res = openat(dir, a3_string_cstr(path), (int)flags | O_NONBLOCK | O_NOFOLLOW);
+    // TODO: Validate path is child of dir.
 #endif
 
     if (res < 0) {
-        if (errno == EACCES || errno == ENOENT)
+        if (errno == EACCES || errno == ENOENT || errno == ELOOP)
             return SC_IO_ERR(ScFd, SC_IO_FILE_NOT_FOUND);
 
         A3_ERRNO_F(errno, "open of \"" A3_S_F "\" failed", A3_S_FORMAT(path));
