@@ -19,7 +19,7 @@
 
 #include "shim/accept.h"
 #include "shim/openat.h"
-#include "shim/pwritev.h"
+#include "shim/writev.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -275,7 +275,7 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count
     assert(count <= INT_MAX);
 
     while (true) {
-        ssize_t res = sc_shim_pwritev(fd, iov, (int)count, -1);
+        ssize_t res = sc_shim_writev(fd, iov, (int)count, -1);
 
         if (res >= 0)
             return SC_IO_OK(size_t, (size_t)res);

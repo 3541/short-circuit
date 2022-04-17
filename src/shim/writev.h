@@ -1,5 +1,5 @@
 /*
- * SHORT CIRCUIT: PWRITEV SHIM -- Cross-platform definitions for pwritev.
+ * SHORT CIRCUIT: WRITEV SHIM -- Cross-platform definitions for writev.
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
@@ -13,16 +13,14 @@
  *
  * You should have received a copy of the GNU Affero General Public License along with this program.
  * If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Works around different behavior on non-seekable files.
  */
 
-#include "pwritev.h"
+#pragma once
 
-#include <sys/uio.h>
+#include <sys/types.h>
 
-ssize_t sc_shim_pwritev(int fd, struct iovec const* iov, int count, off_t offset) {
-#ifdef SC_HAVE_PWRITEV2
-    return pwritev2(fd, iov, count, offset, 0);
-#else
-    return pwritev(fd, iov, count, offset < 0 ? 0 : offset);
-#endif
-}
+struct iovec;
+
+ssize_t sc_shim_writev(int fd, struct iovec const*, int count, off_t);
