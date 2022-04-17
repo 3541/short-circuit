@@ -94,3 +94,11 @@
 #ifndef SC_HTTP_REQUEST_CONTENT_MAX_LENGTH
 #define SC_HTTP_REQUEST_CONTENT_MAX_LENGTH 10240
 #endif
+
+#ifndef SC_HTTP_TIME_FORMAT
+#define SC_HTTP_TIME_FORMAT "%a, %d %b %Y %H:%M:%S GMT"
+#endif
+
+#ifndef SC_HTTP_TIME_BUF_SIZE
+#define SC_HTTP_TIME_BUF_SIZE 30
+#endif

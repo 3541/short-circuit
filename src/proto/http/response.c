@@ -76,12 +76,31 @@ void sc_http_response_destroy(ScHttpResponse* resp) {
     sc_http_headers_destroy(&resp->headers);
 }
 
+static bool sc_http_response_header_date_prep(ScHttpResponse* resp) {
+    assert(resp);
+
+    static A3_THREAD_LOCAL uint8_t   DATE_BUF[SC_HTTP_TIME_BUF_SIZE] = { '\0' };
+    static A3_THREAD_LOCAL A3CString DATE                            = A3_CS_NULL;
+    static A3_THREAD_LOCAL time_t    LAST_TIME                       = 0;
+
+    time_t current = time(NULL);
+    if (current - LAST_TIME > 2 || !DATE.ptr) {
+        struct tm tv;
+        A3_UNWRAPN(DATE.len, strftime((char*)DATE_BUF, SC_HTTP_TIME_BUF_SIZE, SC_HTTP_TIME_FORMAT,
+                                      gmtime_r(&current, &tv)));
+        DATE.ptr  = DATE_BUF;
+        LAST_TIME = current;
+    }
+
+    return sc_http_header_set(&resp->headers, A3_CS("Date"), DATE);
+}
+
 static bool sc_http_headers_default_prep(ScHttpResponse* resp) {
     assert(resp);
 
     ScHttpConnection* conn = sc_http_response_connection(resp);
 
-    // TODO: Date header.
+    A3_TRYB(sc_http_response_header_date_prep(resp));
     A3_TRYB(sc_http_header_set(&resp->headers, A3_CS("Connection"),
                                sc_http_connection_keep_alive(conn) ? A3_CS("Keep-Alive")
                                                                    : A3_CS("Close")));
