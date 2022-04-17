@@ -41,7 +41,7 @@
 typedef struct ScEventLoop {
     struct pollfd* poll_fds;
     ScCoroutine**  coroutines;
-    size_t         fd_count;
+    nfds_t         fd_count;
     size_t         fds_active;
 } ScEventLoop;
 

@@ -20,7 +20,7 @@
 #ifdef SC_HAVE_O_PATH
 #define SC_O_PATH O_PATH
 #elif defined(SC_HAVE_O_SEARCH)
-#define SC_O_PATH SC_O_SEARCH
+#define SC_O_PATH O_SEARCH
 #else
 #define SC_O_PATH 0
 #endif
