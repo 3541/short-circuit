@@ -140,6 +140,13 @@ ScEventLoop* sc_io_event_loop_new() {
     return ret;
 }
 
+void sc_io_event_loop_free(ScEventLoop* ev) {
+    assert(ev);
+
+    io_uring_queue_exit(&ev->uring);
+    free(ev);
+}
+
 void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
@@ -163,13 +170,6 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
     }
 
     io_uring_cq_advance(&ev->uring, count);
-}
-
-void sc_io_event_loop_free(ScEventLoop* ev) {
-    assert(ev);
-
-    io_uring_queue_exit(&ev->uring);
-    free(ev);
 }
 
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/

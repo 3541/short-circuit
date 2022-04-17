@@ -19,17 +19,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        backend: [uring]
+        backend: [poll]
         architecture: [amd64, s390x, arm, ppc]
-        exclude:
+        include:
           - os: ubuntu-latest
-            architecture: s390x
-            backend: uring
-          - os: ubuntu-latest
-            architecture: arm
-            backend: uring
-          - os: ubuntu-latest
-            architecture: ppc
+            architecture: amd64
             backend: uring
 
     steps:

@@ -42,5 +42,7 @@ A3_EXPORT ssize_t      sc_co_yield(ScCoroutine*);
 A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
 A3_EXPORT void         sc_co_defer(ScCoroutine*, ScCoDeferredCb, void* data);
 A3_EXPORT ScEventLoop* sc_co_event_loop(ScCoroutine*);
+A3_EXPORT void         sc_co_extra_data_set(ScCoroutine*, size_t);
+A3_EXPORT size_t       sc_co_extra_data_get(ScCoroutine*);
 
 A3_H_END

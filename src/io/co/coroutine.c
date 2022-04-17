@@ -58,6 +58,7 @@ typedef struct ScCoroutine {
     A3SLink   pending;
     ScCoMain* parent;
     ssize_t   value;
+    size_t    extra_data;
 #ifndef NDEBUG
     uint32_t vg_stack_id;
 #endif
@@ -177,9 +178,10 @@ ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
     assert(entry);
 
     A3_UNWRAPNI(ScCoroutine*, ret, calloc(1, sizeof(*ret)));
-    ret->parent = main;
-    ret->value  = 0;
-    ret->done   = false;
+    ret->parent     = main;
+    ret->value      = 0;
+    ret->done       = false;
+    ret->extra_data = 0;
 #ifndef NDEBUG
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
@@ -248,4 +250,16 @@ void sc_co_defer(ScCoroutine* self, ScCoDeferredCb f, void* data) {
 ScEventLoop* sc_co_event_loop(ScCoroutine* co) {
     assert(co);
     return co->parent->ev;
+}
+
+void sc_co_extra_data_set(ScCoroutine* self, size_t data) {
+    assert(self);
+
+    self->extra_data = data;
+}
+
+size_t sc_co_extra_data_get(ScCoroutine* self) {
+    assert(self);
+
+    return self->extra_data;
 }

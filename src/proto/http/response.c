@@ -159,7 +159,7 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
                                     .iov_len  = a3_buf_len(buf) };
 
     if (SC_IO_IS_ERR(sc_io_writev(sc_http_response_coroutine(resp), conn->conn->socket, iov,
-                                  (unsigned)iov_count, 0)))
+                                  (unsigned)iov_count, -1)))
         A3_WARN("Failed to send response: writev error.");
 
     a3_buf_reset(buf);

@@ -1,4 +1,4 @@
 option('profile', type: 'boolean', value: 'false')
 option('trace', type: 'boolean', value: 'false')
-option('io_backend', type: 'combo', choices: ['uring', 'default'])
+option('io_backend', type: 'combo', choices: ['default', 'poll', 'uring'])
 option('ci', type: 'boolean', value: 'false')

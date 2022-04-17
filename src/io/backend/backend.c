@@ -19,6 +19,8 @@
 
 #ifdef SC_IO_BACKEND_URING
 #include "uring.c" // NOLINT(bugprone-suspicious-include)
+#elif defined(SC_IO_BACKEND_POLL)
+#include "poll.c" // NOLINT(bugprone-suspicious-include)
 #else
 #error "No valid IO backend is selected."
 #endif

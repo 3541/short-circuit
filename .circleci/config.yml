@@ -2,6 +2,11 @@ version: 2.1
 
 jobs:
   build-aarch64:
+    parameters:
+      backend:
+        description: "IO backend"
+        default: "uring"
+        type: string
     machine:
       image: ubuntu-2004:202101-01
     resource_class: arm.medium
@@ -19,7 +24,7 @@ jobs:
       - checkout
       - run:
           name: "Configure"
-          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Db_sanitize=address,undefined -Dci=true build"
+          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Dio_backend=<<parameters.backend>> -Db_sanitize=address,undefined -Dci=true build"
       - run:
           name: "Build"
           command: "meson compile -C build"
@@ -31,4 +36,9 @@ jobs:
 workflows:
   build-and-test:
     jobs:
-      - build-aarch64
+      - build-aarch64:
+          name: build-aarch64-uring
+          backend: uring
+      - build-aarch64:
+          name: build-aarch64-poll
+          backend: poll

@@ -82,19 +82,20 @@ if backend == 'default'
   if host_machine.system() == 'linux' and liburing.found()
     backend = 'uring'
   else
-    # TODO: Other backends.
-    error('There is no supported IO backend for platform ' + host_machine.system() + '.')
+    backend = 'poll'
   endif
 endif
 
-if get_option('io_backend') == 'uring' and host_machine.system() == 'linux'
+if backend == 'uring' and host_machine.system() == 'linux'
   if not liburing.found()
     error('liburing is required for the io_uring backend.')
   endif
   sc_cflags += '-DSC_IO_BACKEND_URING'
   sc_deps += liburing
+elif backend == 'poll'
+  sc_cflags += '-DSC_IO_BACKEND_POLL'
 else
-  error('Unsupported IO backend ' + get_option('io_backend') + ' on platform '
+  error('Unsupported IO backend ' + backend + ' on platform '
         + host_machine.system())
 endif
 

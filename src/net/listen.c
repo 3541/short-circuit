@@ -21,6 +21,8 @@
 #include "listen.h"
 
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -60,6 +62,15 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_h
 
     int const enable = 1;
     A3_UNWRAPSD(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
+
+#ifdef SC_IO_BACKEND_POLL
+    int flags = fcntl(sock, F_GETFL, 0);
+    if (flags < 0) {
+        A3_ERRNO(errno, "GETFL");
+        A3_PANIC("GETFL failed");
+    }
+    A3_UNWRAPSD(fcntl(sock, F_SETFL, flags | O_NONBLOCK));
+#endif
 
     struct sockaddr_in6 addr = { .sin6_family = AF_INET6,
                                  .sin6_port   = htons(port),
