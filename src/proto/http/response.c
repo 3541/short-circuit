@@ -222,15 +222,15 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     ScCoroutine*      coroutine = sc_http_response_coroutine(resp);
     A3CString         path      = conn->request.target.path;
 
-    struct statx statbuf;
-    if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf, STATX_TYPE | STATX_SIZE))) {
+    struct stat statbuf;
+    if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
         A3_TRACE_F("Failed to stat file \"" A3_S_F "\".", A3_S_FORMAT(path));
         sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND);
         return;
     }
 
     bool index = false;
-    if (S_ISDIR(statbuf.stx_mode)) {
+    if (S_ISDIR(statbuf.st_mode)) {
         SC_IO_RESULT(ScFd)
         maybe_file = sc_io_open_under(coroutine, file, SC_INDEX_FILENAME, O_RDONLY);
 
@@ -248,7 +248,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         }
         file = maybe_file.ok;
 
-        if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf, STATX_TYPE | STATX_SIZE))) {
+        if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
             A3_WARN("Failed to stat index file.");
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
             sc_connection_close(conn->conn);
@@ -258,7 +258,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         index = true;
     }
 
-    if (!S_ISREG(statbuf.stx_mode)) {
+    if (!S_ISREG(statbuf.st_mode)) {
         A3_TRACE("Requested non-regular file.");
         sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND);
         return;
@@ -272,12 +272,12 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     // TODO: Last-Modified, Etag.
 
     A3Buffer* buf = sc_http_response_send_buf(resp);
-    if (!a3_buf_ensure_cap(buf, statbuf.stx_size))
+    if (!a3_buf_ensure_cap(buf, (size_t)statbuf.st_size))
         A3_PANIC("TODO: Handle files larger than the send buffer.");
 
     if (conn->request.method != SC_HTTP_METHOD_HEAD) {
         SC_IO_RESULT(size_t)
-        maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), statbuf.stx_size, 0);
+        maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), (size_t)statbuf.st_size, 0);
         if (SC_IO_IS_ERR(maybe_size)) {
             A3_WARN_F("Failed to read file \"" A3_S_F "\".", A3_S_FORMAT(path));
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);

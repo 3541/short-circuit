@@ -295,19 +295,19 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count
     }
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct statx* statbuf, unsigned mask) {
+SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf) {
     assert(self);
     assert(file >= 0);
     assert(statbuf);
 
-    if (statx(file, "", AT_EMPTY_PATH, mask, statbuf) < 0) {
+    if (fstat(file, statbuf) < 0) {
         switch (errno) {
         case EACCES:
         case ENOENT:
             return SC_IO_ERR(bool, SC_IO_FILE_NOT_FOUND);
         }
-        A3_ERRNO(errno, "statx");
-        A3_PANIC("statx failed.");
+        A3_ERRNO(errno, "fstat");
+        A3_PANIC("fstat failed.");
     }
 
     return SC_IO_OK(bool, true);

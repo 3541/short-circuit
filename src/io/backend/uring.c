@@ -320,7 +320,7 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct statx* statbuf, unsigned mask) {
+SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf) {
     assert(self);
     assert(file >= 0);
     assert(statbuf);
@@ -328,7 +328,9 @@ SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct statx* statbu
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
 
-    io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH, mask, statbuf);
+    struct statx statxbuf;
+
+    io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH, STATX_TYPE | STATX_SIZE, &statxbuf);
 
     ssize_t res = sc_io_submit(self, sqe);
     if (res < 0) {
@@ -340,6 +342,9 @@ SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct statx* statbu
         A3_ERRNO(-(int)res, "statx");
         A3_PANIC("statx failed.");
     }
+
+    statbuf->st_mode = statxbuf.stx_mode;
+    statbuf->st_size = (off_t)statxbuf.stx_size;
 
     return SC_IO_OK(bool, true);
 }

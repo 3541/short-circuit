@@ -92,7 +92,7 @@ SC_DEFINE_IO_RESULT(bool);
         _unwrap_res.ok;                                                                            \
     })
 
-struct statx;
+struct stat;
 
 A3_EXPORT A3CString sc_io_error_to_string(ScIoError);
 
@@ -110,6 +110,6 @@ A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine*, ScFd sock, A3String dst)
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScCoroutine*, ScFd, A3String dst, size_t count, off_t);
 A3_EXPORT SC_IO_RESULT(size_t)
     sc_io_writev(ScCoroutine*, ScFd, struct iovec const*, unsigned count);
-A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScCoroutine*, ScFd file, struct statx*, unsigned mask);
+A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScCoroutine*, ScFd file, struct stat*);
 
 A3_H_END
