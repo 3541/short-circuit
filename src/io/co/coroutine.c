@@ -105,9 +105,9 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 #endif
 
     self->value = entry(self, data);
-    self->done  = true;
 
     A3_SLL_FOR_EACH(ScCoDeferred, deferred, &self->deferred, list) { deferred->f(deferred->data); }
+    self->done = true;
 }
 
 ScCoroutine* sc_co_new(ScCoCtx* caller, ScEventLoop* ev, ScCoEntry entry, void* data) {
