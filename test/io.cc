@@ -285,7 +285,7 @@ TEST_F(IoTest, read) {
                 return (ssize_t)sc_io_read(
                            self, d->fd,
                            a3_string_new(reinterpret_cast<uint8_t*>(d->buf.data()), d->buf.size()),
-                           d->off)
+                           d->buf.size(), d->off)
                     .ok;
             },
             &data);

@@ -242,16 +242,24 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
     }
 }
 
-SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
+SC_IO_RESULT(size_t)
+sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(self);
     assert(fd >= 0);
     assert(dst.ptr);
 
+    size_t to_read = MIN(count, dst.len);
+    size_t total   = 0;
+
     while (true) {
         ssize_t res = pread(fd, dst.ptr, dst.len, offset);
 
-        if (res >= 0)
-            return SC_IO_OK(size_t, (size_t)res);
+        if (res >= 0) {
+            total += (size_t)res;
+
+            if (total >= to_read)
+                return SC_IO_OK(size_t, (size_t)total);
+        }
 
         switch (errno) {
         case EINTR:
@@ -270,7 +278,7 @@ SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t 
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count, off_t offset) {
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
     assert(self);
     assert(fd >= 0);
     assert(iov);
@@ -278,7 +286,7 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count
     assert(count <= INT_MAX);
 
     while (true) {
-        ssize_t res = pwritev2(fd, iov, (int)count, offset, 0);
+        ssize_t res = pwritev2(fd, iov, (int)count, -1, 0);
 
         if (res >= 0)
             return SC_IO_OK(size_t, (size_t)res);

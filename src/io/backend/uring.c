@@ -278,7 +278,8 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t offset) {
+SC_IO_RESULT(size_t)
+sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(self);
     assert(fd >= 0);
     assert(dst.ptr);
@@ -287,8 +288,10 @@ SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t 
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
+    size_t to_read = MIN(count, dst.len);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-    io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)dst.len, (uint64_t)offset);
+    io_uring_prep_read(sqe, fd, dst.ptr, (unsigned int)to_read, (uint64_t)offset);
 #else
     struct iovec vec[] = { { .iov_base = dst.ptr, .iov_len = dst.len } };
     io_uring_prep_readv(sqe, fd, vec, 1, (uint64_t)offset);
@@ -300,7 +303,7 @@ SC_IO_RESULT(size_t) sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, off_t 
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count, off_t offset) {
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
     assert(self);
     assert(fd >= 0);
     assert(iov);
@@ -309,7 +312,7 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count
     struct io_uring_sqe* sqe = sc_io_sqe_get(self);
     A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
-    io_uring_prep_writev(sqe, fd, iov, count, (uint64_t)offset);
+    io_uring_prep_writev(sqe, fd, iov, count, 0);
 
     ssize_t res = -1;
     A3_UNWRAPS(res, sc_io_submit(self, sqe));

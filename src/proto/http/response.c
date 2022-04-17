@@ -159,7 +159,7 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
                                     .iov_len  = a3_buf_len(buf) };
 
     if (SC_IO_IS_ERR(sc_io_writev(sc_http_response_coroutine(resp), conn->conn->socket, iov,
-                                  (unsigned)iov_count, -1)))
+                                  (unsigned)iov_count)))
         A3_WARN("Failed to send response: writev error.");
 
     a3_buf_reset(buf);
@@ -277,7 +277,8 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         A3_PANIC("TODO: Handle files larger than the send buffer.");
 
     if (conn->request.method != SC_HTTP_METHOD_HEAD) {
-        SC_IO_RESULT(size_t) maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), 0);
+        SC_IO_RESULT(size_t)
+        maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), statbuf.stx_size, 0);
         if (SC_IO_IS_ERR(maybe_size)) {
             A3_WARN_F("Failed to read file \"" A3_S_F "\".", A3_S_FORMAT(path));
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
