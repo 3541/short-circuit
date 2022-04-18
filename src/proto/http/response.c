@@ -270,7 +270,14 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     else
         resp->content_type = sc_mime_from_path(path);
 
-    // TODO: Last-Modified, Etag.
+    // TODO: Last-Modified.
+    if (!sc_http_header_set_fmt(&resp->headers, A3_CS("Etag"), "\"%lluX%lX%lX\"", statbuf.st_ino,
+                                statbuf.st_mtim.tv_sec, statbuf.st_size)) {
+        A3_WARN("Failed to write Etag.");
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
+        sc_connection_close(conn->conn);
+        return;
+    }
 
     A3Buffer* buf = sc_http_response_send_buf(resp);
     if (!a3_buf_ensure_cap(buf, (size_t)statbuf.st_size))

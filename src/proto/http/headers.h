@@ -36,6 +36,7 @@ void sc_http_headers_destroy(ScHttpHeaders*);
 
 bool     sc_http_header_add(ScHttpHeaders*, A3CString name, A3CString value);
 bool     sc_http_header_set(ScHttpHeaders*, A3CString name, A3CString value);
+bool     sc_http_header_set_fmt(ScHttpHeaders*, A3CString name, char const* fmt, ...);
 bool     sc_http_header_set_num(ScHttpHeaders*, A3CString name, uint64_t);
 A3String sc_http_header_get(ScHttpHeaders*, A3CString name);
 

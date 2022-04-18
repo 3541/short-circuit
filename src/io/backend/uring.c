@@ -330,7 +330,8 @@ SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf
 
     struct statx statxbuf;
 
-    io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH, STATX_TYPE | STATX_SIZE, &statxbuf);
+    io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH,
+                        STATX_TYPE | STATX_SIZE | STATX_MTIME | STATX_INO, &statxbuf);
 
     ssize_t res = sc_io_submit(self, sqe);
     if (res < 0) {
@@ -343,8 +344,11 @@ SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf
         A3_PANIC("statx failed.");
     }
 
-    statbuf->st_mode = statxbuf.stx_mode;
-    statbuf->st_size = (off_t)statxbuf.stx_size;
+    statbuf->st_mode         = statxbuf.stx_mode;
+    statbuf->st_size         = (off_t)statxbuf.stx_size;
+    statbuf->st_mtim.tv_sec  = statxbuf.stx_mtime.tv_sec;
+    statbuf->st_mtim.tv_nsec = statxbuf.stx_mtime.tv_nsec;
+    statbuf->st_ino          = statxbuf.stx_ino;
 
     return SC_IO_OK(bool, true);
 }

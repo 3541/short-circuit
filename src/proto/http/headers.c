@@ -84,6 +84,32 @@ bool sc_http_header_set(ScHttpHeaders* headers, A3CString name, A3CString value)
     return A3_HT_INSERT(A3CString, A3String)(headers, A3_S_CONST(key), a3_string_clone(value));
 }
 
+A3_FORMAT_FN(3, 4)
+bool sc_http_header_set_fmt(ScHttpHeaders* headers, A3CString name, char const* fmt, ...) {
+    assert(headers);
+    assert(name.ptr);
+    assert(fmt);
+
+    A3Buffer buf = { 0 };
+    a3_buf_init(&buf, 32, 128);
+
+    va_list args;
+    va_start(args, fmt);
+
+    bool ret = false;
+    if (!a3_buf_write_vfmt(&buf, fmt, args))
+        goto out;
+    if (!sc_http_header_set(headers, name, a3_buf_read_ptr(&buf)))
+        goto out;
+
+    ret = true;
+
+out:
+    a3_buf_destroy(&buf);
+    va_end(args);
+    return ret;
+}
+
 bool sc_http_header_set_num(ScHttpHeaders* headers, A3CString name, uint64_t n) {
     assert(headers);
     assert(name.ptr);
