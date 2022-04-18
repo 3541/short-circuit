@@ -16,6 +16,9 @@
  *
  * This wrapper exists mostly to unify platform-dependent mechanisms by which to ensure that a path
  * does not escape a given directory, like RESOLVE_BENEATH on Linux.
+ *
+ * In the absence of a platform-provided mechanism for doing so, a slow fallback based on
+ * /proc/self/fd is used.
  */
 
 #pragma once
@@ -30,8 +33,10 @@
 #include <unistd.h>
 #else
 #define RESOLVE_BENEATH 0x08
+#include <fcntl.h>
 #endif
 
+#if defined(SC_HAVE_OPENAT2) || defined(SC_HAVE_O_RESOLVE_BENEATH)
 A3_ALWAYS_INLINE int sc_shim_openat(int dir, char const* path, uint64_t flags, uint64_t resolve) {
 #ifdef SC_HAVE_OPENAT2
     return (int)syscall(SYS_openat2, dir, path,
@@ -39,7 +44,8 @@ A3_ALWAYS_INLINE int sc_shim_openat(int dir, char const* path, uint64_t flags, u
                         sizeof(struct open_how));
 #elif defined(SC_HAVE_O_RESOLVE_BENEATH)
     return openat(dir, path, flags | (resolve & RESOLVE_BENEATH) ? O_RESOLVE_BENEATH : 0);
-#else
-#error "No openat shim for this platform."
 #endif
 }
+#else
+int sc_shim_openat(int dir, char const* path, uint64_t flags, uint64_t resolve);
+#endif

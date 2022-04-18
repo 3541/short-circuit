@@ -72,6 +72,7 @@ sc_src = files(
     'src/proto/http/parse.c',
     'src/proto/http/response.c',
     'src/proto/http/request.c',
+    'src/shim/openat.c',
   ]
 )
 sc_deps = [a3, a3_hash]
