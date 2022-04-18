@@ -148,7 +148,7 @@ sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen
     assert(addr_len && *addr_len);
 
     while (true) {
-        ScFd ret = sc_shim_accept(sock, client_addr, addr_len, SOCK_NONBLOCK);
+        ScFd ret = sc_shim_accept(sock, client_addr, addr_len, SC_SOCK_NONBLOCK);
 
         if (ret >= 0)
             return SC_IO_OK(ScFd, ret);

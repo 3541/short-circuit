@@ -24,6 +24,12 @@
 
 #include <a3/types.h>
 
+#ifdef SC_HAVE_SOCK_NONBLOCK
+#define SC_SOCK_NONBLOCK SOCK_NONBLOCK
+#else
+#define SC_SOCK_NONBLOCK 00004000
+#endif
+
 A3_ALWAYS_INLINE int sc_shim_accept(int sock, struct sockaddr* addr, socklen_t* addr_len,
                                     int flags) {
 #ifdef SC_HAVE_ACCEPT4
@@ -33,7 +39,7 @@ A3_ALWAYS_INLINE int sc_shim_accept(int sock, struct sockaddr* addr, socklen_t* 
     if (res < 0)
         return res;
 
-    if (flags & SOCK_NONBLOCK) {
+    if (flags & SC_SOCK_NONBLOCK) {
         int old_flags = fcntl(sock, F_GETFL, 0);
         A3_UNWRAPSD(old_flags);
         A3_UNWRAPSD(fcntl(sock, F_SETFL, old_flags | O_NONBLOCK));
