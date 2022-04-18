@@ -19,6 +19,26 @@
 
 #pragma once
 
+#include <fcntl.h>
 #include <sys/socket.h>
 
-int sc_shim_accept(int sock, struct sockaddr*, socklen_t*, int flags);
+#include <a3/types.h>
+
+A3_ALWAYS_INLINE int sc_shim_accept(int sock, struct sockaddr* addr, socklen_t* addr_len,
+                                    int flags) {
+#ifdef SC_HAVE_ACCEPT4
+    return accept4(sock, addr, addr_len, flags);
+#else
+    int res = accept(sock, addr, addr_len);
+    if (res < 0)
+        return res;
+
+    if (flags & SOCK_NONBLOCK) {
+        int old_flags = fcntl(sock, F_GETFL, 0);
+        A3_UNWRAPSD(old_flags);
+        A3_UNWRAPSD(fcntl(sock, F_SETFL, old_flags | O_NONBLOCK));
+    }
+
+    return res;
+#endif
+}

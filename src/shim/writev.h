@@ -20,7 +20,12 @@
 #pragma once
 
 #include <sys/types.h>
+#include <sys/uio.h>
 
-struct iovec;
+#include <a3/types.h>
 
-ssize_t sc_shim_writev(int fd, struct iovec const*, int count, off_t);
+A3_ALWAYS_INLINE ssize_t sc_shim_writev(int fd, struct iovec const* iov, int count, off_t offset) {
+    if (offset < 0)
+        return writev(fd, iov, count);
+    return pwritev(fd, iov, count, offset);
+}
