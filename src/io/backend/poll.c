@@ -174,7 +174,7 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
     assert(dir >= 0 || dir == AT_FDCWD);
     assert(path.ptr);
 
-    ScFd res = sc_shim_openat(dir, a3_string_cstr(path), flags | O_NONBLOCK, RESOLVE_BENEATH);
+    ScFd res = sc_shim_openat(dir, a3_string_cstr(path), flags | O_NONBLOCK, SC_RESOLVE_BENEATH);
 
     if (res < 0) {
         if (errno == EACCES || errno == ENOENT || errno == ELOOP)

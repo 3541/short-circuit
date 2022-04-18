@@ -76,7 +76,7 @@ int sc_shim_openat(int dir, char const* path, uint64_t flags, uint64_t resolve) 
     if (res < 0)
         return res;
 
-    if ((resolve & RESOLVE_BENEATH) && !sc_file_is_under(dir, res)) {
+    if ((resolve & SC_RESOLVE_BENEATH) && !sc_file_is_under(dir, res)) {
         A3_UNWRAPSD(close(res));
         errno = EXDEV;
         return -1;

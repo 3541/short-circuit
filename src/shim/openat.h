@@ -31,9 +31,12 @@
 #include <linux/openat2.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#define SC_RESOLVE_BENEATH RESOLVE_BENEATH
 #else
-#define RESOLVE_BENEATH 0x08
 #include <fcntl.h>
+
+#define SC_RESOLVE_BENEATH 0x08
 #endif
 
 #if defined(SC_HAVE_OPENAT2) || defined(SC_HAVE_O_RESOLVE_BENEATH)
@@ -43,7 +46,7 @@ A3_ALWAYS_INLINE int sc_shim_openat(int dir, char const* path, uint64_t flags, u
                         &(struct open_how) { .flags = flags, .resolve = resolve },
                         sizeof(struct open_how));
 #elif defined(SC_HAVE_O_RESOLVE_BENEATH)
-    return openat(dir, path, flags | (resolve & RESOLVE_BENEATH) ? O_RESOLVE_BENEATH : 0);
+    return openat(dir, path, flags | (resolve & SC_RESOLVE_BENEATH) ? O_RESOLVE_BENEATH : 0);
 #endif
 }
 #else
