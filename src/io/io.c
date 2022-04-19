@@ -19,10 +19,12 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 
 #include <a3/log.h>
+#include <a3/util.h>
 
 #include <sc/coroutine.h>
 #include <sc/io.h>
@@ -59,4 +61,69 @@ void sc_io_event_loop_run(ScCoMain* co) {
         sc_co_main_pending_resume(co);
         sc_io_event_loop_pump(ev);
     }
+}
+
+SC_IO_RESULT(size_t)
+sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
+    assert(self);
+    assert(fd >= 0);
+    assert(dst.ptr);
+    assert(count);
+
+    size_t to_read = MIN(count, dst.len);
+    size_t left    = to_read;
+
+    while (left) {
+        SC_IO_RESULT(size_t) res = sc_io_read_raw(self, fd, dst, count, offset);
+        if (SC_IO_IS_ERR(res)) {
+            if (res.err == SC_IO_EOF)
+                break;
+            return res;
+        }
+
+        left -= res.ok;
+        if (offset >= 0)
+            offset += (off_t)res.ok;
+        dst = a3_string_offset(dst, res.ok);
+    }
+
+    return SC_IO_OK(size_t, to_read - left);
+}
+
+SC_IO_RESULT(size_t)
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
+    assert(self);
+    assert(fd >= 0);
+    assert(iov);
+    assert(count);
+    assert(count <= INT_MAX);
+
+    size_t to_write = 0;
+    for (size_t i = 0; i < count; i++)
+        to_write += iov[i].iov_len;
+    size_t left = to_write;
+
+    while (left) {
+        size_t res = SC_IO_TRY(size_t, sc_io_writev_raw(self, fd, iov, count));
+        left -= res;
+
+        if (!left || !res)
+            break;
+
+        size_t iovecs_done = 0;
+        for (; res && iovecs_done < count; iovecs_done++) {
+            if (res < iov[iovecs_done].iov_len) {
+                iov[iovecs_done].iov_base += res;
+                iov[iovecs_done].iov_len -= res;
+                break;
+            }
+
+            res -= iov[iovecs_done].iov_len;
+        }
+
+        iov += iovecs_done;
+        count -= (unsigned)iovecs_done;
+    }
+
+    return SC_IO_OK(size_t, to_write);
 }

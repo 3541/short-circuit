@@ -36,7 +36,7 @@ A3_H_BEGIN
 #define SC_IO_ERROR_ENUM                                                                           \
     ERR(SC_IO_SUBMIT_FAILED, (-1), "IO event submission failed.")                                  \
     ERR(SC_IO_FILE_NOT_FOUND, (-2), "Target file not found.")                                      \
-    ERR(SC_IO_SOCKET_CLOSED, (-3), "Connection closed by peer.")
+    ERR(SC_IO_EOF, (-3), "Connection closed by peer or end of file reached.")
 
 typedef enum ScIoError {
 #define ERR(N, V, S) N = (V),
@@ -109,7 +109,11 @@ A3_EXPORT SC_IO_RESULT(ScFd)
 A3_EXPORT SC_IO_RESULT(bool) sc_io_close(ScCoroutine*, ScFd);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine*, ScFd sock, A3String dst);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScCoroutine*, ScFd, A3String dst, size_t count, off_t);
+A3_EXPORT SC_IO_RESULT(size_t)
+    sc_io_read_raw(ScCoroutine*, ScFd, A3String dst, size_t count, off_t);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev(ScCoroutine*, ScFd, struct iovec*, unsigned count);
+A3_EXPORT SC_IO_RESULT(size_t)
+    sc_io_writev_raw(ScCoroutine*, ScFd, struct iovec const*, unsigned count);
 A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScCoroutine*, ScFd file, struct stat*);
 
 A3_H_END

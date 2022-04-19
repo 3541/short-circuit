@@ -135,7 +135,7 @@ static SC_IO_RESULT(bool) sc_io_wait(ScCoroutine* self, ScFd fd, short events) {
 
     short revents = ev->poll_fds[i].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
-        return SC_IO_ERR(bool, SC_IO_SOCKET_CLOSED);
+        return SC_IO_ERR(bool, SC_IO_EOF);
 
     return SC_IO_OK(bool, true);
 }
@@ -207,13 +207,13 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
         if (res > 0)
             return SC_IO_OK(size_t, (size_t)res);
         if (!res)
-            return SC_IO_ERR(size_t, SC_IO_SOCKET_CLOSED);
+            return SC_IO_ERR(size_t, SC_IO_EOF);
 
         switch (errno) {
         case EINTR:
             continue;
         case ECONNRESET:
-            return SC_IO_ERR(size_t, SC_IO_SOCKET_CLOSED);
+            return SC_IO_ERR(size_t, SC_IO_EOF);
         case EAGAIN:
 #if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK:
@@ -228,31 +228,23 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
 }
 
 SC_IO_RESULT(size_t)
-sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
+sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(self);
     assert(fd >= 0);
     assert(dst.ptr);
 
     size_t to_read = MIN(count, dst.len);
-    size_t left    = to_read;
 
     while (true) {
-        ssize_t res = pread(fd, dst.ptr, left, offset);
-
-        if (res >= 0) {
-            left -= (size_t)res;
-            dst = a3_string_offset(dst, (size_t)res);
-            offset += res;
-
-            if (!left || !res)
-                return SC_IO_OK(size_t, to_read - left);
-
-            continue;
-        }
+        ssize_t res = pread(fd, dst.ptr, to_read, offset);
+        if (res > 0)
+            return SC_IO_OK(size_t, (size_t)res);
+        if (!res)
+            return SC_IO_ERR(size_t, SC_IO_EOF);
 
         switch (errno) {
         case EINTR:
-            continue;
+            break;
         case EAGAIN:
 #if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK:
@@ -267,24 +259,24 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
+sc_io_writev_raw(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
     assert(self);
     assert(fd >= 0);
     assert(iov);
-    assert(count > 0);
+    assert(count);
     assert(count <= INT_MAX);
-
-    size_t to_write = 0;
-    for (size_t i = 0; i < count; i++)
-        to_write += iov[i].iov_len;
 
     while (true) {
         ssize_t res = sc_shim_writev(fd, iov, (int)count, -1);
+        if (res > 0)
+            return SC_IO_OK(size_t, (size_t)res);
+        if (!res)
+            return SC_IO_ERR(size_t, SC_IO_EOF);
 
         if (res < 0) {
             switch (errno) {
             case EINTR:
-                continue;
+                break;
             case EAGAIN:
 #if EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
@@ -295,24 +287,6 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
                 A3_ERRNO(errno, "writev");
                 A3_PANIC("writev failed");
             }
-        }
-
-        to_write -= (size_t)res;
-        if (!to_write)
-            return SC_IO_OK(size_t, (size_t)res);
-
-        size_t i = 0;
-        for (; i < count && res > 0; i++)
-            res -= (ssize_t)iov[i].iov_len;
-
-        iov += i;
-        count -= i;
-        // Split iovec.
-        if (res < 0) {
-            iov--;
-            count++;
-            iov->iov_base += -res;
-            iov->iov_len -= (size_t)-res;
         }
     }
 }

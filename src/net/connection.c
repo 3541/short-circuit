@@ -40,7 +40,7 @@ ssize_t sc_connection_handle(ScCoroutine* self, void* data) {
 
     SC_IO_RESULT(size_t) res = sc_connection_recv(conn);
     if (SC_IO_IS_ERR(res)) {
-        if (res.err != SC_IO_SOCKET_CLOSED)
+        if (res.err != SC_IO_EOF)
             SC_IO_UNWRAP(res);
         return 0;
     }
