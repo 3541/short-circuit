@@ -84,9 +84,6 @@ void sc_http_connection_handle(ScConnection* conn) {
 
     if (SC_IO_IS_ERR(rc) && rc.err != SC_IO_EOF)
         SC_IO_UNWRAP(rc);
-
-    sc_http_request_destroy(&http.request);
-    sc_http_response_destroy(&http.response);
 }
 
 bool sc_http_connection_keep_alive(ScHttpConnection* conn) {

@@ -36,7 +36,7 @@ typedef struct ScHttpRequest {
 
 void sc_http_request_init(ScHttpRequest*);
 void sc_http_request_reset(ScHttpRequest*);
-void sc_http_request_destroy(ScHttpRequest*);
+void sc_http_request_destroy(void*);
 void sc_http_request_handle(ScHttpRequest*);
 
 ScHttpConnection* sc_http_request_connection(ScHttpRequest*);

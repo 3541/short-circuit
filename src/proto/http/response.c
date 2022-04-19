@@ -29,6 +29,7 @@
 #include <a3/str.h>
 #include <a3/util.h>
 
+#include <sc/coroutine.h>
 #include <sc/http.h>
 #include <sc/mime.h>
 
@@ -58,6 +59,7 @@ void sc_http_response_init(ScHttpResponse* resp) {
     assert(resp);
 
     sc_http_response_reset(resp);
+    sc_co_defer(sc_http_response_coroutine(resp), sc_http_response_destroy, resp);
 }
 
 void sc_http_response_reset(ScHttpResponse* resp) {
@@ -70,8 +72,10 @@ void sc_http_response_reset(ScHttpResponse* resp) {
     sc_http_headers_init(&resp->headers);
 }
 
-void sc_http_response_destroy(ScHttpResponse* resp) {
-    assert(resp);
+void sc_http_response_destroy(void* data) {
+    assert(data);
+
+    ScHttpResponse* resp = data;
 
     sc_http_headers_destroy(&resp->headers);
 }

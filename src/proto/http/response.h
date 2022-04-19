@@ -31,7 +31,7 @@ typedef struct ScHttpResponse {
 
 void sc_http_response_init(ScHttpResponse*);
 void sc_http_response_reset(ScHttpResponse*);
-void sc_http_response_destroy(ScHttpResponse*);
+void sc_http_response_destroy(void*);
 
 void sc_http_response_send(ScHttpResponse*, ScHttpStatus);
 void sc_http_response_file_send(ScHttpResponse*, ScFd file);
