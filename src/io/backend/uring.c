@@ -17,6 +17,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "uring.h"
+
 #include <assert.h>
 #include <fcntl.h>
 #include <liburing.h>
@@ -32,15 +34,13 @@
 #include <sc/forward.h>
 #include <sc/io.h>
 
+#include "../io.h"
+#include "backend.h"
 #include "config.h"
 
 // Defined here because including openat2.h duplicates struct open_how, which is also defined by
 // liburing.
 #define RESOLVE_BENEATH 0x08
-
-typedef struct ScEventLoop {
-    struct io_uring uring;
-} ScEventLoop;
 
 #ifndef SC_TEST
 // Check that the kernel is sufficiently recent to support io_uring and io_uring_probe, which will
@@ -117,47 +117,44 @@ static void sc_io_ops_check(void) {
 }
 #endif
 
-ScEventLoop* sc_io_event_loop_new() {
-    A3_TRACE("Creating event loop.");
+void sc_io_backend_init(ScIoBackend* backend) {
+    assert(backend);
 
 #ifndef SC_TEST
     sc_io_ops_check();
     sc_io_limits_init();
 #endif
 
-    A3_UNWRAPNI(ScEventLoop*, ret, calloc(1, sizeof(*ret)));
-
     // Try to open the queue, with gradually decreasing queue sizes.
     bool opened = false;
     for (unsigned queue_size = SC_URING_ENTRIES; queue_size >= 512; queue_size /= 2) {
-        if (!io_uring_queue_init(queue_size, &ret->uring, 0)) {
+        if (!io_uring_queue_init(queue_size, &backend->uring, 0)) {
             opened = true;
             break;
         }
     }
     if (!opened)
         A3_PANIC("Unable to open queue. The memlock limit is probably too low.");
-
-    return ret;
 }
 
-void sc_io_event_loop_free(ScEventLoop* ev) {
-    assert(ev);
+void sc_io_backend_destroy(ScIoBackend* backend) {
+    assert(backend);
 
-    io_uring_queue_exit(&ev->uring);
-    free(ev);
+    io_uring_queue_exit(&backend->uring);
 }
 
-void sc_io_event_loop_pump(ScEventLoop* ev) {
-    assert(ev);
+void sc_io_backend_pump(ScIoBackend* backend) {
+    assert(backend);
+
+    struct io_uring* uring = &backend->uring;
 
     A3_TRACE("Waiting for events.");
-    io_uring_submit_and_wait(&ev->uring, 1);
+    io_uring_submit_and_wait(uring, 1);
 
     struct io_uring_cqe* cqe;
     size_t               head;
     unsigned             count = 0;
-    io_uring_for_each_cqe(&ev->uring, head, cqe) {
+    io_uring_for_each_cqe(uring, head, cqe) {
         count++;
 
         A3_TRACE("Handling event.");
@@ -170,7 +167,7 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
         sc_co_resume(co, cqe->res);
     }
 
-    io_uring_cq_advance(&ev->uring, count);
+    io_uring_cq_advance(uring, count);
 }
 
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
@@ -178,7 +175,7 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
 static struct io_uring_sqe* sc_io_sqe_get(ScCoroutine* co) {
     assert(co);
 
-    struct io_uring* uring = &sc_co_event_loop(co)->uring;
+    struct io_uring* uring = &sc_co_event_loop(co)->backend.uring;
 
     struct io_uring_sqe* ret = io_uring_get_sqe(uring);
     // Try to submit events until an SQE is available or too many retries have elapsed.

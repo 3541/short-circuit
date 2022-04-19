@@ -39,42 +39,34 @@
 #include <sc/forward.h>
 #include <sc/io.h>
 
-typedef struct ScEventLoop {
-    struct pollfd* poll_fds;
-    ScCoroutine**  coroutines;
-    nfds_t         fd_count;
-    size_t         fds_active;
-} ScEventLoop;
+#include "../io.h"
+#include "backend.h"
+#include "poll_.h"
 
-ScEventLoop* sc_io_event_loop_new() {
-    A3_TRACE("Creating event loop.");
+void sc_io_backend_init(ScIoBackend* backend) {
+    assert(backend);
 
-    A3_UNWRAPNI(ScEventLoop*, ret, calloc(1, sizeof(*ret)));
+    backend->fd_count   = 512;
+    backend->fds_active = 0;
+    A3_UNWRAPN(backend->poll_fds, calloc(backend->fd_count, sizeof(*backend->poll_fds)));
+    A3_UNWRAPN(backend->coroutines, calloc(backend->fd_count, sizeof(*backend->coroutines)));
 
-    ret->fd_count   = 512;
-    ret->fds_active = 0;
-    A3_UNWRAPN(ret->poll_fds, calloc(ret->fd_count, sizeof(*ret->poll_fds)));
-    A3_UNWRAPN(ret->coroutines, calloc(ret->fd_count, sizeof(*ret->coroutines)));
-
-    for (size_t i = 0; i < ret->fd_count; i++)
-        ret->poll_fds[i].fd = -1;
-
-    return ret;
+    for (size_t i = 0; i < backend->fd_count; i++)
+        backend->poll_fds[i].fd = -1;
 }
 
-void sc_io_event_loop_free(ScEventLoop* ev) {
-    assert(ev);
+void sc_io_backend_destroy(ScIoBackend* backend) {
+    assert(backend);
 
-    free(ev->poll_fds);
-    free(ev->coroutines);
-    free(ev);
+    free(backend->poll_fds);
+    free(backend->coroutines);
 }
 
-void sc_io_event_loop_pump(ScEventLoop* ev) {
-    assert(ev);
+void sc_io_backend_pump(ScIoBackend* backend) {
+    assert(backend);
 
     A3_TRACE("Waiting for events.");
-    int rc = poll(ev->poll_fds, ev->fd_count, -1);
+    int rc = poll(backend->poll_fds, backend->fd_count, -1);
     if ((rc < 0 && errno == EINTR) || !rc)
         return;
     if (rc < 0) {
@@ -82,14 +74,14 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
         A3_PANIC("poll");
     }
 
-    for (size_t count = 0, i = 0; count < (size_t)rc && i < ev->fd_count; i++) {
-        short revents = ev->poll_fds[i].revents;
+    for (size_t count = 0, i = 0; count < (size_t)rc && i < backend->fd_count; i++) {
+        short revents = backend->poll_fds[i].revents;
         if (!revents)
             continue;
 
         A3_TRACE("Handling event.");
-        assert(ev->coroutines[i]);
-        sc_co_resume(ev->coroutines[i], revents);
+        assert(backend->coroutines[i]);
+        sc_co_resume(backend->coroutines[i], revents);
         count++;
     }
 }
@@ -97,18 +89,20 @@ void sc_io_event_loop_pump(ScEventLoop* ev) {
 static size_t sc_io_poll_slot(ScCoroutine* self) {
     assert(self);
 
-    ScEventLoop* ev = sc_co_event_loop(self);
+    ScIoBackend* backend = &sc_co_event_loop(self)->backend;
 
     size_t ret = 0;
-    if (ev->fds_active >= ev->fd_count) {
-        ret = ev->fd_count;
-        ev->fd_count *= 2;
-        A3_UNWRAPN(ev->poll_fds, realloc(ev->poll_fds, ev->fd_count * sizeof(*ev->poll_fds)));
-        A3_UNWRAPN(ev->coroutines, realloc(ev->coroutines, ev->fd_count * sizeof(*ev->coroutines)));
+    if (backend->fds_active >= backend->fd_count) {
+        ret = backend->fd_count;
+        backend->fd_count *= 2;
+        A3_UNWRAPN(backend->poll_fds,
+                   realloc(backend->poll_fds, backend->fd_count * sizeof(*backend->poll_fds)));
+        A3_UNWRAPN(backend->coroutines,
+                   realloc(backend->coroutines, backend->fd_count * sizeof(*backend->coroutines)));
     }
 
-    for (; ret < ev->fd_count; ret++) {
-        if (!ev->coroutines[ret])
+    for (; ret < backend->fd_count; ret++) {
+        if (!backend->coroutines[ret])
             return ret;
     }
 
@@ -119,21 +113,21 @@ static SC_IO_RESULT(bool) sc_io_wait(ScCoroutine* self, ScFd fd, short events) {
     assert(self);
     assert(events);
 
-    ScEventLoop* ev = sc_co_event_loop(self);
+    ScIoBackend* backend = &sc_co_event_loop(self)->backend;
 
-    size_t i               = sc_io_poll_slot(self);
-    ev->poll_fds[i].fd     = fd;
-    ev->poll_fds[i].events = events;
-    ev->coroutines[i]      = self;
+    size_t i                    = sc_io_poll_slot(self);
+    backend->poll_fds[i].fd     = fd;
+    backend->poll_fds[i].events = events;
+    backend->coroutines[i]      = self;
 
     while (!(sc_co_yield(self) & (events | POLLHUP | POLLERR | POLLNVAL)))
         ;
 
-    ev->poll_fds[i].events = 0;
-    ev->poll_fds[i].fd     = -1;
-    ev->coroutines[i]      = NULL;
+    backend->poll_fds[i].events = 0;
+    backend->poll_fds[i].fd     = -1;
+    backend->coroutines[i]      = NULL;
 
-    short revents = ev->poll_fds[i].revents;
+    short revents = backend->poll_fds[i].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
         return SC_IO_ERR(bool, SC_IO_EOF);
 

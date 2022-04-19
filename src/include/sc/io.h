@@ -99,7 +99,6 @@ A3_EXPORT A3CString sc_io_error_to_string(ScIoError);
 
 A3_EXPORT ScEventLoop* sc_io_event_loop_new(void);
 A3_EXPORT void         sc_io_event_loop_run(ScCoMain*);
-A3_EXPORT void         sc_io_event_loop_pump(ScEventLoop*);
 A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 
 A3_EXPORT SC_IO_RESULT(ScFd)

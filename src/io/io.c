@@ -17,6 +17,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "io.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -28,6 +30,8 @@
 
 #include <sc/coroutine.h>
 #include <sc/io.h>
+
+#include "backend/backend.h"
 
 static volatile sig_atomic_t SC_TERMINATE = false;
 
@@ -46,12 +50,32 @@ A3CString sc_io_error_to_string(ScIoError error) {
     return ERRORS[-error];
 }
 
+static void sc_io_event_loop_pump(ScEventLoop* ev) {
+    assert(ev);
+
+    sc_io_backend_pump(&ev->backend);
+}
+
+ScEventLoop* sc_io_event_loop_new() {
+    A3_UNWRAPNI(ScEventLoop*, ret, calloc(1, sizeof(*ret)));
+
+    sc_io_backend_init(&ret->backend);
+    return ret;
+}
+
+void sc_io_event_loop_free(ScEventLoop* ev) {
+    assert(ev);
+
+    sc_io_backend_destroy(&ev->backend);
+    free(ev);
+}
+
 void sc_io_event_loop_run(ScCoMain* co) {
     assert(co);
 
     if (signal(SIGINT, sc_signal_handler) == SIG_ERR) {
-        A3_ERRNO(errno, "failed to register signal handler");
-        abort();
+        A3_ERRNO(errno, "signal");
+        A3_PANIC("Failed to register a signal handler.");
     }
 
     ScEventLoop* ev = sc_co_main_event_loop(co);
