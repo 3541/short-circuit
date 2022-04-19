@@ -304,7 +304,7 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
     assert(self);
     assert(fd >= 0);
     assert(iov);

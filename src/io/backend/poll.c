@@ -267,31 +267,52 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
+sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
     assert(self);
     assert(fd >= 0);
     assert(iov);
     assert(count > 0);
     assert(count <= INT_MAX);
 
+    size_t to_write = 0;
+    for (size_t i = 0; i < count; i++)
+        to_write += iov[i].iov_len;
+
     while (true) {
         ssize_t res = sc_shim_writev(fd, iov, (int)count, -1);
 
-        if (res >= 0)
+        if (res < 0) {
+            switch (errno) {
+            case EINTR:
+                continue;
+            case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+                SC_IO_TRY(size_t, sc_io_wait(self, fd, POLLOUT));
+                break;
+            default:
+                A3_ERRNO(errno, "writev");
+                A3_PANIC("writev failed");
+            }
+        }
+
+        to_write -= (size_t)res;
+        if (!to_write)
             return SC_IO_OK(size_t, (size_t)res);
 
-        switch (errno) {
-        case EINTR:
-            continue;
-        case EAGAIN:
-#if EWOULDBLOCK != EAGAIN
-        case EWOULDBLOCK:
-#endif
-            SC_IO_TRY(size_t, sc_io_wait(self, fd, POLLOUT));
-            break;
-        default:
-            A3_ERRNO(errno, "writev");
-            A3_PANIC("writev failed");
+        size_t i = 0;
+        for (; i < count && res > 0; i++)
+            res -= (ssize_t)iov[i].iov_len;
+
+        iov += i;
+        count -= i;
+        // Split iovec.
+        if (res < 0) {
+            iov--;
+            count++;
+            iov->iov_base += -res;
+            iov->iov_len -= (size_t)-res;
         }
     }
 }
