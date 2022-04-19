@@ -77,8 +77,7 @@ static bool sc_http_request_first_line_parse(ScHttpRequest* req) {
     }
 
     if (a3_buf_len(buf) >= SC_HTTP_REQUEST_LINE_MAX_LENGTH) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_URI_TOO_LONG);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_URI_TOO_LONG, SC_HTTP_CLOSE);
         return false;
     }
 
@@ -87,12 +86,11 @@ static bool sc_http_request_first_line_parse(ScHttpRequest* req) {
     switch (req->method) {
     case SC_HTTP_METHOD_INVALID:
         A3_TRACE_F("Invalid HTTP method \"" A3_S_F "\".", A3_S_FORMAT(method));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     case SC_HTTP_METHOD_UNKNOWN:
         A3_TRACE_F("Unimplemented HTTP method \"" A3_S_F "\".", A3_S_FORMAT(method));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED, SC_HTTP_KEEP);
         return false;
     default:
         break;
@@ -101,15 +99,13 @@ static bool sc_http_request_first_line_parse(ScHttpRequest* req) {
     A3String target = a3_buf_token_next_copy(buf, A3_CS(" \r\n"), A3_PRES_END_NO);
     if (!target.ptr) {
         A3_TRACE("Missing URI.");
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
 
     if (sc_uri_parse(&req->target, target) != SC_URI_PARSE_OK) {
         A3_TRACE_F("Bad URI \"" A3_S_F "\".", A3_S_FORMAT(target));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
 
@@ -120,13 +116,12 @@ static bool sc_http_request_first_line_parse(ScHttpRequest* req) {
     // headers.
     if (!a3_buf_consume(buf, SC_HTTP_EOL) || conn->version == SC_HTTP_VERSION_INVALID) {
         A3_TRACE_F("Bad HTTP version \"", A3_S_F, "\".", A3_S_FORMAT(version));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
     if (conn->version == SC_HTTP_VERSION_UNKNOWN) {
         A3_TRACE_F("Unknown HTTP version \"", A3_S_F, "\".", A3_S_FORMAT(version));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_VERSION_NOT_SUPPORTED);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_VERSION_NOT_SUPPORTED, SC_HTTP_KEEP);
         return false;
     }
 
@@ -157,8 +152,7 @@ static bool sc_http_request_headers_recv(ScHttpRequest* req) {
 
     // No headers allowed for HTTP/0.9.
     if (conn->version == SC_HTTP_VERSION_09) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
 
@@ -171,21 +165,18 @@ static bool sc_http_request_headers_recv(ScHttpRequest* req) {
 
         // RFC7230 § 5.4: Invalid field-value -> 400.
         if (!name.ptr || !value.ptr) {
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
             return false;
         }
 
         if (!sc_http_header_add(&req->headers, name, value)) {
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return false;
         }
     }
 
     if (!a3_buf_consume(buf, SC_HTTP_EOL)) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
 
@@ -203,8 +194,7 @@ static bool sc_http_request_headers_parse(ScHttpRequest* req) {
     conn->connection_type = sc_http_header_connection(&req->headers);
     if (conn->connection_type == SC_HTTP_CONNECTION_TYPE_INVALID) {
         conn->connection_type = SC_HTTP_CONNECTION_TYPE_CLOSE;
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
     if (conn->connection_type == SC_HTTP_CONNECTION_TYPE_UNSPECIFIED) {
@@ -217,35 +207,30 @@ static bool sc_http_request_headers_parse(ScHttpRequest* req) {
     // RFC7230 § 5.4: Invalid field-value -> 400.
     if (req->host.ptr && a3_string_rchr(req->host, ',').ptr) {
         req->host = A3_CS_NULL;
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
     // ibid. HTTP/1.1 messages must have a Host header.
     if (conn->version >= SC_HTTP_VERSION_11 && !req->host.ptr) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
 
     req->transfer_encodings = sc_http_header_transfer_encoding(&req->headers);
     if (req->transfer_encodings == SC_HTTP_TRANSFER_ENCODING_INVALID) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
     // RFC7230 § 3.3.3, step 3: Transfer-Encoding without chunked is invalid in a request, and the
     // server MUST respond with a 400.
     if (req->transfer_encodings != SC_HTTP_TRANSFER_ENCODING_IDENTITY &&
         !(req->transfer_encodings & SC_HTTP_TRANSFER_ENCODING_CHUNKED)) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
         return false;
     }
     // TODO: Support other transfer encodings.
     if (req->transfer_encodings != SC_HTTP_TRANSFER_ENCODING_IDENTITY) {
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED, SC_HTTP_CLOSE);
         return false;
     }
 
@@ -254,14 +239,12 @@ static bool sc_http_request_headers_parse(ScHttpRequest* req) {
         req->content_length = sc_http_header_content_length(&req->headers);
 
         if (req->content_length == SC_HTTP_CONTENT_LENGTH_INVALID) {
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_BAD_REQUEST, SC_HTTP_CLOSE);
             return false;
         }
         if (req->content_length != SC_HTTP_CONTENT_LENGTH_UNSPECIFIED &&
             req->content_length > SC_HTTP_REQUEST_CONTENT_MAX_LENGTH) {
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_PAYLOAD_TOO_LARGE);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_PAYLOAD_TOO_LARGE, SC_HTTP_CLOSE);
             return false;
         }
         // ibid. step 6: default to Content-Length of 0.

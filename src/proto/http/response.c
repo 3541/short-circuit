@@ -190,15 +190,20 @@ static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus 
     return true;
 }
 
-void sc_http_response_error_send(ScHttpResponse* resp, ScHttpStatus status) {
+void sc_http_response_error_send(ScHttpResponse* resp, ScHttpStatus status, bool close) {
     assert(resp);
     assert(status >= 400);
 
     A3_TRACE_F("HTTP error %d. " A3_S_F, status, sc_http_status_reason(status));
     ScHttpConnection* conn = sc_http_response_connection(resp);
 
+    if (close)
+        conn->connection_type = SC_HTTP_CONNECTION_TYPE_CLOSE;
+
     // Clear any data already written to the response buffer.
     a3_buf_reset(sc_http_response_send_buf(resp));
+    // Clear any further data from the request which provoked the error.
+    a3_buf_reset(&conn->conn->recv_buf);
 
     resp->content_type = SC_MIME_TYPE_TEXT_HTML;
     if (conn->version == SC_HTTP_VERSION_UNKNOWN || conn->version == SC_HTTP_VERSION_INVALID)
@@ -211,6 +216,8 @@ void sc_http_response_error_send(ScHttpResponse* resp, ScHttpStatus status) {
     }
 
     sc_http_response_send(resp, status);
+    if (close)
+        sc_connection_close(conn->conn);
 }
 
 void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
@@ -226,7 +233,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     struct stat statbuf;
     if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
         A3_TRACE_F("Failed to stat file \"" A3_S_F "\".", A3_S_FORMAT(path));
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
         return;
     }
 
@@ -238,21 +245,19 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         // TODO: Directory listings.
         if (SC_IO_IS_ERR(maybe_file)) {
             A3_TRACE("Requested directory and no index is present.");
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
             return;
         }
         if (SC_IO_IS_ERR(sc_io_close(coroutine, file))) {
             A3_WARN("Failed to close directory fd.");
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return;
         }
         file = maybe_file.ok;
 
         if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
             A3_WARN("Failed to stat index file.");
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return;
         }
 
@@ -261,7 +266,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
 
     if (!S_ISREG(statbuf.st_mode)) {
         A3_TRACE("Requested non-regular file.");
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
         return;
     }
 
@@ -274,14 +279,12 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     if (!sc_http_header_set_fmt(&resp->headers, A3_CS("Etag"), "\"%lluX%lX%lX\"", statbuf.st_ino,
                                 statbuf.st_mtim.tv_sec, statbuf.st_size)) {
         A3_WARN("Failed to write Etag.");
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
         return;
     }
     if (!sc_http_header_set_time(&resp->headers, A3_CS("Last-Modified"), statbuf.st_mtim.tv_sec)) {
         A3_WARN("Failed to write Last-Modified.");
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-        sc_connection_close(conn->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
         return;
     }
 
@@ -294,8 +297,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), (size_t)statbuf.st_size, 0);
         if (SC_IO_IS_ERR(maybe_size)) {
             A3_WARN_F("Failed to read file \"" A3_S_F "\".", A3_S_FORMAT(path));
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
-            sc_connection_close(conn->conn);
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return;
         }
 

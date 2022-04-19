@@ -82,11 +82,10 @@ void sc_http_request_handle(ScHttpRequest* req) {
         break;
     case SC_HTTP_METHOD_BREW:
         sc_http_request_connection(req)->version = SC_HTCPCP_VERSION_10;
-        sc_http_response_error_send(resp, SC_HTCPCP_STATUS_IM_A_TEAPOT);
+        sc_http_response_error_send(resp, SC_HTCPCP_STATUS_IM_A_TEAPOT, SC_HTTP_KEEP);
         break;
     case SC_HTTP_METHOD_UNKNOWN:
-        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED);
-        sc_connection_close(sc_http_request_connection(req)->conn);
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_IMPLEMENTED, SC_HTTP_CLOSE);
         break;
     default:
         A3_UNREACHABLE();

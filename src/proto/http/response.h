@@ -34,5 +34,8 @@ void sc_http_response_reset(ScHttpResponse*);
 void sc_http_response_destroy(ScHttpResponse*);
 
 void sc_http_response_send(ScHttpResponse*, ScHttpStatus);
-void sc_http_response_error_send(ScHttpResponse*, ScHttpStatus);
 void sc_http_response_file_send(ScHttpResponse*, ScFd file);
+
+#define SC_HTTP_CLOSE true
+#define SC_HTTP_KEEP  false
+void sc_http_response_error_send(ScHttpResponse*, ScHttpStatus, bool close);
