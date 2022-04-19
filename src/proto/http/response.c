@@ -278,6 +278,12 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         sc_connection_close(conn->conn);
         return;
     }
+    if (!sc_http_header_set_time(&resp->headers, A3_CS("Last-Modified"), statbuf.st_mtim.tv_sec)) {
+        A3_WARN("Failed to write Last-Modified.");
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR);
+        sc_connection_close(conn->conn);
+        return;
+    }
 
     A3Buffer* buf = sc_http_response_send_buf(resp);
     if (!a3_buf_ensure_cap(buf, (size_t)statbuf.st_size))

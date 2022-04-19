@@ -24,8 +24,9 @@
 #include <a3/buffer.h>
 #include <a3/ht.h>
 #include <a3/str.h>
+#include <a3/util.h>
 
-#include "sc/http.h"
+#include "config.h"
 
 A3_HT_DEFINE_METHODS(A3CString, A3String, a3_string_cptr, a3_string_len, a3_string_cmp);
 
@@ -118,6 +119,20 @@ bool sc_http_header_set_num(ScHttpHeaders* headers, A3CString name, uint64_t n) 
     return sc_http_header_set(
         headers, name,
         A3_S_CONST(a3_string_itoa_into((A3String) { .ptr = buf, .len = sizeof(buf) }, n)));
+}
+
+bool sc_http_header_set_time(ScHttpHeaders* headers, A3CString name, time_t t) {
+    assert(headers);
+    assert(name.ptr);
+
+    uint8_t   buf[SC_HTTP_TIME_BUF_SIZE] = { '\0' };
+    struct tm tv;
+
+    size_t len =
+        strftime((char*)buf, SC_HTTP_TIME_BUF_SIZE, SC_HTTP_TIME_FORMAT, gmtime_r(&t, &tv));
+    A3_TRYB(len);
+
+    return sc_http_header_set(headers, name, (A3CString) { .ptr = buf, .len = len });
 }
 
 A3String sc_http_header_get(ScHttpHeaders* headers, A3CString name) {
