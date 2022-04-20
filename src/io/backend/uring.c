@@ -17,6 +17,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+// The below defines fix editor highlighting when configured for another backend. This doesn't break
+// compilation, since this file is only ever built by inclusion from backend.c.
+#ifndef SC_IO_BACKEND_URING
+#undef SC_IO_BACKEND_POLL
+#define SC_IO_BACKEND_URING
+#endif
+
 #include "uring.h"
 
 #include <assert.h>
