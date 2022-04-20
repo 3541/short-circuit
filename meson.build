@@ -138,6 +138,24 @@ if c.has_function('pwritev2')
   sc_cflags += '-DSC_HAVE_PWRITEV2'
 endif
 
+uint_size = c.sizeof('unsigned int')
+ptr_size = c.sizeof('void*')
+
+if uint_size == -1 or ptr_size == -1
+  error('Unable to detect uint and pointer size.')
+elif uint_size == ptr_size
+  sc_cflags += '-DSC_UINT_SIZE_PTR'
+elif uint_size == ptr_size / 2
+  sc_cflags += '-DSC_UINT_SIZE_HALF_PTR'
+else
+  error('Bizarre uint/pointer sizing. uint is ' + uint_size + ' bytes, and pointers are ' + ptr_size
+        + ' bytes.')
+endif
+
+if host_machine.cpu_family() == 'x86_64'
+  sc_cflags += '-DSC_X86_64'
+endif
+
 if get_option('ci')
   sc_cflags += '-DSC_TEST'
 endif

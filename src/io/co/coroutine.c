@@ -70,14 +70,14 @@ typedef void (*ScCoTrampoline)(void);
 // where sizeof(int) == sizeof(void*), this works fine. Where sizeof(int) < sizeof(void*), annoying
 // hackery is necessary to split and recombine pointers to/from ints. Thankfully, non-ancient
 // versions of glibc make pointer-sized arguments work on 64-bit platforms.
-#if UINT_MAX == UINTPTR_MAX ||                                                                     \
+#if defined(SC_UINT_SIZE_PTR) ||                                                                   \
     (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 8)) &&          \
-     UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFULL)
+     defined(SC_X86_64))
 #define SC_CO_BEGIN_ARGS(ENTRY, DATA) 2, (uintptr_t)(ENTRY), (uintptr_t)(DATA)
 
 static void sc_co_begin(ScCoEntry entry, void* data) {
 
-#elif INT_MAX == INTPTR_MAX >> 32
+#elif defined(SC_UINT_SIZE_HALF_PTR)
 #define SC_CO_P_SPLIT(P)              (unsigned int)(uintptr_t)(P), (unsigned int)((uintptr_t)(P) >> 32)
 #define SC_CO_BEGIN_ARGS(ENTRY, DATA) 4, SC_CO_P_SPLIT(ENTRY), SC_CO_P_SPLIT(DATA)
 
