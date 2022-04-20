@@ -30,10 +30,8 @@
 #include "config.h"
 #include "listen.h"
 
-ssize_t sc_connection_handle(ScCoroutine* self, void* data) {
-    assert(self);
+ssize_t sc_connection_handle(void* data) {
     assert(data);
-    (void)self;
 
     A3_TRACE("Handling connection.");
     ScConnection* conn = data;
@@ -54,10 +52,9 @@ void sc_connection_init(ScConnection* conn, ScListener* listener) {
     assert(listener);
 
     *conn = (ScConnection) {
-        .addr_len  = sizeof(conn->client_addr),
-        .coroutine = NULL,
-        .listener  = listener,
-        .socket    = -1,
+        .addr_len = sizeof(conn->client_addr),
+        .listener = listener,
+        .socket   = -1,
     };
 
     a3_buf_init(&conn->send_buf, SC_SEND_BUF_INIT_CAP, SC_SEND_BUF_MAX_CAP);
@@ -96,7 +93,7 @@ void sc_connection_close(ScConnection* conn) {
     if (conn->socket < 0)
         return;
 
-    SC_IO_UNWRAP(sc_io_close(conn->coroutine, conn->socket));
+    SC_IO_UNWRAP(sc_io_close(conn->socket));
     conn->socket = -1;
 }
 
@@ -105,8 +102,7 @@ SC_IO_RESULT(size_t) sc_connection_recv(ScConnection* conn) {
 
     a3_buf_ensure_cap(&conn->recv_buf, SC_RECV_BUF_MIN_SPACE);
 
-    size_t res = SC_IO_TRY(
-        size_t, sc_io_recv(conn->coroutine, conn->socket, a3_buf_write_ptr(&conn->recv_buf)));
+    size_t res = SC_IO_TRY(size_t, sc_io_recv(conn->socket, a3_buf_write_ptr(&conn->recv_buf)));
     assert(res <= a3_buf_space(&conn->recv_buf));
     a3_buf_wrote(&conn->recv_buf, res);
 

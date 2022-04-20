@@ -179,10 +179,8 @@ void sc_io_backend_pump(ScIoBackend* backend) {
 
 // Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
 // return a null pointer if the SQ is full and, for whatever reason, it does not empty in time.
-static struct io_uring_sqe* sc_io_sqe_get(ScCoroutine* co) {
-    assert(co);
-
-    struct io_uring* uring = &sc_co_event_loop(co)->backend.uring;
+static struct io_uring_sqe* sc_io_sqe_get(void) {
+    struct io_uring* uring = &sc_co_event_loop()->backend.uring;
 
     struct io_uring_sqe* ret = io_uring_get_sqe(uring);
     // Try to submit events until an SQE is available or too many retries have elapsed.
@@ -195,47 +193,44 @@ static struct io_uring_sqe* sc_io_sqe_get(ScCoroutine* co) {
     return ret;
 }
 
-static ssize_t sc_io_submit(ScCoroutine* self, struct io_uring_sqe* sqe) {
-    assert(self);
+static ssize_t sc_io_submit(struct io_uring_sqe* sqe) {
     assert(sqe);
 
-    io_uring_sqe_set_data(sqe, self);
-    return sc_co_yield(self);
+    io_uring_sqe_set_data(sqe, sc_co_current());
+    return sc_co_yield();
 }
 
 SC_IO_RESULT(ScFd)
-sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
-    assert(self);
+sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
     assert(sock >= 0);
     assert(client_addr);
     assert(addr_len && *addr_len);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(ScFd, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
     ScFd res = -1;
-    A3_UNWRAPS(res, (ScFd)sc_io_submit(self, sqe));
+    A3_UNWRAPS(res, (ScFd)sc_io_submit(sqe));
     return SC_IO_OK(ScFd, res);
 }
 
-SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path, uint64_t flags) {
-    assert(self);
+SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     assert(dir >= 0 || dir == AT_FDCWD);
     assert(path.ptr);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(ScFd, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_openat2(sqe, dir, a3_string_cstr(path),
                           &(struct open_how) { .flags = flags, .resolve = RESOLVE_BENEATH });
 
     ScFd res = -1;
-    if ((res = (ScFd)sc_io_submit(self, sqe)) < 0) {
+    if ((res = (ScFd)sc_io_submit(sqe)) < 0) {
         switch (-res) {
         case EAGAIN:
-            return sc_io_open_under(self, dir, path, flags);
+            return sc_io_open_under(dir, path, flags);
         case EACCES:
         case ENOENT:
             return SC_IO_ERR(ScFd, SC_IO_FILE_NOT_FOUND);
@@ -247,30 +242,28 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
     return SC_IO_OK(ScFd, res);
 }
 
-SC_IO_RESULT(bool) sc_io_close(ScCoroutine* self, ScFd file) {
-    assert(self);
+SC_IO_RESULT(bool) sc_io_close(ScFd file) {
     assert(file >= 0);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_close(sqe, file);
 
-    A3_UNWRAPSD(sc_io_submit(self, sqe));
+    A3_UNWRAPSD(sc_io_submit(sqe));
     return SC_IO_OK(bool, true);
 }
 
-SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
-    assert(self);
+SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
     assert(sock >= 0);
     assert(dst.ptr);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
 
-    ssize_t res = sc_io_submit(self, sqe);
+    ssize_t res = sc_io_submit(sqe);
     if (res <= 0) {
         switch (-res) {
         case 0:
@@ -284,15 +277,14 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
 }
 
 SC_IO_RESULT(size_t)
-sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
-    assert(self);
+sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(fd >= 0);
     assert(dst.ptr);
     assert(dst.len <= UINT_MAX);
 
     size_t to_read = MIN(count, dst.len);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
@@ -303,7 +295,7 @@ sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t off
 #endif
 
     ssize_t res = -1;
-    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    A3_UNWRAPS(res, sc_io_submit(sqe));
 
     if (!res)
         return SC_IO_ERR(size_t, SC_IO_EOF);
@@ -311,31 +303,29 @@ sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t off
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev_raw(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
-    assert(self);
+sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);
     assert(count > 0);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(size_t, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_writev(sqe, fd, iov, count, 0);
 
     ssize_t res = -1;
-    A3_UNWRAPS(res, sc_io_submit(self, sqe));
+    A3_UNWRAPS(res, sc_io_submit(sqe));
     if (!res)
         return SC_IO_ERR(size_t, SC_IO_EOF);
 
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf) {
-    assert(self);
+SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
     assert(file >= 0);
     assert(statbuf);
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get(self);
+    struct io_uring_sqe* sqe = sc_io_sqe_get();
     A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
 
     struct statx statxbuf;
@@ -343,7 +333,7 @@ SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf
     io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH,
                         STATX_TYPE | STATX_SIZE | STATX_MTIME | STATX_INO, &statxbuf);
 
-    ssize_t res = sc_io_submit(self, sqe);
+    ssize_t res = sc_io_submit(sqe);
     if (res < 0) {
         switch (-res) {
         case EACCES:

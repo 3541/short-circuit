@@ -101,8 +101,7 @@ void sc_listener_free(ScListener* listener) {
     free(listener);
 }
 
-static ssize_t sc_listen(ScCoroutine* self, void* data) {
-    assert(self);
+static ssize_t sc_listen(void* data) {
     assert(data);
 
     ScListener* listener = data;
@@ -111,11 +110,11 @@ static ssize_t sc_listen(ScCoroutine* self, void* data) {
         ScConnection* conn = sc_connection_new(listener);
 
         conn->socket = SC_IO_UNWRAP(sc_io_accept(
-            self, listener->socket, (struct sockaddr*)(&conn->client_addr), &conn->addr_len));
+            listener->socket, (struct sockaddr*)(&conn->client_addr), &conn->addr_len));
         A3_TRACE("Accepted connection.");
 
-        conn->coroutine = sc_co_spawn(self, sc_connection_handle, conn);
-        sc_co_defer(conn->coroutine, sc_connection_free, conn);
+        ScCoroutine* co = sc_co_spawn(sc_connection_handle, conn);
+        sc_co_defer_on(co, sc_connection_free, conn);
     }
 }
 

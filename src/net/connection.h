@@ -21,4 +21,4 @@
 
 #include <sc/connection.h>
 
-ssize_t sc_connection_handle(ScCoroutine*, void* data);
+ssize_t sc_connection_handle(void* data);

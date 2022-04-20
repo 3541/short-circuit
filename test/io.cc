@@ -21,7 +21,7 @@
 using namespace testing;
 
 class IoTest;
-static ssize_t trampoline(ScCoroutine*, void*);
+static ssize_t trampoline(void*);
 
 static thread_local IoTest* test = nullptr;
 
@@ -32,7 +32,7 @@ private:
     ScCoEntry    entry  = nullptr;
     ssize_t      result = -1;
 
-    friend ssize_t trampoline(ScCoroutine*, void*);
+    friend ssize_t trampoline(void*);
 
 protected:
     long kver_major, kver_minor; // NOLINT(misc-non-private-member-variables-in-classes)
@@ -104,8 +104,8 @@ protected:
     }
 };
 
-static ssize_t trampoline(ScCoroutine* self, void* data) {
-    test->result = test->entry(self, data);
+static ssize_t trampoline(void* data) {
+    test->result = test->entry(data);
     return test->result;
 }
 
@@ -135,10 +135,10 @@ TEST_F(IoTest, accept) {
         port);
 
     int client_sock = static_cast<int>(run_on_coroutine(
-        [](ScCoroutine* self, void* data) -> ssize_t {
+        [](void* data) -> ssize_t {
             sockaddr_in peer_addr;
             socklen_t   addr_len = sizeof(peer_addr);
-            return (ssize_t)sc_io_accept(self, *static_cast<int*>(data),
+            return (ssize_t)sc_io_accept(*static_cast<int*>(data),
                                          reinterpret_cast<sockaddr*>(&peer_addr), &addr_len)
                 .ok;
         },
@@ -156,9 +156,9 @@ TEST_F(IoTest, open_under) {
 #endif
 
     int fd = static_cast<int>(run_on_coroutine(
-        [](ScCoroutine* self, void* data) -> ssize_t {
+        [](void* data) -> ssize_t {
             return (ssize_t)sc_io_open_under(
-                       self, AT_FDCWD, a3_cstring_from(static_cast<char const*>(data)), O_RDONLY)
+                       AT_FDCWD, a3_cstring_from(static_cast<char const*>(data)), O_RDONLY)
                 .ok;
         },
         const_cast<char*>("build.ninja")));
@@ -193,8 +193,8 @@ TEST_F(IoTest, close) {
     ASSERT_THAT(fd, Ge(0));
 
     ssize_t res = run_on_coroutine(
-        [](ScCoroutine* self, void* data) -> ssize_t {
-            return SC_IO_IS_OK(sc_io_close(self, *static_cast<int*>(data))) ? 0 : -1;
+        [](void* data) -> ssize_t {
+            return SC_IO_IS_OK(sc_io_close(*static_cast<int*>(data))) ? 0 : -1;
         },
         &fd);
     EXPECT_THAT(res, Eq(0));
@@ -242,9 +242,9 @@ TEST_F(IoTest, recv) {
     A3String buf = a3_string_alloc(sizeof(message));
     Data     d { .buf = buf, .fd = client };
     ssize_t  ret = run_on_coroutine(
-         [](ScCoroutine* self, void* data) {
+         [](void* data) {
             auto* d = static_cast<Data*>(data);
-            return (ssize_t)sc_io_recv(self, d->fd, d->buf).ok;
+            return (ssize_t)sc_io_recv(d->fd, d->buf).ok;
          },
          &d);
     EXPECT_THAT(ret, Gt(0));
@@ -281,10 +281,10 @@ TEST_F(IoTest, read) {
         Data                   data { buf, fd, static_cast<off_t>(got.size()) };
 
         ssize_t res = run_on_coroutine(
-            [](ScCoroutine* self, void* data) -> ssize_t {
+            [](void* data) -> ssize_t {
                 auto* d = static_cast<Data*>(data);
                 return (ssize_t)sc_io_read(
-                           self, d->fd,
+                           d->fd,
                            a3_string_new(reinterpret_cast<uint8_t*>(d->buf.data()), d->buf.size()),
                            d->buf.size(), d->off)
                     .ok;

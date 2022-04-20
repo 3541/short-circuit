@@ -102,17 +102,14 @@ A3_EXPORT void         sc_io_event_loop_run(ScCoMain*);
 A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 
 A3_EXPORT SC_IO_RESULT(ScFd)
-    sc_io_accept(ScCoroutine*, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len);
-A3_EXPORT SC_IO_RESULT(ScFd)
-    sc_io_open_under(ScCoroutine*, ScFd dir, A3CString path, uint64_t flags);
-A3_EXPORT SC_IO_RESULT(bool) sc_io_close(ScCoroutine*, ScFd);
-A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine*, ScFd sock, A3String dst);
-A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScCoroutine*, ScFd, A3String dst, size_t count, off_t);
-A3_EXPORT SC_IO_RESULT(size_t)
-    sc_io_read_raw(ScCoroutine*, ScFd, A3String dst, size_t count, off_t);
-A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev(ScCoroutine*, ScFd, struct iovec*, unsigned count);
-A3_EXPORT SC_IO_RESULT(size_t)
-    sc_io_writev_raw(ScCoroutine*, ScFd, struct iovec const*, unsigned count);
-A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScCoroutine*, ScFd file, struct stat*);
+    sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len);
+A3_EXPORT SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags);
+A3_EXPORT SC_IO_RESULT(bool) sc_io_close(ScFd);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScFd, A3String dst, size_t count, off_t);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_read_raw(ScFd, A3String dst, size_t count, off_t);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev(ScFd, struct iovec*, unsigned count);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev_raw(ScFd, struct iovec const*, unsigned count);
+A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat*);
 
 A3_H_END

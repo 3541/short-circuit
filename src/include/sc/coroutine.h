@@ -3,18 +3,16 @@
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU Affero General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU Affero General Public License as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
- * details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Affero General Public License along with this program.
+ * If not, see <https://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -28,7 +26,7 @@
 
 A3_H_BEGIN
 
-typedef ssize_t (*ScCoEntry)(ScCoroutine* self, void* data);
+typedef ssize_t (*ScCoEntry)(void* data);
 typedef void (*ScCoDeferredCb)(void* data);
 
 A3_EXPORT ScCoMain*    sc_co_main_new(ScEventLoop*);
@@ -37,12 +35,12 @@ A3_EXPORT ScEventLoop* sc_co_main_event_loop(ScCoMain*);
 A3_EXPORT void         sc_co_main_pending_resume(ScCoMain*);
 A3_EXPORT size_t       sc_co_count(ScCoMain*);
 A3_EXPORT ScCoroutine* sc_co_new(ScCoMain*, ScCoEntry entry, void* data);
-A3_EXPORT ScCoroutine* sc_co_spawn(ScCoroutine*, ScCoEntry entry, void* data);
-A3_EXPORT ssize_t      sc_co_yield(ScCoroutine*);
+A3_EXPORT ScCoroutine* sc_co_spawn(ScCoEntry entry, void* data);
+A3_EXPORT ssize_t      sc_co_yield(void);
 A3_EXPORT ssize_t      sc_co_resume(ScCoroutine* co, ssize_t);
-A3_EXPORT void         sc_co_defer(ScCoroutine*, ScCoDeferredCb, void* data);
-A3_EXPORT ScEventLoop* sc_co_event_loop(ScCoroutine*);
-A3_EXPORT void         sc_co_extra_data_set(ScCoroutine*, size_t);
-A3_EXPORT size_t       sc_co_extra_data_get(ScCoroutine*);
+A3_EXPORT void         sc_co_defer_on(ScCoroutine*, ScCoDeferredCb, void* data);
+A3_EXPORT void         sc_co_defer(ScCoDeferredCb, void* data);
+A3_EXPORT ScEventLoop* sc_co_event_loop(void);
+A3_EXPORT ScCoroutine* sc_co_current(void);
 
 A3_H_END

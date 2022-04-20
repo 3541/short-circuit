@@ -88,8 +88,7 @@ void sc_io_event_loop_run(ScCoMain* co) {
 }
 
 SC_IO_RESULT(size_t)
-sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
-    assert(self);
+sc_io_read(ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(fd >= 0);
     assert(dst.ptr);
     assert(count);
@@ -98,7 +97,7 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
     size_t left    = to_read;
 
     while (left) {
-        SC_IO_RESULT(size_t) res = sc_io_read_raw(self, fd, dst, count, offset);
+        SC_IO_RESULT(size_t) res = sc_io_read_raw(fd, dst, count, offset);
         if (SC_IO_IS_ERR(res)) {
             if (res.err == SC_IO_EOF)
                 break;
@@ -115,8 +114,7 @@ sc_io_read(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset)
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
-    assert(self);
+sc_io_writev(ScFd fd, struct iovec* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);
     assert(count);
@@ -128,7 +126,7 @@ sc_io_writev(ScCoroutine* self, ScFd fd, struct iovec* iov, unsigned count) {
     size_t left = to_write;
 
     while (left) {
-        size_t res = SC_IO_TRY(size_t, sc_io_writev_raw(self, fd, iov, count));
+        size_t res = SC_IO_TRY(size_t, sc_io_writev_raw(fd, iov, count));
         left -= res;
 
         if (!left || !res)

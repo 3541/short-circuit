@@ -41,8 +41,7 @@ typedef struct ScConnection {
     struct sockaddr_in6 client_addr;
     socklen_t           addr_len;
 
-    ScCoroutine* coroutine;
-    ScListener*  listener;
+    ScListener* listener;
 
     ScFd socket;
 } ScConnection;

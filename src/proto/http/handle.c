@@ -42,7 +42,7 @@ static void sc_http_file_handle(void* conn, ScRouteData dir) {
     if (path.len == 0)
         path = A3_CS(".");
 
-    SC_IO_RESULT(ScFd) maybe_file = sc_io_open_under(http->conn->coroutine, dir.fd, path, O_RDONLY);
+    SC_IO_RESULT(ScFd) maybe_file = sc_io_open_under(dir.fd, path, O_RDONLY);
     if (SC_IO_IS_ERR(maybe_file)) {
         A3_TRACE_F("Failed to open file \"" A3_S_F "\". " A3_S_F, A3_S_FORMAT(path),
                    A3_S_FORMAT(sc_io_error_to_string(maybe_file.err)));

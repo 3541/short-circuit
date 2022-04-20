@@ -56,6 +56,7 @@ void sc_io_backend_init(ScIoBackend* backend) {
     backend->fd_count   = 512;
     backend->fds_active = 0;
     A3_UNWRAPN(backend->poll_fds, calloc(backend->fd_count, sizeof(*backend->poll_fds)));
+    // NOLINTNEXTLINE(bugprone-sizeof-expression)
     A3_UNWRAPN(backend->coroutines, calloc(backend->fd_count, sizeof(*backend->coroutines)));
 
     for (size_t i = 0; i < backend->fd_count; i++)
@@ -93,10 +94,8 @@ void sc_io_backend_pump(ScIoBackend* backend) {
     }
 }
 
-static size_t sc_io_poll_slot(ScCoroutine* self) {
-    assert(self);
-
-    ScIoBackend* backend = &sc_co_event_loop(self)->backend;
+static size_t sc_io_poll_slot(void) {
+    ScIoBackend* backend = &sc_co_event_loop()->backend;
 
     size_t ret = 0;
     if (backend->fds_active >= backend->fd_count) {
@@ -104,7 +103,7 @@ static size_t sc_io_poll_slot(ScCoroutine* self) {
         backend->fd_count *= 2;
         A3_UNWRAPN(backend->poll_fds,
                    realloc(backend->poll_fds, backend->fd_count * sizeof(*backend->poll_fds)));
-        A3_UNWRAPN(backend->coroutines,
+        A3_UNWRAPN(backend->coroutines, // NOLINTNEXTLINE(bugprone-sizeof-expression)
                    realloc(backend->coroutines, backend->fd_count * sizeof(*backend->coroutines)));
     }
 
@@ -116,18 +115,17 @@ static size_t sc_io_poll_slot(ScCoroutine* self) {
     A3_UNREACHABLE();
 }
 
-static SC_IO_RESULT(bool) sc_io_wait(ScCoroutine* self, ScFd fd, short events) {
-    assert(self);
+static SC_IO_RESULT(bool) sc_io_wait(ScFd fd, short events) {
     assert(events);
 
-    ScIoBackend* backend = &sc_co_event_loop(self)->backend;
+    ScIoBackend* backend = &sc_co_event_loop()->backend;
 
-    size_t i                    = sc_io_poll_slot(self);
+    size_t i                    = sc_io_poll_slot();
     backend->poll_fds[i].fd     = fd;
     backend->poll_fds[i].events = events;
-    backend->coroutines[i]      = self;
+    backend->coroutines[i]      = sc_co_current();
 
-    while (!(sc_co_yield(self) & (events | POLLHUP | POLLERR | POLLNVAL))) {}
+    while (!(sc_co_yield() & (events | POLLHUP | POLLERR | POLLNVAL))) {}
 
     backend->poll_fds[i].events = 0;
     backend->poll_fds[i].fd     = -1;
@@ -141,8 +139,7 @@ static SC_IO_RESULT(bool) sc_io_wait(ScCoroutine* self, ScFd fd, short events) {
 }
 
 SC_IO_RESULT(ScFd)
-sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
-    assert(self);
+sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
     assert(sock >= 0);
     assert(client_addr);
     assert(addr_len && *addr_len);
@@ -160,7 +157,7 @@ sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen
 #if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK:
 #endif
-            SC_IO_TRY(ScFd, sc_io_wait(self, sock, POLLIN));
+            SC_IO_TRY(ScFd, sc_io_wait(sock, POLLIN));
             break;
         default:
             A3_ERRNO(errno, "accept");
@@ -169,8 +166,7 @@ sc_io_accept(ScCoroutine* self, ScFd sock, struct sockaddr* client_addr, socklen
     }
 }
 
-SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path, uint64_t flags) {
-    assert(self);
+SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     assert(dir >= 0 || dir == AT_FDCWD);
     assert(path.ptr);
 
@@ -187,8 +183,7 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScCoroutine* self, ScFd dir, A3CString path,
     return SC_IO_OK(ScFd, res);
 }
 
-SC_IO_RESULT(bool) sc_io_close(ScCoroutine* self, ScFd file) {
-    assert(self);
+SC_IO_RESULT(bool) sc_io_close(ScFd file) {
     assert(file >= 0);
 
     A3_UNWRAPSD(close(file));
@@ -196,8 +191,7 @@ SC_IO_RESULT(bool) sc_io_close(ScCoroutine* self, ScFd file) {
     return SC_IO_OK(bool, true);
 }
 
-SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
-    assert(self);
+SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
     assert(sock >= 0);
     assert(dst.ptr);
 
@@ -218,7 +212,7 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
 #if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK:
 #endif
-            SC_IO_TRY(size_t, sc_io_wait(self, sock, POLLIN));
+            SC_IO_TRY(size_t, sc_io_wait(sock, POLLIN));
             break;
         default:
             A3_ERRNO(errno, "recv");
@@ -228,8 +222,7 @@ SC_IO_RESULT(size_t) sc_io_recv(ScCoroutine* self, ScFd sock, A3String dst) {
 }
 
 SC_IO_RESULT(size_t)
-sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t offset) {
-    assert(self);
+sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(fd >= 0);
     assert(dst.ptr);
 
@@ -249,7 +242,7 @@ sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t off
 #if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK:
 #endif
-            SC_IO_TRY(size_t, sc_io_wait(self, fd, POLLIN));
+            SC_IO_TRY(size_t, sc_io_wait(fd, POLLIN));
             break;
         default:
             A3_ERRNO(errno, "read");
@@ -259,8 +252,7 @@ sc_io_read_raw(ScCoroutine* self, ScFd fd, A3String dst, size_t count, off_t off
 }
 
 SC_IO_RESULT(size_t)
-sc_io_writev_raw(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned count) {
-    assert(self);
+sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);
     assert(count);
@@ -281,7 +273,7 @@ sc_io_writev_raw(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned c
 #if EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
-                SC_IO_TRY(size_t, sc_io_wait(self, fd, POLLOUT));
+                SC_IO_TRY(size_t, sc_io_wait(fd, POLLOUT));
                 break;
             default:
                 A3_ERRNO(errno, "writev");
@@ -291,8 +283,7 @@ sc_io_writev_raw(ScCoroutine* self, ScFd fd, struct iovec const* iov, unsigned c
     }
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScCoroutine* self, ScFd file, struct stat* statbuf) {
-    assert(self);
+SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
     assert(file >= 0);
     assert(statbuf);
 

@@ -24,8 +24,7 @@ TEST_F(CoroutineTest, construction) {
     bool  ran = false;
     auto* co  = sc_co_new(
          main,
-         [](ScCoroutine* self, void* data) -> ssize_t {
-            (void)self;
+         [](void* data) -> ssize_t {
             *static_cast<bool*>(data) = true;
             return 42;
          },
@@ -48,12 +47,10 @@ TEST_F(CoroutineTest, spawn) {
 
     auto* co = sc_co_new(
         main,
-        [](ScCoroutine* self, void* data) -> ssize_t {
+        [](void* data) -> ssize_t {
             auto* d = static_cast<Data*>(data);
             sc_co_spawn(
-                self,
-                [](ScCoroutine* self, void* data) -> ssize_t {
-                    (void)self;
+                [](void* data) -> ssize_t {
                     *static_cast<bool*>(data) = true;
                     return 42;
                 },
@@ -73,12 +70,12 @@ TEST_F(CoroutineTest, spawn) {
 TEST_F(CoroutineTest, yield) {
     auto* co = sc_co_new(
         main,
-        [](ScCoroutine* self, void* data) -> ssize_t {
+        [](void* data) -> ssize_t {
             (void)data;
 
             ssize_t val = 0;
             ssize_t res = 0;
-            while ((val = sc_co_yield(self)))
+            while ((val = sc_co_yield()))
                 res += val;
 
             return res;
@@ -99,9 +96,8 @@ TEST_F(CoroutineTest, defer) {
 
     auto* co = sc_co_new(
         main,
-        [](ScCoroutine* self, void* data) -> ssize_t {
-            sc_co_defer(
-                self, [](void* data) { *static_cast<bool*>(data) = true; }, data);
+        [](void* data) -> ssize_t {
+            sc_co_defer([](void* data) { *static_cast<bool*>(data) = true; }, data);
 
             return 0;
         },
@@ -116,12 +112,10 @@ TEST_F(CoroutineTest, defer_many_yield) {
 
     auto* co = sc_co_new(
         main,
-        [](ScCoroutine* self, void* data) -> ssize_t {
-            sc_co_defer(
-                self, [](void* data) { *static_cast<bool*>(data) = true; }, data);
+        [](void* data) -> ssize_t {
+            sc_co_defer([](void* data) { *static_cast<bool*>(data) = true; }, data);
 
-            while (sc_co_yield(self))
-                ;
+            while (sc_co_yield()) {}
 
             return 0;
         },
@@ -142,11 +136,11 @@ TEST_F(CoroutineTest, many_coroutines) {
     std::generate_n(std::back_inserter(coroutines), 400, [this, &n] {
         return sc_co_new(
             main,
-            [](ScCoroutine* self, void* data) -> ssize_t {
+            [](void* data) -> ssize_t {
                 ssize_t val = 0;
                 ssize_t res = static_cast<ssize_t>(reinterpret_cast<uintptr_t>(data));
 
-                while ((val = sc_co_yield(self)))
+                while ((val = sc_co_yield()))
                     res += val;
 
                 return res;

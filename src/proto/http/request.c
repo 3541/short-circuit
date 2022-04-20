@@ -42,7 +42,7 @@ void sc_http_request_init(ScHttpRequest* req) {
     assert(req);
 
     sc_http_request_reset(req);
-    sc_co_defer(sc_http_request_connection(req)->conn->coroutine, sc_http_request_destroy, req);
+    sc_co_defer(sc_http_request_destroy, req);
 }
 
 void sc_http_request_reset(ScHttpRequest* req) {

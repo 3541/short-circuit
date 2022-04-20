@@ -49,17 +49,11 @@ static A3Buffer* sc_http_response_send_buf(ScHttpResponse* resp) {
     return &sc_http_response_connection(resp)->conn->send_buf;
 }
 
-static ScCoroutine* sc_http_response_coroutine(ScHttpResponse* resp) {
-    assert(resp);
-
-    return sc_http_response_connection(resp)->conn->coroutine;
-}
-
 void sc_http_response_init(ScHttpResponse* resp) {
     assert(resp);
 
     sc_http_response_reset(resp);
-    sc_co_defer(sc_http_response_coroutine(resp), sc_http_response_destroy, resp);
+    sc_co_defer(sc_http_response_destroy, resp);
 }
 
 void sc_http_response_reset(ScHttpResponse* resp) {
@@ -162,9 +156,10 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
         iov[++i] = (struct iovec) { .iov_base = (void*)a3_buf_read_ptr(buf).ptr,
                                     .iov_len  = a3_buf_len(buf) };
 
-    if (SC_IO_IS_ERR(sc_io_writev(sc_http_response_coroutine(resp), conn->conn->socket, iov,
-                                  (unsigned)iov_count)))
+    if (SC_IO_IS_ERR(sc_io_writev(conn->conn->socket, iov, (unsigned)iov_count))) {
         A3_WARN("Failed to send response: writev error.");
+        sc_connection_close(conn->conn);
+    }
 
     a3_buf_reset(buf);
 
@@ -230,12 +225,11 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
 
     A3_TRACE("Sending file.");
 
-    ScHttpConnection* conn      = sc_http_response_connection(resp);
-    ScCoroutine*      coroutine = sc_http_response_coroutine(resp);
-    A3CString         path      = conn->request.target.path;
+    ScHttpConnection* conn = sc_http_response_connection(resp);
+    A3CString         path = conn->request.target.path;
 
     struct stat statbuf;
-    if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
+    if (SC_IO_IS_ERR(sc_io_stat(file, &statbuf))) {
         A3_TRACE_F("Failed to stat file \"" A3_S_F "\".", A3_S_FORMAT(path));
         sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
         return;
@@ -244,7 +238,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     bool index = false;
     if (S_ISDIR(statbuf.st_mode)) {
         SC_IO_RESULT(ScFd)
-        maybe_file = sc_io_open_under(coroutine, file, SC_INDEX_FILENAME, O_RDONLY);
+        maybe_file = sc_io_open_under(file, SC_INDEX_FILENAME, O_RDONLY);
 
         // TODO: Directory listings.
         if (SC_IO_IS_ERR(maybe_file)) {
@@ -252,14 +246,14 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
             sc_http_response_error_send(resp, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
             return;
         }
-        if (SC_IO_IS_ERR(sc_io_close(coroutine, file))) {
+        if (SC_IO_IS_ERR(sc_io_close(file))) {
             A3_WARN("Failed to close directory fd.");
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return;
         }
         file = maybe_file.ok;
 
-        if (SC_IO_IS_ERR(sc_io_stat(coroutine, file, &statbuf))) {
+        if (SC_IO_IS_ERR(sc_io_stat(file, &statbuf))) {
             A3_WARN("Failed to stat index file.");
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
             return;
@@ -298,7 +292,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
 
     if (conn->request.method != SC_HTTP_METHOD_HEAD) {
         SC_IO_RESULT(size_t)
-        maybe_size = sc_io_read(coroutine, file, a3_buf_write_ptr(buf), (size_t)statbuf.st_size, 0);
+        maybe_size = sc_io_read(file, a3_buf_write_ptr(buf), (size_t)statbuf.st_size, 0);
         if (SC_IO_IS_ERR(maybe_size)) {
             A3_WARN_F("Failed to read file \"" A3_S_F "\".", A3_S_FORMAT(path));
             sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
@@ -308,7 +302,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         a3_buf_wrote(buf, maybe_size.ok);
     }
 
-    SC_IO_UNWRAP(sc_io_close(coroutine, file));
+    SC_IO_UNWRAP(sc_io_close(file));
 
     sc_http_response_send(resp, SC_HTTP_STATUS_OK);
 }

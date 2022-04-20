@@ -3,18 +3,16 @@
  *
  * Copyright (c) 2022, Alex O'Brien <3541ax@gmail.com>
  *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU Affero General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU Affero General Public License as published by the Free Software Foundation, either version 3
+ * of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
- * details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Affero General Public License for more details.
  *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Affero General Public License along with this program.
+ * If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <assert.h>
@@ -58,12 +56,13 @@ typedef struct ScCoroutine {
     A3SLink   pending;
     ScCoMain* parent;
     ssize_t   value;
-    size_t    extra_data;
 #ifndef NDEBUG
     uint32_t vg_stack_id;
 #endif
     bool done;
 } ScCoroutine;
+
+static A3_THREAD_LOCAL ScCoroutine* CURRENT = NULL;
 
 typedef void (*ScCoTrampoline)(void);
 
@@ -74,22 +73,19 @@ typedef void (*ScCoTrampoline)(void);
 #if UINT_MAX == UINTPTR_MAX ||                                                                     \
     (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 8)) &&          \
      UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFULL)
-#define SC_CO_BEGIN_ARGS(ENTRY, SELF, DATA)                                                        \
-    3, (uintptr_t)(ENTRY), (uintptr_t)(SELF), (uintptr_t)(DATA)
+#define SC_CO_BEGIN_ARGS(ENTRY, DATA) 2, (uintptr_t)(ENTRY), (uintptr_t)(DATA)
 
-static void sc_co_begin(ScCoEntry entry, ScCoroutine* self, void* data) {
+static void sc_co_begin(ScCoEntry entry, void* data) {
 
 #elif INT_MAX == INTPTR_MAX >> 32
-#define SC_CO_P_SPLIT(P) (unsigned int)(uintptr_t)(P), (unsigned int)((uintptr_t)(P) >> 32)
-#define SC_CO_BEGIN_ARGS(ENTRY, SELF, DATA)                                                        \
-    6, SC_CO_P_SPLIT(ENTRY), SC_CO_P_SPLIT(SELF), SC_CO_P_SPLIT(DATA)
+#define SC_CO_P_SPLIT(P)              (unsigned int)(uintptr_t)(P), (unsigned int)((uintptr_t)(P) >> 32)
+#define SC_CO_BEGIN_ARGS(ENTRY, DATA) 4, SC_CO_P_SPLIT(ENTRY), SC_CO_P_SPLIT(DATA)
 
-static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int self_l,
-                        unsigned int self_h, unsigned int data_l, unsigned int data_h) {
-#define SC_CO_P_COMBINE(L, H) (void*)((L) | (uintptr_t)(H) << 32);
-    ScCoEntry    entry = SC_CO_P_COMBINE(entry_l, entry_h);
-    ScCoroutine* self  = SC_CO_P_COMBINE(self_l, self_h);
-    void*        data  = SC_CO_P_COMBINE(data_l, data_h);
+static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int data_l,
+                        unsigned int data_h) {
+#define SC_CO_P_COMBINE(L, H)         (void*)((L) | (uintptr_t)(H) << 32);
+    ScCoEntry entry = SC_CO_P_COMBINE(entry_l, entry_h);
+    void*     data  = SC_CO_P_COMBINE(data_l, data_h);
 #undef SC_CO_P_COMBINE
 
 #else
@@ -97,14 +93,16 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 #endif
 
     assert(entry);
-    assert(self);
+    assert(CURRENT);
 
-    self->value = entry(self, data);
+    CURRENT->value = entry(data);
 
-    A3_SLL_FOR_EACH(ScCoDeferred, deferred, &self->deferred, list) { deferred->f(deferred->data); }
-    self->done = true;
+    A3_SLL_FOR_EACH(ScCoDeferred, deferred, &CURRENT->deferred, list) {
+        deferred->f(deferred->data);
+    }
+    CURRENT->done = true;
 
-    sc_co_yield(self);
+    sc_co_yield();
 
     // NOTE: Returning from here will terminate the process.
 }
@@ -121,7 +119,7 @@ static void sc_co_ctx_init(ScCoroutine* self, void* stack, size_t stack_size, Sc
     A3_UNWRAPSD(getcontext(ctx));
     ctx->uc_stack = (stack_t) { .ss_sp = stack, .ss_size = stack_size };
     ctx->uc_link  = NULL;
-    makecontext(ctx, (ScCoTrampoline)sc_co_begin, SC_CO_BEGIN_ARGS(entry, self, data));
+    makecontext(ctx, (ScCoTrampoline)sc_co_begin, SC_CO_BEGIN_ARGS(entry, data));
 }
 
 static void sc_co_ctx_swap(ScCoCtx* dst, ScCoCtx* src) {
@@ -178,10 +176,9 @@ ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
     assert(entry);
 
     A3_UNWRAPNI(ScCoroutine*, ret, calloc(1, sizeof(*ret)));
-    ret->parent     = main;
-    ret->value      = 0;
-    ret->done       = false;
-    ret->extra_data = 0;
+    ret->parent = main;
+    ret->value  = 0;
+    ret->done   = false;
 #if !defined(NDEBUG) && defined(SC_HAVE_VALGRIND)
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
@@ -193,20 +190,26 @@ ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
     return ret;
 }
 
-ScCoroutine* sc_co_spawn(ScCoroutine* self, ScCoEntry entry, void* data) {
-    assert(self);
+ScCoroutine* sc_co_spawn(ScCoEntry entry, void* data) {
+    assert(CURRENT);
     assert(entry);
 
-    ScCoroutine* ret = sc_co_new(self->parent, entry, data);
-    a3_sll_enqueue(&self->parent->spawn_queue, &ret->pending);
+    ScCoroutine* ret = sc_co_new(CURRENT->parent, entry, data);
+    a3_sll_enqueue(&CURRENT->parent->spawn_queue, &ret->pending);
 
     return ret;
 }
 
-ssize_t sc_co_yield(ScCoroutine* self) {
-    assert(self);
+ssize_t sc_co_yield() {
+    assert(CURRENT);
+
+    ScCoroutine* self = CURRENT;
+    CURRENT           = NULL;
 
     sc_co_ctx_swap(&self->ctx, &self->parent->ctx);
+
+    assert(CURRENT);
+    assert(CURRENT == self);
     return self->value;
 }
 
@@ -223,10 +226,13 @@ static void sc_co_free(ScCoroutine* co) {
 
 ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
     assert(co);
+    assert(!CURRENT);
 
     co->value = param;
+    CURRENT   = co;
     sc_co_ctx_swap(&co->parent->ctx, &co->ctx);
 
+    assert(!CURRENT);
     ssize_t ret = co->value;
     if (co->done)
         sc_co_free(co);
@@ -234,8 +240,8 @@ ssize_t sc_co_resume(ScCoroutine* co, ssize_t param) {
     return ret;
 }
 
-void sc_co_defer(ScCoroutine* self, ScCoDeferredCb f, void* data) {
-    assert(self);
+void sc_co_defer_on(ScCoroutine* co, ScCoDeferredCb f, void* data) {
+    assert(co);
     assert(f);
 
     A3_UNWRAPNI(ScCoDeferred*, def, calloc(1, sizeof(*def)));
@@ -244,22 +250,17 @@ void sc_co_defer(ScCoroutine* self, ScCoDeferredCb f, void* data) {
         .data = data,
     };
 
-    a3_sll_push(&self->deferred, &def->list);
+    a3_sll_push(&co->deferred, &def->list);
 }
 
-ScEventLoop* sc_co_event_loop(ScCoroutine* co) {
-    assert(co);
-    return co->parent->ev;
+void sc_co_defer(ScCoDeferredCb f, void* data) { sc_co_defer_on(CURRENT, f, data); }
+
+ScEventLoop* sc_co_event_loop() {
+    assert(CURRENT);
+    return CURRENT->parent->ev;
 }
 
-void sc_co_extra_data_set(ScCoroutine* self, size_t data) {
-    assert(self);
-
-    self->extra_data = data;
-}
-
-size_t sc_co_extra_data_get(ScCoroutine* self) {
-    assert(self);
-
-    return self->extra_data;
+ScCoroutine* sc_co_current() {
+    assert(CURRENT);
+    return CURRENT;
 }
