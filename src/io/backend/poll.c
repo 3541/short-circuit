@@ -120,8 +120,7 @@ static SC_IO_RESULT(bool) sc_io_wait(ScCoroutine* self, ScFd fd, short events) {
     backend->poll_fds[i].events = events;
     backend->coroutines[i]      = self;
 
-    while (!(sc_co_yield(self) & (events | POLLHUP | POLLERR | POLLNVAL)))
-        ;
+    while (!(sc_co_yield(self) & (events | POLLHUP | POLLERR | POLLNVAL))) {}
 
     backend->poll_fds[i].events = 0;
     backend->poll_fds[i].fd     = -1;
