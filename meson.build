@@ -134,10 +134,6 @@ elif c.has_header_symbol('fcntl.h', 'O_SEARCH')
   sc_cflags += '-DSC_HAVE_O_SEARCH'
 endif
 
-if c.has_function('pwritev2')
-  sc_cflags += '-DSC_HAVE_PWRITEV2'
-endif
-
 uint_size = c.sizeof('unsigned int')
 ptr_size = c.sizeof('void*')
 
