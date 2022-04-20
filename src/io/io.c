@@ -53,7 +53,7 @@ A3CString sc_io_error_to_string(ScIoError error) {
 static void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
-    sc_io_backend_pump(&ev->backend);
+    sc_io_backend_pump(&ev->backend, (struct timespec) { .tv_sec = 1000, .tv_nsec = 0 });
 }
 
 ScEventLoop* sc_io_event_loop_new() {

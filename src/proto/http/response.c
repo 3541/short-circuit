@@ -117,8 +117,8 @@ void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
     A3Buffer*         buf  = sc_http_response_send_buf(resp);
 
     if (!sc_http_headers_default_prep(resp)) {
-        sc_connection_close(conn->conn);
         A3_WARN("Failed preparing default headers.");
+        sc_connection_close(conn->conn);
         return;
     }
 

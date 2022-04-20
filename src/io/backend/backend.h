@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <time.h>
+
 #ifdef SC_IO_BACKEND_URING
 #include "uring.h"
 #elif defined(SC_IO_BACKEND_POLL)
@@ -29,4 +31,4 @@
 
 void sc_io_backend_init(ScIoBackend*);
 void sc_io_backend_destroy(ScIoBackend*);
-void sc_io_backend_pump(ScIoBackend*);
+void sc_io_backend_pump(ScIoBackend*, struct timespec deadline);

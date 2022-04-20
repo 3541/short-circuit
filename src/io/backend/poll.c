@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <a3/log.h>
@@ -70,11 +71,24 @@ void sc_io_backend_destroy(ScIoBackend* backend) {
     free(backend->coroutines);
 }
 
-void sc_io_backend_pump(ScIoBackend* backend) {
+static uint64_t timespec_to_ms(struct timespec t) {
+    return (uint64_t)t.tv_sec * 1000 + (uint64_t)t.tv_nsec / 100000;
+}
+
+void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
     assert(backend);
 
+    uint64_t deadline_ms = timespec_to_ms(deadline);
+
+    struct timespec now;
+    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &now));
+    uint64_t now_ms = timespec_to_ms(now);
+
+    uint64_t timeout = (deadline_ms > now_ms) ? deadline_ms - now_ms : 0;
+    assert(timeout <= INT_MAX);
+
     A3_TRACE("Waiting for events.");
-    int rc = poll(backend->poll_fds, backend->fd_count, -1);
+    int rc = poll(backend->poll_fds, backend->fd_count, (int)timeout);
     if ((rc < 0 && errno == EINTR) || !rc)
         return;
     if (rc < 0) {

@@ -150,10 +150,41 @@ void sc_io_backend_destroy(ScIoBackend* backend) {
     io_uring_queue_exit(&backend->uring);
 }
 
-void sc_io_backend_pump(ScIoBackend* backend) {
+// Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
+// return a null pointer if the SQ is full and, for whatever reason, it does not empty in time.
+static struct io_uring_sqe* sc_io_sqe_get_from(ScIoBackend* backend) {
     assert(backend);
 
     struct io_uring* uring = &backend->uring;
+
+    struct io_uring_sqe* ret = io_uring_get_sqe(uring);
+    // Try to submit events until an SQE is available or too many retries have elapsed.
+    for (size_t retries = 0; !ret && retries < SC_URING_SQE_RETRY_MAX;
+         ret            = io_uring_get_sqe(uring), retries++)
+        if (io_uring_submit(uring) < 0)
+            break;
+    if (!ret)
+        A3_WARN("SQ full.");
+    return ret;
+}
+
+static struct io_uring_sqe* sc_io_sqe_get(void) {
+    return sc_io_sqe_get_from(&sc_co_event_loop()->backend);
+}
+
+void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
+    assert(backend);
+
+    struct io_uring* uring = &backend->uring;
+
+    struct io_uring_sqe* sqe = sc_io_sqe_get_from(backend);
+    if A3_LIKELY (sqe) {
+        io_uring_prep_timeout(
+            sqe,
+            &(struct __kernel_timespec) { .tv_sec = deadline.tv_sec, .tv_nsec = deadline.tv_nsec },
+            1, IORING_TIMEOUT_ABS);
+        sqe->user_data = LIBURING_UDATA_TIMEOUT;
+    }
 
     A3_TRACE("Waiting for events.");
     io_uring_submit_and_wait(uring, 1);
@@ -163,6 +194,9 @@ void sc_io_backend_pump(ScIoBackend* backend) {
     unsigned             count = 0;
     io_uring_for_each_cqe(uring, head, cqe) {
         count++;
+
+        if (cqe->user_data == LIBURING_UDATA_TIMEOUT)
+            continue;
 
         A3_TRACE("Handling event.");
         ScCoroutine* co = io_uring_cqe_get_data(cqe);
@@ -175,22 +209,6 @@ void sc_io_backend_pump(ScIoBackend* backend) {
     }
 
     io_uring_cq_advance(uring, count);
-}
-
-// Get an SQE. This may trigger a submission in an attempt to clear the SQ if it is full. This /can/
-// return a null pointer if the SQ is full and, for whatever reason, it does not empty in time.
-static struct io_uring_sqe* sc_io_sqe_get(void) {
-    struct io_uring* uring = &sc_co_event_loop()->backend.uring;
-
-    struct io_uring_sqe* ret = io_uring_get_sqe(uring);
-    // Try to submit events until an SQE is available or too many retries have elapsed.
-    for (size_t retries = 0; !ret && retries < SC_URING_SQE_RETRY_MAX;
-         ret            = io_uring_get_sqe(uring), retries++)
-        if (io_uring_submit(uring) < 0)
-            break;
-    if (!ret)
-        A3_WARN("SQ full.");
-    return ret;
 }
 
 static ssize_t sc_io_submit(struct io_uring_sqe* sqe) {
