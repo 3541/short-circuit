@@ -97,7 +97,7 @@ if backend == 'uring' and host_machine.system() == 'linux'
   endif
   sc_cflags += '-DSC_IO_BACKEND_URING'
   sc_deps += liburing
-elif backend == 'poll'
+elif backend == 'poll' and c.has_function('poll')
   sc_cflags += '-DSC_IO_BACKEND_POLL'
 else
   error('Unsupported IO backend ' + backend + ' on platform '
