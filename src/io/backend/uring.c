@@ -49,6 +49,8 @@
 // liburing.
 #define RESOLVE_BENEATH 0x08
 
+#define SC_IO_EV_IGNORE 1
+
 #ifndef SC_TEST
 // Check that the kernel is sufficiently recent to support io_uring and io_uring_probe, which will
 // allow more specific feature checks.
@@ -117,6 +119,7 @@ static void sc_io_ops_check(void) {
     REQUIRE_OP(probe, IORING_OP_READV);
     REQUIRE_OP(probe, IORING_OP_WRITEV);
     REQUIRE_OP(probe, IORING_OP_STATX);
+    REQUIRE_OP(probe, IORING_OP_ASYNC_CANCEL);
 
 #undef REQUIRE_OP
 
@@ -195,10 +198,11 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
     io_uring_for_each_cqe(uring, head, cqe) {
         count++;
 
-        if (cqe->user_data == LIBURING_UDATA_TIMEOUT)
+        if (cqe->user_data == LIBURING_UDATA_TIMEOUT || cqe->user_data & SC_IO_EV_IGNORE)
             continue;
 
         A3_TRACE("Handling event.");
+
         ScCoroutine* co = io_uring_cqe_get_data(cqe);
         if (!co) {
             A3_WARN("Empty CQE.");
@@ -214,8 +218,30 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
 static ssize_t sc_io_submit(struct io_uring_sqe* sqe) {
     assert(sqe);
 
-    io_uring_sqe_set_data(sqe, sc_co_current());
-    return sc_co_yield();
+    ScCoroutine* co = sc_co_current();
+
+    io_uring_sqe_set_data(sqe, co);
+    ssize_t ret = sc_co_yield();
+
+    // This coroutine was resumed by the timeout handler, rather than from _pump. There is still an
+    // outstanding IO event somewhere.
+    if (SC_IO_TIMED_OUT(ret)) {
+        struct io_uring_sqe* cancel_sqe = sc_io_sqe_get();
+        // This is a bad sign for general stability, but not actually a big deal here — co_pin will
+        // keep the coroutine alive until the outstanding event is finished, and its resumption will
+        // trigger cleanup.
+        if (!cancel_sqe)
+            return ret;
+
+        io_uring_prep_cancel(sqe, co, 0);
+        sqe->user_data = (uintptr_t)co | SC_IO_EV_IGNORE;
+
+        // The handler loop above will not resume after the cancellation due to EV_IGNORE, so the
+        // target event has now completed or been cancelled
+        sc_co_yield();
+    }
+
+    return ret;
 }
 
 SC_IO_RESULT(ScFd)
