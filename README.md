@@ -11,6 +11,10 @@ completion.
 on Linux which offers a significant performance advantage (and, subjectively, a much nicer
 interface) over its competitors (POSIX `aio`, `epoll`, etc...).
 
+_NOTE_: Most development lately has been on the [co branch](https://github.com/3541/short-circuit/tree/co),
+which converts the server to use a coroutine-based IO model. It isn't yet up to feature parity with
+`trunk`, but it is likely to supersede the main branch eventually.
+
 ## Building
 Dependencies:
 * A C compiler supporting C11.
