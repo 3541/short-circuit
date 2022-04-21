@@ -23,6 +23,8 @@
 
 #include "backend/backend.h"
 
+#define SC_IO_TIMED_OUT(R) (!~(R))
+
 typedef struct ScEventLoop {
     ScIoBackend backend;
 } ScEventLoop;

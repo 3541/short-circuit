@@ -129,6 +129,14 @@ static size_t sc_io_poll_slot(void) {
     A3_UNREACHABLE();
 }
 
+static void sc_io_poll_remove(size_t slot) {
+    ScIoBackend* backend = &sc_co_event_loop()->backend;
+
+    backend->poll_fds[slot].events = 0;
+    backend->poll_fds[slot].fd     = -1;
+    backend->coroutines[slot]      = NULL;
+}
+
 static SC_IO_RESULT(bool) sc_io_wait(ScFd fd, short events) {
     assert(events);
 
@@ -139,11 +147,15 @@ static SC_IO_RESULT(bool) sc_io_wait(ScFd fd, short events) {
     backend->poll_fds[i].events = events;
     backend->coroutines[i]      = sc_co_current();
 
-    while (!(sc_co_yield() & (events | POLLHUP | POLLERR | POLLNVAL))) {}
+    ssize_t res = -1;
+    do {
+        res = sc_co_yield();
+    } while (!(res & (events | POLLHUP | POLLERR | POLLNVAL)) && !SC_IO_TIMED_OUT(res));
 
-    backend->poll_fds[i].events = 0;
-    backend->poll_fds[i].fd     = -1;
-    backend->coroutines[i]      = NULL;
+    sc_io_poll_remove(i);
+
+    if (SC_IO_TIMED_OUT(res))
+        return SC_IO_ERR(bool, SC_IO_TIMEOUT);
 
     short revents = backend->poll_fds[i].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))

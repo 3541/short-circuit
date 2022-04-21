@@ -229,8 +229,11 @@ sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
-    ScFd res = -1;
-    A3_UNWRAPS(res, (ScFd)sc_io_submit(sqe));
+    ScFd res = (ScFd)sc_io_submit(sqe);
+    if (SC_IO_TIMED_OUT(res))
+        return SC_IO_ERR(ScFd, SC_IO_TIMEOUT);
+    A3_UNWRAPSD(res);
+
     return SC_IO_OK(ScFd, res);
 }
 
@@ -244,8 +247,11 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     io_uring_prep_openat2(sqe, dir, a3_string_cstr(path),
                           &(struct open_how) { .flags = flags, .resolve = RESOLVE_BENEATH });
 
-    ScFd res = -1;
-    if ((res = (ScFd)sc_io_submit(sqe)) < 0) {
+    ScFd res = (ScFd)sc_io_submit(sqe);
+    if (res < 0) {
+        if (SC_IO_TIMED_OUT(res))
+            return SC_IO_ERR(ScFd, SC_IO_TIMEOUT);
+
         switch (-res) {
         case EAGAIN:
             return sc_io_open_under(dir, path, flags);
@@ -268,7 +274,11 @@ SC_IO_RESULT(bool) sc_io_close(ScFd file) {
 
     io_uring_prep_close(sqe, file);
 
-    A3_UNWRAPSD(sc_io_submit(sqe));
+    ssize_t res = sc_io_submit(sqe);
+    if (SC_IO_TIMED_OUT(res))
+        return SC_IO_ERR(bool, SC_IO_TIMEOUT);
+    A3_UNWRAPSD(res);
+
     return SC_IO_OK(bool, true);
 }
 
@@ -283,6 +293,9 @@ SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
 
     ssize_t res = sc_io_submit(sqe);
     if (res <= 0) {
+        if (SC_IO_TIMED_OUT(res))
+            return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
+
         switch (-res) {
         case 0:
         case ECONNRESET:
@@ -312,8 +325,10 @@ sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     io_uring_prep_readv(sqe, fd, vec, 1, (uint64_t)offset);
 #endif
 
-    ssize_t res = -1;
-    A3_UNWRAPS(res, sc_io_submit(sqe));
+    ssize_t res = sc_io_submit(sqe);
+    if (SC_IO_TIMED_OUT(res))
+        return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
+    A3_UNWRAPSD(res);
 
     if (!res)
         return SC_IO_ERR(size_t, SC_IO_EOF);
@@ -331,8 +346,11 @@ sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
 
     io_uring_prep_writev(sqe, fd, iov, count, 0);
 
-    ssize_t res = -1;
-    A3_UNWRAPS(res, sc_io_submit(sqe));
+    ssize_t res = sc_io_submit(sqe);
+    if (SC_IO_TIMED_OUT(res))
+        return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
+    A3_UNWRAPSD(res);
+
     if (!res)
         return SC_IO_ERR(size_t, SC_IO_EOF);
 
@@ -353,6 +371,9 @@ SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
 
     ssize_t res = sc_io_submit(sqe);
     if (res < 0) {
+        if (SC_IO_TIMED_OUT(res))
+            return SC_IO_ERR(bool, SC_IO_TIMEOUT);
+
         switch (-res) {
         case EACCES:
         case ENOENT:

@@ -36,7 +36,8 @@ A3_H_BEGIN
 #define SC_IO_ERROR_ENUM                                                                           \
     ERR(SC_IO_SUBMIT_FAILED, (-1), "IO event submission failed.")                                  \
     ERR(SC_IO_FILE_NOT_FOUND, (-2), "Target file not found.")                                      \
-    ERR(SC_IO_EOF, (-3), "Connection closed by peer or end of file reached.")
+    ERR(SC_IO_EOF, (-3), "Connection closed by peer or end of file reached.")                      \
+    ERR(SC_IO_TIMEOUT, (-4), "Operation timed out.")
 
 typedef enum ScIoError {
 #define ERR(N, V, S) N = (V),
