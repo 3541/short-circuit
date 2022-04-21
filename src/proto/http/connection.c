@@ -82,8 +82,17 @@ void sc_http_connection_handle(ScConnection* conn) {
     } while (http.connection_type == SC_HTTP_CONNECTION_TYPE_KEEP_ALIVE && conn->socket > 0 &&
              SC_IO_IS_OK(rc = sc_connection_recv(conn)) && rc.ok > 0);
 
-    if (SC_IO_IS_ERR(rc) && rc.err != SC_IO_EOF)
-        SC_IO_UNWRAP(rc);
+    if (SC_IO_IS_ERR(rc)) {
+        switch (rc.err) {
+        case SC_IO_EOF:
+            break;
+        case SC_IO_TIMEOUT:
+            sc_http_response_error_send(&http.response, SC_HTTP_STATUS_TIMEOUT, SC_HTTP_CLOSE);
+            break;
+        default:
+            SC_IO_UNWRAP(rc);
+        }
+    }
 }
 
 bool sc_http_connection_keep_alive(ScHttpConnection* conn) {
