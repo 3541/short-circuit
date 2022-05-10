@@ -60,8 +60,9 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_h
     ScFd sock = -1;
     A3_UNWRAPS(sock, socket(AF_INET6, SOCK_STREAM, 0));
 
-    int const enable = 1;
-    A3_UNWRAPSD(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)));
+    A3_UNWRAPSD(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int) { 1 }, sizeof(int)));
+    // TODO: Doesn't work on OpenBSD.
+    A3_UNWRAPSD(setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &(int) { 0 }, sizeof(int)));
 
 #ifdef SC_IO_BACKEND_POLL
     int flags = fcntl(sock, F_GETFL, 0);
