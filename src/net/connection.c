@@ -26,8 +26,10 @@
 
 #include <sc/coroutine.h>
 #include <sc/io.h>
+#include <sc/timeout.h>
 
 #include "config.h"
+#include "io/io.h"
 #include "listen.h"
 
 ssize_t sc_connection_handle(void* data) {
@@ -35,6 +37,8 @@ ssize_t sc_connection_handle(void* data) {
 
     A3_TRACE("Handling connection.");
     ScConnection* conn = data;
+
+    sc_connection_timeout_reset(conn);
 
     SC_IO_RESULT(size_t) res = sc_connection_recv(conn);
     if (SC_IO_IS_ERR(res)) {
@@ -47,6 +51,15 @@ ssize_t sc_connection_handle(void* data) {
     return 0;
 }
 
+static void sc_connection_time_out(ScTimeout* timeout) {
+    assert(timeout);
+
+    A3_TRACE("Connection timed out.");
+
+    ScConnection* conn = A3_CONTAINER_OF(timeout, ScConnection, timeout);
+    sc_co_resume(conn->coroutine, SC_IO_TIMED_OUT);
+}
+
 void sc_connection_init(ScConnection* conn, ScListener* listener) {
     assert(conn);
     assert(listener);
@@ -56,6 +69,8 @@ void sc_connection_init(ScConnection* conn, ScListener* listener) {
         .listener = listener,
         .socket   = -1,
     };
+    if (listener->timer)
+        sc_timeout_init(&conn->timeout, sc_connection_time_out, listener->connection_timeout_s);
 
     a3_buf_init(&conn->send_buf, SC_SEND_BUF_INIT_CAP, SC_SEND_BUF_MAX_CAP);
     a3_buf_init(&conn->recv_buf, SC_RECV_BUF_INIT_CAP, SC_RECV_BUF_MAX_CAP);
@@ -74,8 +89,12 @@ ScConnection* sc_connection_new(ScListener* listener) {
 void sc_connection_destroy(ScConnection* conn) {
     assert(conn);
 
+    A3_TRACE("Destroying connection.");
+
     a3_buf_destroy(&conn->send_buf);
     a3_buf_destroy(&conn->recv_buf);
+
+    sc_timeout_cancel(&conn->timeout);
 
     sc_connection_close(conn);
 }
@@ -121,4 +140,19 @@ SC_IO_RESULT(size_t) sc_connection_recv_until(ScConnection* conn, A3CString deli
     }
 
     return SC_IO_OK(size_t, a3_buf_len(buf) - prev_len);
+}
+
+void sc_connection_timeout_reset(ScConnection* conn) {
+    assert(conn);
+
+    sc_timeout_reset(&conn->timeout);
+}
+
+void sc_connection_timeout_arm(ScConnection* conn, ScTimer* timer) {
+    assert(conn);
+    assert(timer);
+
+    if (!A3_LL_NEXT(&conn->timeout, link))
+        sc_timeout_add(timer, &conn->timeout);
+    sc_connection_timeout_reset(conn);
 }

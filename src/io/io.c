@@ -28,6 +28,7 @@
 
 #include <sc/coroutine.h>
 #include <sc/io.h>
+#include <sc/timeout.h>
 
 #include "backend/backend.h"
 
@@ -51,11 +52,16 @@ A3CString sc_io_error_to_string(ScIoError error) {
 static void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
-    sc_io_backend_pump(&ev->backend, (struct timespec) { .tv_sec = 1000, .tv_nsec = 0 });
+    struct timespec const* next_timeout = sc_timer_next(ev->timer);
+    if (next_timeout)
+        printf("Next timeout at %ld\n", next_timeout->tv_sec);
+    sc_io_backend_pump(&ev->backend,
+                       next_timeout ? *next_timeout : (struct timespec) { .tv_sec = UINT_MAX });
 }
 
 ScEventLoop* sc_io_event_loop_new() {
     A3_UNWRAPNI(ScEventLoop*, ret, calloc(1, sizeof(*ret)));
+    ret->timer = sc_timer_new();
 
     sc_io_backend_init(&ret->backend);
     return ret;
@@ -65,6 +71,7 @@ void sc_io_event_loop_free(ScEventLoop* ev) {
     assert(ev);
 
     sc_io_backend_destroy(&ev->backend);
+    sc_timer_free(ev->timer);
     free(ev);
 }
 
@@ -82,11 +89,11 @@ void sc_io_event_loop_run(ScCoMain* co) {
     while (!SC_TERMINATE && sc_co_count(co) > 0) {
         sc_co_main_pending_resume(co);
         sc_io_event_loop_pump(ev);
+        sc_timer_tick(ev->timer);
     }
 }
 
-SC_IO_RESULT(size_t)
-sc_io_read(ScFd fd, A3String dst, size_t count, off_t offset) {
+SC_IO_RESULT(size_t) sc_io_read(ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(fd >= 0);
     assert(dst.ptr);
     assert(count);
@@ -111,8 +118,7 @@ sc_io_read(ScFd fd, A3String dst, size_t count, off_t offset) {
     return SC_IO_OK(size_t, to_read - left);
 }
 
-SC_IO_RESULT(size_t)
-sc_io_writev(ScFd fd, struct iovec* iov, unsigned count) {
+SC_IO_RESULT(size_t) sc_io_writev(ScFd fd, struct iovec* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);
     assert(count);

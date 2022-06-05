@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <time.h>
+
 #include <sc/connection.h>
 #include <sc/coroutine.h>
 #include <sc/listen.h>
@@ -28,4 +30,6 @@ typedef struct ScListener {
     ScConnectionHandler connection_handler;
     ScFd                socket;
     ScRouter*           router;
+    ScTimer*            timer;
+    time_t              connection_timeout_s;
 } ScListener;

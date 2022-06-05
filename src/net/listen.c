@@ -36,24 +36,28 @@
 
 #include "config.h"
 #include "connection.h"
+#include "io/io.h"
 #include "proto/http/connection.h"
 
-ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler, ScRouter* router) {
+ScListener* sc_listener_new(ScFd socket, ScConnectionHandler connection_handler, ScRouter* router,
+                            ScEventLoop* ev) {
     assert(socket >= 0);
     assert(connection_handler);
 
     A3_UNWRAPNI(ScListener*, ret, calloc(1, sizeof(*ret)));
     *ret = (ScListener) {
-        .connection_handler = connection_handler,
-        .socket             = socket,
-        .router             = router,
+        .connection_handler   = connection_handler,
+        .socket               = socket,
+        .router               = router,
+        .timer                = ev->timer,
+        .connection_timeout_s = SC_CONNECTION_TIMEOUT,
     };
 
     return ret;
 }
 
 ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_handler,
-                                ScRouter* router) {
+                                ScRouter* router, ScEventLoop* ev) {
     assert(port);
     assert(connection_handler);
 
@@ -64,7 +68,7 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_h
     // TODO: Doesn't work on OpenBSD.
     A3_UNWRAPSD(setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &(int) { 0 }, sizeof(int)));
 
-#ifdef SC_IO_BACKEND_POLL
+#ifndef SC_IO_BACKEND_URING
     int flags = fcntl(sock, F_GETFL, 0);
     if (flags < 0) {
         A3_ERRNO(errno, "GETFL");
@@ -79,13 +83,13 @@ ScListener* sc_listener_tcp_new(in_port_t port, ScConnectionHandler connection_h
     A3_UNWRAPSD(bind(sock, (struct sockaddr*)&addr, sizeof(addr)));
     A3_UNWRAPSD(listen(sock, SC_LISTEN_BACKLOG));
 
-    return sc_listener_new(sock, connection_handler, router);
+    return sc_listener_new(sock, connection_handler, router, ev);
 }
 
-ScListener* sc_listener_http_new(in_port_t port, ScRouter* router) {
+ScListener* sc_listener_http_new(in_port_t port, ScRouter* router, ScEventLoop* timer) {
     assert(router);
 
-    ScListener* ret = sc_listener_tcp_new(port, sc_http_connection_handle, router);
+    ScListener* ret = sc_listener_tcp_new(port, sc_http_connection_handle, router, timer);
 
     return ret;
 }
@@ -112,10 +116,13 @@ static ssize_t sc_listen(void* data) {
 
         conn->socket = SC_IO_UNWRAP(sc_io_accept(
             listener->socket, (struct sockaddr*)(&conn->client_addr), &conn->addr_len));
+        sc_connection_timeout_arm(conn, listener->timer);
         A3_TRACE("Accepted connection.");
 
         ScCoroutine* co = sc_co_spawn(sc_connection_handle, conn);
         sc_co_defer_on(co, sc_connection_free, conn);
+
+        conn->coroutine = co;
     }
 }
 

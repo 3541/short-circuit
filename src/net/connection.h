@@ -21,4 +21,5 @@
 
 #include <sc/connection.h>
 
+void    sc_connection_timeout_arm(ScConnection*, ScTimer*);
 ssize_t sc_connection_handle(void* data);

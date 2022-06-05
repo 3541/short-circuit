@@ -41,7 +41,7 @@ int main(void) {
     ScCoMain*    co = sc_co_main_new(ev);
 
     ScListener* listener =
-        sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, sc_http_handle_file_serve(A3_CS(".")));
+        sc_listener_http_new(SC_DEFAULT_LISTEN_PORT, sc_http_handle_file_serve(A3_CS(".")), ev);
     sc_listener_start(listener, co);
 
     sc_io_event_loop_run(co);

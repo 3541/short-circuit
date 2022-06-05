@@ -17,9 +17,34 @@
 
 #pragma once
 
+#include <time.h>
+
 #include <a3/cpp.h>
+#include <a3/ll.h>
 #include <a3/types.h>
 
 A3_H_BEGIN
+
+typedef struct ScTimer ScTimer;
+
+typedef struct ScTimeout ScTimeout;
+typedef void (*ScTimeoutCb)(ScTimeout*);
+
+typedef struct ScTimeout {
+    struct timespec deadline;
+    A3_LL_LINK(ScTimeout) link;
+    time_t      delay_s;
+    ScTimeoutCb done;
+} ScTimeout;
+
+A3_EXPORT ScTimer*               sc_timer_new(void);
+A3_EXPORT void                   sc_timer_free(ScTimer*);
+A3_EXPORT struct timespec const* sc_timer_next(ScTimer const*);
+A3_EXPORT void                   sc_timer_tick(ScTimer*);
+
+A3_EXPORT void sc_timeout_init(ScTimeout*, ScTimeoutCb, time_t delay_s);
+A3_EXPORT void sc_timeout_add(ScTimer*, ScTimeout*);
+A3_EXPORT void sc_timeout_reset(ScTimeout*);
+A3_EXPORT void sc_timeout_cancel(ScTimeout*);
 
 A3_H_END

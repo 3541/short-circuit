@@ -55,26 +55,6 @@ endif
 a3 = dependency('a3', fallback: ['a3', 'a3_dep'])
 a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 
-sc_include = include_directories(['src', 'src/include'])
-sc_src = files(
-  [
-    'src/mime.c',
-    'src/route.c',
-    'src/uri.c',
-    'src/io/io.c',
-    'src/io/backend/backend.c',
-    'src/io/co/coroutine.c',
-    'src/net/connection.c',
-    'src/net/listen.c',
-    'src/proto/http/connection.c',
-    'src/proto/http/handle.c',
-    'src/proto/http/headers.c',
-    'src/proto/http/parse.c',
-    'src/proto/http/response.c',
-    'src/proto/http/request.c',
-    'src/shim/openat.c',
-  ]
-)
 sc_deps = [a3, a3_hash]
 
 backend = get_option('io_backend')
@@ -119,7 +99,6 @@ endif
 if c.has_header_symbol('fcntl.h', 'O_RESOLVE_BENEATH')
   sc_cflags += '-DSC_HAVE_O_RESOLVE_BENEATH'
 endif
-
 if c.has_header_symbol('sys/socket.h', 'SOCK_NONBLOCK')
   sc_cflags += '-DSC_HAVE_SOCK_NONBLOCK'
 endif
@@ -155,6 +134,29 @@ endif
 if get_option('ci')
   sc_cflags += '-DSC_TEST'
 endif
+
+sc_include = include_directories(['src', 'src/include'])
+sc_src = files(
+  [
+    'src/mime.c',
+    'src/route.c',
+    'src/timeout.c',
+    'src/uri.c',
+    'src/io/io.c',
+    'src/io/timeout.c',
+    'src/io/backend/backend.c',
+    'src/io/co/coroutine.c',
+    'src/net/connection.c',
+    'src/net/listen.c',
+    'src/proto/http/connection.c',
+    'src/proto/http/handle.c',
+    'src/proto/http/headers.c',
+    'src/proto/http/parse.c',
+    'src/proto/http/response.c',
+    'src/proto/http/request.c',
+    'src/shim/openat.c',
+  ]
+)
 
 sc_lib = library(
   'sc',

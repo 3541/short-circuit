@@ -30,4 +30,5 @@
 
 typedef struct ScEventLoop {
     ScIoBackend backend;
+    ScTimer*    timer;
 } ScEventLoop;

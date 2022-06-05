@@ -31,11 +31,12 @@ typedef struct ScCoroutine ScCoroutine;
 typedef struct ScCoCtx     ScCoCtx;
 typedef struct ScCoMain    ScCoMain;
 
-typedef struct ScListener       ScListener;
 typedef struct ScConnection     ScConnection;
 typedef struct ScHttpConnection ScHttpConnection;
 typedef struct ScHttpRequest    ScHttpRequest;
 typedef struct ScHttpResponse   ScHttpResponse;
+typedef struct ScListener       ScListener;
 typedef struct ScRouter         ScRouter;
+typedef struct ScTimer          ScTimer;
 
 A3_H_END

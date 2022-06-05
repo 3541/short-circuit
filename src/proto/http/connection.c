@@ -74,11 +74,12 @@ void sc_http_connection_handle(ScConnection* conn) {
     sc_http_request_init(&http.request);
     sc_http_response_init(&http.response);
 
-    SC_IO_RESULT(size_t) rc;
+    SC_IO_RESULT(size_t) rc = SC_IO_OK(size_t, 0);
     do {
         sc_http_request_handle(&http.request);
         sc_http_request_reset(&http.request);
         sc_http_response_reset(&http.response);
+        sc_connection_timeout_reset(http.conn);
     } while (http.connection_type == SC_HTTP_CONNECTION_TYPE_KEEP_ALIVE && conn->socket > 0 &&
              SC_IO_IS_OK(rc = sc_connection_recv(conn)) && rc.ok > 0);
 

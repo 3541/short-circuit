@@ -228,8 +228,8 @@ static SC_IO_RESULT(ssize_t) sc_io_submit(struct io_uring_sqe* sqe) {
     if (ret == SC_IO_TIMED_OUT) {
         struct io_uring_sqe* cancel_sqe = sc_io_sqe_get();
         if (cancel_sqe) {
-            io_uring_prep_cancel(sqe, co, 0);
-            sqe->user_data = SC_IO_EV_IGNORE;
+            io_uring_prep_cancel(cancel_sqe, co, 0);
+            cancel_sqe->user_data = SC_IO_EV_IGNORE;
         }
         // If no SQE can be acquired for cancellation, the yield() will simply wait for the
         // outstanding event to complete.
@@ -237,6 +237,8 @@ static SC_IO_RESULT(ssize_t) sc_io_submit(struct io_uring_sqe* sqe) {
         // The handler loop above will not resume after the cancellation due to EV_IGNORE, so the
         // target event has now completed or been cancelled after this yield.
         sc_co_yield();
+
+        return SC_IO_ERR(ssize_t, SC_IO_TIMEOUT);
     }
 
     return SC_IO_OK(ssize_t, ret);
@@ -321,8 +323,7 @@ SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(size_t)
-sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
+SC_IO_RESULT(size_t) sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     assert(fd >= 0);
     assert(dst.ptr);
     assert(dst.len <= UINT_MAX);
@@ -347,8 +348,7 @@ sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(size_t)
-sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
+SC_IO_RESULT(size_t) sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);
     assert(count > 0);
