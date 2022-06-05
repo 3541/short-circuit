@@ -37,8 +37,8 @@ typedef struct ScCoCtx {
 } ScCoCtx;
 
 typedef struct ScCoMain {
-    ScCoCtx      ctx;
-    A3SLL        spawn_queue;
+    ScCoCtx ctx;
+    A3_SLL(spawn_queue, ScCoroutine) spawn_queue;
     ScEventLoop* ev;
     size_t       count;
 } ScCoMain;
@@ -46,14 +46,14 @@ typedef struct ScCoMain {
 typedef struct ScCoDeferred {
     ScCoDeferredCb f;
     void*          data;
-    A3SLink        list;
+    A3_SLL_LINK(struct ScCoDeferred) link;
 } ScCoDeferred;
 
 typedef struct ScCoroutine {
-    uint8_t   stack[SC_CO_STACK_SIZE];
-    ScCoCtx   ctx;
-    A3SLL     deferred;
-    A3SLink   pending;
+    uint8_t stack[SC_CO_STACK_SIZE];
+    ScCoCtx ctx;
+    A3_SLL(deferred, ScCoDeferred) deferred;
+    A3_SLL_LINK(ScCoroutine) link;
     ScCoMain* parent;
     ssize_t   value;
 #ifndef NDEBUG
@@ -97,7 +97,7 @@ static void sc_co_begin(unsigned int entry_l, unsigned int entry_h, unsigned int
 
     CURRENT->value = entry(data);
 
-    A3_SLL_FOR_EACH(ScCoDeferred, deferred, &CURRENT->deferred, list) {
+    A3_SLL_FOR_EACH(ScCoDeferred, deferred, &CURRENT->deferred, link) {
         deferred->f(deferred->data);
     }
     CURRENT->done = true;
@@ -138,7 +138,7 @@ ScCoMain* sc_co_main_new(ScEventLoop* ev) {
     ret->ev    = ev;
     ret->count = 0;
 
-    a3_sll_init(&ret->spawn_queue);
+    A3_SLL_INIT(&ret->spawn_queue);
 
     return ret;
 }
@@ -158,9 +158,9 @@ ScEventLoop* sc_co_main_event_loop(ScCoMain* main) {
 void sc_co_main_pending_resume(ScCoMain* main) {
     assert(main);
 
-    for (A3SLink* l = a3_sll_dequeue(&main->spawn_queue); l;
-         l          = a3_sll_dequeue(&main->spawn_queue)) {
-        ScCoroutine* co = A3_CONTAINER_OF(l, ScCoroutine, pending);
+    while (!A3_SLL_IS_EMPTY(&main->spawn_queue)) {
+        ScCoroutine* co = A3_SLL_HEAD(&main->spawn_queue);
+        A3_SLL_DEQUEUE(&main->spawn_queue, link);
         sc_co_resume(co, 0);
     }
 }
@@ -183,7 +183,7 @@ ScCoroutine* sc_co_new(ScCoMain* main, ScCoEntry entry, void* data) {
     ret->vg_stack_id = VALGRIND_STACK_REGISTER(ret->stack, ret->stack + sizeof(ret->stack));
 #endif
 
-    a3_sll_init(&ret->deferred);
+    A3_SLL_INIT(&ret->deferred);
     sc_co_ctx_init(ret, &ret->stack, sizeof(ret->stack), entry, data);
 
     main->count++;
@@ -195,7 +195,7 @@ ScCoroutine* sc_co_spawn(ScCoEntry entry, void* data) {
     assert(entry);
 
     ScCoroutine* ret = sc_co_new(CURRENT->parent, entry, data);
-    a3_sll_enqueue(&CURRENT->parent->spawn_queue, &ret->pending);
+    A3_SLL_ENQUEUE(&CURRENT->parent->spawn_queue, ret, link);
 
     return ret;
 }
@@ -250,7 +250,7 @@ void sc_co_defer_on(ScCoroutine* co, ScCoDeferredCb f, void* data) {
         .data = data,
     };
 
-    a3_sll_push(&co->deferred, &def->list);
+    A3_SLL_PUSH(&co->deferred, def, link);
 }
 
 void sc_co_defer(ScCoDeferredCb f, void* data) { sc_co_defer_on(CURRENT, f, data); }
