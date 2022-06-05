@@ -186,7 +186,7 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
             sqe,
             &(struct __kernel_timespec) { .tv_sec = deadline.tv_sec, .tv_nsec = deadline.tv_nsec },
             1, IORING_TIMEOUT_ABS);
-        sqe->user_data = LIBURING_UDATA_TIMEOUT;
+        sqe->user_data = SC_IO_EV_IGNORE;
     }
 
     A3_TRACE("Waiting for events.");
@@ -198,7 +198,7 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
     io_uring_for_each_cqe(uring, head, cqe) {
         count++;
 
-        if (cqe->user_data == LIBURING_UDATA_TIMEOUT || cqe->user_data & SC_IO_EV_IGNORE)
+        if (cqe->user_data & SC_IO_EV_IGNORE)
             continue;
 
         A3_TRACE("Handling event.");
@@ -215,7 +215,7 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
     io_uring_cq_advance(uring, count);
 }
 
-static ssize_t sc_io_submit(struct io_uring_sqe* sqe) {
+static SC_IO_RESULT(ssize_t) sc_io_submit(struct io_uring_sqe* sqe) {
     assert(sqe);
 
     ScCoroutine* co = sc_co_current();
@@ -225,23 +225,21 @@ static ssize_t sc_io_submit(struct io_uring_sqe* sqe) {
 
     // This coroutine was resumed by the timeout handler, rather than from _pump. There is still an
     // outstanding IO event somewhere.
-    if (SC_IO_TIMED_OUT(ret)) {
+    if (ret == SC_IO_TIMED_OUT) {
         struct io_uring_sqe* cancel_sqe = sc_io_sqe_get();
-        // This is a bad sign for general stability, but not actually a big deal here — co_pin will
-        // keep the coroutine alive until the outstanding event is finished, and its resumption will
-        // trigger cleanup.
-        if (!cancel_sqe)
-            return ret;
-
-        io_uring_prep_cancel(sqe, co, 0);
-        sqe->user_data = (uintptr_t)co | SC_IO_EV_IGNORE;
+        if (cancel_sqe) {
+            io_uring_prep_cancel(sqe, co, 0);
+            sqe->user_data = SC_IO_EV_IGNORE;
+        }
+        // If no SQE can be acquired for cancellation, the yield() will simply wait for the
+        // outstanding event to complete.
 
         // The handler loop above will not resume after the cancellation due to EV_IGNORE, so the
-        // target event has now completed or been cancelled
+        // target event has now completed or been cancelled after this yield.
         sc_co_yield();
     }
 
-    return ret;
+    return SC_IO_OK(ssize_t, ret);
 }
 
 SC_IO_RESULT(ScFd)
@@ -255,9 +253,7 @@ sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
 
     io_uring_prep_accept(sqe, sock, client_addr, addr_len, 0);
 
-    ScFd res = (ScFd)sc_io_submit(sqe);
-    if (SC_IO_TIMED_OUT(res))
-        return SC_IO_ERR(ScFd, SC_IO_TIMEOUT);
+    ScFd res = (ScFd)SC_IO_TRY(ScFd, sc_io_submit(sqe));
     A3_UNWRAPSD(res);
 
     return SC_IO_OK(ScFd, res);
@@ -273,11 +269,8 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     io_uring_prep_openat2(sqe, dir, a3_string_cstr(path),
                           &(struct open_how) { .flags = flags, .resolve = RESOLVE_BENEATH });
 
-    ScFd res = (ScFd)sc_io_submit(sqe);
+    ScFd res = (ScFd)SC_IO_TRY(ScFd, sc_io_submit(sqe));
     if (res < 0) {
-        if (SC_IO_TIMED_OUT(res))
-            return SC_IO_ERR(ScFd, SC_IO_TIMEOUT);
-
         switch (-res) {
         case EAGAIN:
             return sc_io_open_under(dir, path, flags);
@@ -292,20 +285,18 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     return SC_IO_OK(ScFd, res);
 }
 
-SC_IO_RESULT(bool) sc_io_close(ScFd file) {
+SC_IO_RESULT(void) sc_io_close(ScFd file) {
     assert(file >= 0);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get();
-    A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
+    A3_TRYB_MAP(sqe, SC_IO_ERR(void, SC_IO_SUBMIT_FAILED));
 
     io_uring_prep_close(sqe, file);
 
-    ssize_t res = sc_io_submit(sqe);
-    if (SC_IO_TIMED_OUT(res))
-        return SC_IO_ERR(bool, SC_IO_TIMEOUT);
+    ssize_t res = SC_IO_TRY(void, sc_io_submit(sqe));
     A3_UNWRAPSD(res);
 
-    return SC_IO_OK(bool, true);
+    return SC_IO_OK(void);
 }
 
 SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
@@ -317,11 +308,8 @@ SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
 
     io_uring_prep_recv(sqe, sock, dst.ptr, dst.len, 0);
 
-    ssize_t res = sc_io_submit(sqe);
+    ssize_t res = SC_IO_TRY(size_t, sc_io_submit(sqe));
     if (res <= 0) {
-        if (SC_IO_TIMED_OUT(res))
-            return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
-
         switch (-res) {
         case 0:
         case ECONNRESET:
@@ -351,9 +339,7 @@ sc_io_read_raw(ScFd fd, A3String dst, size_t count, off_t offset) {
     io_uring_prep_readv(sqe, fd, vec, 1, (uint64_t)offset);
 #endif
 
-    ssize_t res = sc_io_submit(sqe);
-    if (SC_IO_TIMED_OUT(res))
-        return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
+    ssize_t res = SC_IO_TRY(size_t, sc_io_submit(sqe));
     A3_UNWRAPSD(res);
 
     if (!res)
@@ -372,38 +358,32 @@ sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
 
     io_uring_prep_writev(sqe, fd, iov, count, 0);
 
-    ssize_t res = sc_io_submit(sqe);
-    if (SC_IO_TIMED_OUT(res))
-        return SC_IO_ERR(size_t, SC_IO_TIMEOUT);
+    ssize_t res = SC_IO_TRY(size_t, sc_io_submit(sqe));
     A3_UNWRAPSD(res);
 
     if (!res)
         return SC_IO_ERR(size_t, SC_IO_EOF);
-
     return SC_IO_OK(size_t, (size_t)res);
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
+SC_IO_RESULT(void) sc_io_stat(ScFd file, struct stat* statbuf) {
     assert(file >= 0);
     assert(statbuf);
 
     struct io_uring_sqe* sqe = sc_io_sqe_get();
-    A3_TRYB_MAP(sqe, SC_IO_ERR(bool, SC_IO_SUBMIT_FAILED));
+    A3_TRYB_MAP(sqe, SC_IO_ERR(void, SC_IO_SUBMIT_FAILED));
 
     struct statx statxbuf;
 
     io_uring_prep_statx(sqe, file, "", AT_EMPTY_PATH,
                         STATX_TYPE | STATX_SIZE | STATX_MTIME | STATX_INO, &statxbuf);
 
-    ssize_t res = sc_io_submit(sqe);
+    ssize_t res = SC_IO_TRY(void, sc_io_submit(sqe));
     if (res < 0) {
-        if (SC_IO_TIMED_OUT(res))
-            return SC_IO_ERR(bool, SC_IO_TIMEOUT);
-
         switch (-res) {
         case EACCES:
         case ENOENT:
-            return SC_IO_ERR(bool, SC_IO_FILE_NOT_FOUND);
+            return SC_IO_ERR(void, SC_IO_FILE_NOT_FOUND);
         }
         A3_ERRNO(-(int)res, "statx");
         A3_PANIC("statx failed.");
@@ -415,5 +395,5 @@ SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
     statbuf->st_mtim.tv_nsec = statxbuf.stx_mtime.tv_nsec;
     statbuf->st_ino          = statxbuf.stx_ino;
 
-    return SC_IO_OK(bool, true);
+    return SC_IO_OK(void);
 }

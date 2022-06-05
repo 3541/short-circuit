@@ -129,16 +129,8 @@ static size_t sc_io_poll_slot(void) {
     A3_UNREACHABLE();
 }
 
-static void sc_io_poll_remove(size_t slot) {
-    ScIoBackend* backend = &sc_co_event_loop()->backend;
-
-    backend->poll_fds[slot].events = 0;
-    backend->poll_fds[slot].fd     = -1;
-    backend->coroutines[slot]      = NULL;
-}
-
-static SC_IO_RESULT(bool) sc_io_wait(ScFd fd, short events) {
-    assert(events);
+static size_t sc_io_poll_add(ScFd fd, short events) {
+    assert(fd >= 0);
 
     ScIoBackend* backend = &sc_co_event_loop()->backend;
 
@@ -147,21 +139,37 @@ static SC_IO_RESULT(bool) sc_io_wait(ScFd fd, short events) {
     backend->poll_fds[i].events = events;
     backend->coroutines[i]      = sc_co_current();
 
+    return i;
+}
+
+static void sc_io_poll_remove(size_t slot) {
+    ScIoBackend* backend = &sc_co_event_loop()->backend;
+
+    backend->poll_fds[slot].events = 0;
+    backend->poll_fds[slot].fd     = -1;
+    backend->coroutines[slot]      = NULL;
+}
+
+static SC_IO_RESULT(void) sc_io_wait(ScFd fd, short events) {
+    assert(events);
+
+    size_t slot = sc_io_poll_add(fd, events);
+
     ssize_t res = -1;
     do {
         res = sc_co_yield();
-    } while (!(res & (events | POLLHUP | POLLERR | POLLNVAL)) && !SC_IO_TIMED_OUT(res));
+    } while (!(res & (events | POLLHUP | POLLERR | POLLNVAL)) && res != SC_IO_TIMED_OUT);
 
-    sc_io_poll_remove(i);
+    sc_io_poll_remove(slot);
 
-    if (SC_IO_TIMED_OUT(res))
-        return SC_IO_ERR(bool, SC_IO_TIMEOUT);
+    if (res == SC_IO_TIMED_OUT)
+        return SC_IO_ERR(void, SC_IO_TIMEOUT);
 
-    short revents = backend->poll_fds[i].revents;
+    short revents = sc_co_event_loop()->backend.poll_fds[slot].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
-        return SC_IO_ERR(bool, SC_IO_EOF);
+        return SC_IO_ERR(void, SC_IO_EOF);
 
-    return SC_IO_OK(bool, true);
+    return SC_IO_OK(void);
 }
 
 SC_IO_RESULT(ScFd)
@@ -209,12 +217,12 @@ SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags) {
     return SC_IO_OK(ScFd, res);
 }
 
-SC_IO_RESULT(bool) sc_io_close(ScFd file) {
+SC_IO_RESULT(void) sc_io_close(ScFd file) {
     assert(file >= 0);
 
     A3_UNWRAPSD(close(file));
 
-    return SC_IO_OK(bool, true);
+    return SC_IO_OK(void);
 }
 
 SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst) {
@@ -309,7 +317,7 @@ sc_io_writev_raw(ScFd fd, struct iovec const* iov, unsigned count) {
     }
 }
 
-SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
+SC_IO_RESULT(void) sc_io_stat(ScFd file, struct stat* statbuf) {
     assert(file >= 0);
     assert(statbuf);
 
@@ -317,11 +325,11 @@ SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat* statbuf) {
         switch (errno) {
         case EACCES:
         case ENOENT:
-            return SC_IO_ERR(bool, SC_IO_FILE_NOT_FOUND);
+            return SC_IO_ERR(void, SC_IO_FILE_NOT_FOUND);
         }
         A3_ERRNO(errno, "fstat");
         A3_PANIC("fstat failed.");
     }
 
-    return SC_IO_OK(bool, true);
+    return SC_IO_OK(void);
 }

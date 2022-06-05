@@ -40,12 +40,12 @@ static void sc_signal_handler(int signum) {
 }
 
 A3CString sc_io_error_to_string(ScIoError error) {
-#define ERR(N, V, S) [-(N)]         = A3_CS(S),
+#define ERR(N, V, S) [(N)]          = A3_CS(S),
     static A3CString const ERRORS[] = { SC_IO_ERROR_ENUM };
 #undef ERR
-    assert(error < 0 && (size_t)-error < sizeof(ERRORS) / sizeof(ERRORS[0]));
+    assert(error >= 0 && (size_t)error < sizeof(ERRORS) / sizeof(ERRORS[0]));
 
-    return ERRORS[-error];
+    return ERRORS[error];
 }
 
 static void sc_io_event_loop_pump(ScEventLoop* ev) {

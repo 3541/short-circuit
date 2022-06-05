@@ -34,10 +34,10 @@
 A3_H_BEGIN
 
 #define SC_IO_ERROR_ENUM                                                                           \
-    ERR(SC_IO_SUBMIT_FAILED, (-1), "IO event submission failed.")                                  \
-    ERR(SC_IO_FILE_NOT_FOUND, (-2), "Target file not found.")                                      \
-    ERR(SC_IO_EOF, (-3), "Connection closed by peer or end of file reached.")                      \
-    ERR(SC_IO_TIMEOUT, (-4), "Operation timed out.")
+    ERR(SC_IO_SUBMIT_FAILED, (0), "IO event submission failed.")                                   \
+    ERR(SC_IO_FILE_NOT_FOUND, (1), "Target file not found.")                                       \
+    ERR(SC_IO_EOF, (2), "Connection closed by peer or end of file reached.")                       \
+    ERR(SC_IO_TIMEOUT, (3), "Operation timed out.")
 
 typedef enum ScIoError {
 #define ERR(N, V, S) N = (V),
@@ -47,31 +47,43 @@ typedef enum ScIoError {
 
 #define SC_IO_RESULT(T) A3_M_PASTE(ScIoResult, T)
 #define SC_DEFINE_IO_RESULT(T)                                                                     \
-    typedef union SC_IO_RESULT(T) {                                                                \
-        T         ok;                                                                              \
-        ScIoError err;                                                                             \
+    typedef struct SC_IO_RESULT(T) {                                                               \
+        bool is_ok;                                                                                \
+        union {                                                                                    \
+            T         ok;                                                                          \
+            ScIoError err;                                                                         \
+        };                                                                                         \
     } SC_IO_RESULT(T)
 
 SC_DEFINE_IO_RESULT(size_t);
+SC_DEFINE_IO_RESULT(ssize_t);
 SC_DEFINE_IO_RESULT(ScFd);
-SC_DEFINE_IO_RESULT(bool);
+typedef struct SC_IO_RESULT(void) {
+    bool is_ok;
+    union {
+        bool      ok;
+        ScIoError err;
+    };
+} SC_IO_RESULT(void);
 
-#define SC_IO_OK(T, O)  ((SC_IO_RESULT(T)) { .ok = (O) })
-#define SC_IO_ERR(T, E) ((SC_IO_RESULT(T)) { .err = (E) })
+#define SC_IO_OK_VOID(T) ((SC_IO_RESULT(T)) { .is_ok = true, .ok = false })
+#define SC_IO_OK_1(T, O) ((SC_IO_RESULT(T)) { .is_ok = true, .ok = (O) })
 
-#define SC_IO_IS_ERR(R)                                                                            \
-    ({                                                                                             \
-        __typeof__(R) _res = (R);                                                                  \
-        _res.err < 0;                                                                              \
-    })
-#define SC_IO_IS_OK(R) (!SC_IO_IS_ERR(R))
+#define SC_M_ARG3(A1, A2, A3, ...) A3
+
+#define SC_IO_OK(...)   SC_M_ARG3(__VA_ARGS__, SC_IO_OK_1, SC_IO_OK_VOID)(__VA_ARGS__)
+#define SC_IO_ERR(T, E) ((SC_IO_RESULT(T)) { .is_ok = false, .err = (E) })
+
+#define SC_IO_IS_OK(R)  ((R).is_ok)
+#define SC_IO_IS_ERR(R) (!SC_IO_IS_OK(R))
 
 #define SC_IO_TRY(T, R)                                                                            \
     ({                                                                                             \
         __typeof__(R) _try_res = (R);                                                              \
         if (SC_IO_IS_ERR(_try_res)) {                                                              \
             SC_IO_RESULT(T) _ret;                                                                  \
-            _ret.err = _try_res.err;                                                               \
+            _ret.is_ok = false;                                                                    \
+            _ret.err   = _try_res.err;                                                             \
             return _ret;                                                                           \
         }                                                                                          \
         _try_res.ok;                                                                               \
@@ -105,12 +117,12 @@ A3_EXPORT void         sc_io_event_loop_free(ScEventLoop*);
 A3_EXPORT SC_IO_RESULT(ScFd)
     sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len);
 A3_EXPORT SC_IO_RESULT(ScFd) sc_io_open_under(ScFd dir, A3CString path, uint64_t flags);
-A3_EXPORT SC_IO_RESULT(bool) sc_io_close(ScFd);
+A3_EXPORT SC_IO_RESULT(void) sc_io_close(ScFd);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScFd, A3String dst, size_t count, off_t);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read_raw(ScFd, A3String dst, size_t count, off_t);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev(ScFd, struct iovec*, unsigned count);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev_raw(ScFd, struct iovec const*, unsigned count);
-A3_EXPORT SC_IO_RESULT(bool) sc_io_stat(ScFd file, struct stat*);
+A3_EXPORT SC_IO_RESULT(void) sc_io_stat(ScFd file, struct stat*);
 
 A3_H_END

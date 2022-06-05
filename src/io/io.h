@@ -19,11 +19,14 @@
 
 #pragma once
 
+#include <limits.h>
+
+#include <sc/forward.h>
 #include <sc/io.h>
 
 #include "backend/backend.h"
 
-#define SC_IO_TIMED_OUT(R) (!~(R))
+#define SC_IO_TIMED_OUT (-SSIZE_MAX)
 
 typedef struct ScEventLoop {
     ScIoBackend backend;
