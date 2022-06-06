@@ -29,7 +29,6 @@
 #include <a3/str.h>
 #include <a3/util.h>
 
-#include <sc/coroutine.h>
 #include <sc/http.h>
 #include <sc/mime.h>
 
@@ -53,7 +52,6 @@ void sc_http_response_init(ScHttpResponse* resp) {
     assert(resp);
 
     sc_http_response_reset(resp);
-    sc_co_defer(sc_http_response_destroy, resp);
 }
 
 void sc_http_response_reset(ScHttpResponse* resp) {

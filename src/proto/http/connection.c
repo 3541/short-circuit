@@ -27,6 +27,7 @@
 #include <sc/http.h>
 #include <sc/listen.h>
 
+#include "proto/http/request.h"
 #include "proto/http/response.h"
 
 #define VERSION(V, S) [V] = A3_CS(S),
@@ -94,6 +95,9 @@ void sc_http_connection_handle(ScConnection* conn) {
             SC_IO_UNWRAP(rc);
         }
     }
+
+    sc_http_response_destroy(&http.response);
+    sc_http_request_destroy(&http.request);
 }
 
 bool sc_http_connection_keep_alive(ScHttpConnection* conn) {

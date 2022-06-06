@@ -26,7 +26,6 @@
 #include <a3/util.h>
 
 #include <sc/connection.h>
-#include <sc/coroutine.h>
 #include <sc/listen.h>
 #include <sc/route.h>
 
@@ -42,7 +41,6 @@ void sc_http_request_init(ScHttpRequest* req) {
     assert(req);
 
     sc_http_request_reset(req);
-    sc_co_defer(sc_http_request_destroy, req);
 }
 
 void sc_http_request_reset(ScHttpRequest* req) {
