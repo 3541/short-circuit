@@ -60,7 +60,7 @@ ScMimeType sc_mime_from_path(A3CString path) {
 
     A3CString extension = a3_cstring_new(last_dot.ptr + 1, last_dot.len - 1);
     for (size_t i = 0; i < sizeof(EXTENSIONS) / sizeof(EXTENSIONS[0]); i++) {
-        if (a3_string_cmpi(extension, EXTENSIONS[i].extension))
+        if (a3_string_cmpi(extension, EXTENSIONS[i].extension) == 0)
             return EXTENSIONS[i].type;
     }
 
