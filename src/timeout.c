@@ -71,9 +71,7 @@ void sc_timer_tick(ScTimer* timer) {
 static struct timespec sc_time_delay_to_timespec_deadline(time_t time_s) {
     struct timespec ret;
     A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &ret));
-    printf("Time is %ld\n", ret.tv_sec);
     ret.tv_sec += time_s;
-    printf("Deadline is %ld\n", ret.tv_sec);
 
     return ret;
 }
