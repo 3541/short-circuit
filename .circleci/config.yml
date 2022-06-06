@@ -19,6 +19,7 @@ jobs:
               LIBURING=$(mktemp -d)
               git clone https://github.com/axboe/liburing $LIBURING
               cd $LIBURING
+              git checkout liburing-2.1
               ./configure
               make -C src -j$(nproc)
               sudo make install

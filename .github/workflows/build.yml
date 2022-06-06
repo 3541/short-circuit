@@ -31,10 +31,11 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       if: matrix.backend == 'uring'
       with:
         repository: axboe/liburing
+        ref: liburing-2.1
         path: liburing
 
     - name: Fixup cross triple quirks.
