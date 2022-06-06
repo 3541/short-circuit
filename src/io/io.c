@@ -52,11 +52,7 @@ A3CString sc_io_error_to_string(ScIoError error) {
 static void sc_io_event_loop_pump(ScEventLoop* ev) {
     assert(ev);
 
-    struct timespec const* next_timeout = sc_timer_next(ev->timer);
-    if (next_timeout)
-        printf("Next timeout at %ld\n", next_timeout->tv_sec);
-    sc_io_backend_pump(&ev->backend,
-                       next_timeout ? *next_timeout : (struct timespec) { .tv_sec = UINT_MAX });
+    sc_io_backend_pump(&ev->backend, sc_timer_next(ev->timer));
 }
 
 ScEventLoop* sc_io_event_loop_new() {

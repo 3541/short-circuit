@@ -237,8 +237,7 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
 
     bool index = false;
     if (S_ISDIR(statbuf.st_mode)) {
-        SC_IO_RESULT(ScFd)
-        maybe_file = sc_io_open_under(file, SC_INDEX_FILENAME, O_RDONLY);
+        SC_IO_RESULT(ScFd) maybe_file = sc_io_open_under(file, SC_INDEX_FILENAME, O_RDONLY);
 
         // TODO: Directory listings.
         if (SC_IO_IS_ERR(maybe_file)) {

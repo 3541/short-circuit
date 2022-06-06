@@ -31,4 +31,4 @@
 
 void sc_io_backend_init(ScIoBackend*);
 void sc_io_backend_destroy(ScIoBackend*);
-void sc_io_backend_pump(ScIoBackend*, struct timespec deadline);
+void sc_io_backend_pump(ScIoBackend*, struct timespec const* deadline);

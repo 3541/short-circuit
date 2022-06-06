@@ -175,17 +175,20 @@ static struct io_uring_sqe* sc_io_sqe_get(void) {
     return sc_io_sqe_get_from(&sc_co_event_loop()->backend);
 }
 
-void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
+void sc_io_backend_pump(ScIoBackend* backend, struct timespec const* deadline) {
     assert(backend);
 
     struct io_uring* uring = &backend->uring;
 
-    struct io_uring_sqe*     sqe            = sc_io_sqe_get_from(backend);
-    struct __kernel_timespec uring_deadline = { .tv_sec  = deadline.tv_sec,
-                                                .tv_nsec = deadline.tv_nsec };
-    if A3_LIKELY (sqe) {
-        io_uring_prep_timeout(sqe, &uring_deadline, 1, IORING_TIMEOUT_ABS);
-        sqe->user_data = SC_IO_EV_IGNORE;
+    struct __kernel_timespec uring_deadline;
+    if (deadline) {
+        struct io_uring_sqe* sqe = sc_io_sqe_get_from(backend);
+        uring_deadline =
+            (struct __kernel_timespec) { .tv_sec = deadline->tv_sec, .tv_nsec = deadline->tv_nsec };
+        if A3_LIKELY (sqe) {
+            io_uring_prep_timeout(sqe, &uring_deadline, 1, IORING_TIMEOUT_ABS);
+            sqe->user_data = SC_IO_EV_IGNORE;
+        }
     }
 
     A3_TRACE("Waiting for events.");

@@ -75,20 +75,24 @@ static uint64_t timespec_to_ms(struct timespec t) {
     return (uint64_t)t.tv_sec * 1000 + (uint64_t)t.tv_nsec / 100000;
 }
 
-void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
+void sc_io_backend_pump(ScIoBackend* backend, struct timespec const* deadline) {
     assert(backend);
 
-    uint64_t deadline_ms = timespec_to_ms(deadline);
+    int timeout = -1;
+    if (deadline) {
+        uint64_t deadline_ms = timespec_to_ms(*deadline);
 
-    struct timespec now;
-    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &now));
-    uint64_t now_ms = timespec_to_ms(now);
+        struct timespec now;
+        A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &now));
+        uint64_t now_ms = timespec_to_ms(now);
 
-    uint64_t timeout = (deadline_ms > now_ms) ? deadline_ms - now_ms : 0;
-    assert(timeout <= INT_MAX);
+        uint64_t t = (deadline_ms > now_ms) ? deadline_ms - now_ms : 0;
+        assert(t <= INT_MAX);
+        timeout = (int)t;
+    }
 
     A3_TRACE("Waiting for events.");
-    int rc = poll(backend->poll_fds, backend->fd_count, (int)timeout);
+    int rc = poll(backend->poll_fds, backend->fd_count, timeout);
     if ((rc < 0 && errno == EINTR) || !rc)
         return;
     if (rc < 0) {
@@ -165,15 +169,13 @@ static SC_IO_RESULT(void) sc_io_wait(ScFd fd, short events) {
     if (res == SC_IO_TIMED_OUT)
         return SC_IO_ERR(void, SC_IO_TIMEOUT);
 
-    short revents = sc_co_event_loop()->backend.poll_fds[slot].revents;
-    if (revents & (POLLERR | POLLHUP | POLLNVAL))
+    if (res & (POLLERR | POLLHUP | POLLNVAL))
         return SC_IO_ERR(void, SC_IO_EOF);
 
     return SC_IO_OK(void);
 }
 
-SC_IO_RESULT(ScFd)
-sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
+SC_IO_RESULT(ScFd) sc_io_accept(ScFd sock, struct sockaddr* client_addr, socklen_t* addr_len) {
     assert(sock >= 0);
     assert(client_addr);
     assert(addr_len && *addr_len);
