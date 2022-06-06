@@ -113,19 +113,12 @@ SC_IO_RESULT(size_t) sc_connection_recv_until(ScConnection* conn, A3CString deli
     assert(conn);
     assert(delim.ptr && *delim.ptr);
 
-    A3Buffer* buf = &conn->recv_buf;
-
-    if (a3_buf_memmem(buf, delim).ptr)
-        return SC_IO_OK(size_t, 0);
-
-    size_t prev_len = a3_buf_len(buf);
-    size_t back     = MIN(a3_buf_len(buf), delim.len);
-    while (true) {
+    A3Buffer* buf      = &conn->recv_buf;
+    size_t    prev_len = a3_buf_len(buf);
+    while (!a3_buf_memmem(buf, delim).ptr && a3_buf_len(buf) <= max) {
         a3_buf_ensure_cap(&conn->recv_buf, SC_RECV_BUF_MIN_SPACE);
         SC_IO_TRY(size_t, sc_connection_recv(conn));
-
-        if (a3_string_memmem(a3_string_offset_back(buf->data, back), delim).ptr ||
-            a3_buf_len(buf) >= max || a3_buf_space(buf) == 0)
-            return SC_IO_OK(size_t, a3_buf_len(buf) - prev_len);
     }
+
+    return SC_IO_OK(size_t, a3_buf_len(buf) - prev_len);
 }
