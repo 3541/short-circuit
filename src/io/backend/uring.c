@@ -180,12 +180,11 @@ void sc_io_backend_pump(ScIoBackend* backend, struct timespec deadline) {
 
     struct io_uring* uring = &backend->uring;
 
-    struct io_uring_sqe* sqe = sc_io_sqe_get_from(backend);
+    struct io_uring_sqe*     sqe            = sc_io_sqe_get_from(backend);
+    struct __kernel_timespec uring_deadline = { .tv_sec  = deadline.tv_sec,
+                                                .tv_nsec = deadline.tv_nsec };
     if A3_LIKELY (sqe) {
-        io_uring_prep_timeout(
-            sqe,
-            &(struct __kernel_timespec) { .tv_sec = deadline.tv_sec, .tv_nsec = deadline.tv_nsec },
-            1, IORING_TIMEOUT_ABS);
+        io_uring_prep_timeout(sqe, &uring_deadline, 1, IORING_TIMEOUT_ABS);
         sqe->user_data = SC_IO_EV_IGNORE;
     }
 
