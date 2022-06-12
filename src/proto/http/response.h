@@ -26,10 +26,21 @@
 
 #include "headers.h"
 
+typedef enum ScHttpResponseTarget {
+    SC_HTTP_RESPONSE_FILE,
+    SC_HTTP_RESPONSE_STR,
+    SC_HTTP_RESPONSE_NONE,
+} ScHttpResponseTarget;
+
 typedef struct ScHttpResponse {
-    A3Buffer   pre_buf;
-    ssize_t    content_length;
-    ScMimeType content_type;
+    A3Buffer             pre_buf;
+    ssize_t              content_length;
+    ScMimeType           content_type;
+    ScHttpResponseTarget target;
+    union {
+        ScFd      file;
+        A3CString str;
+    } target_data;
 } ScHttpResponse;
 
 void sc_http_response_init(ScHttpResponse*);

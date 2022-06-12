@@ -51,17 +51,35 @@ static A3Buffer* sc_http_response_send_buf(ScHttpResponse* resp) {
 void sc_http_response_init(ScHttpResponse* resp) {
     assert(resp);
 
-    sc_http_response_reset(resp);
+    *resp = (ScHttpResponse) {
+        .content_length   = SC_HTTP_CONTENT_LENGTH_UNSPECIFIED,
+        .content_type     = A3_CS_NULL,
+        .target           = SC_HTTP_RESPONSE_NONE,
+        .target_data.file = -1,
+    };
+    a3_buf_init(&resp->pre_buf, SC_HTTP_HEADER_BUF_INIT_CAP, SC_HTTP_HEADER_BUF_MAX_CAP);
 }
+
+static void sc_http_response_target_close(ScHttpResponse* resp) { assert(resp); }
 
 void sc_http_response_reset(ScHttpResponse* resp) {
     assert(resp);
 
-    if (!a3_buf_initialized(&resp->pre_buf))
-        a3_buf_init(&resp->pre_buf, SC_HTTP_HEADER_BUF_INIT_CAP, SC_HTTP_HEADER_BUF_MAX_CAP);
     a3_buf_reset(&resp->pre_buf);
+
     resp->content_length = SC_HTTP_CONTENT_LENGTH_UNSPECIFIED;
     resp->content_type   = A3_CS_NULL;
+
+    switch (resp->target) {
+    case SC_HTTP_RESPONSE_FILE:
+        SC_IO_UNWRAP(sc_io_close(resp->target_data.file));
+        break;
+    case SC_HTTP_RESPONSE_STR:
+    case SC_HTTP_RESPONSE_NONE:
+        break;
+    }
+
+    resp->target = SC_HTTP_RESPONSE_NONE;
 }
 
 void sc_http_response_destroy(void* data) {
@@ -70,6 +88,7 @@ void sc_http_response_destroy(void* data) {
     ScHttpResponse* resp = data;
 
     a3_buf_destroy(&resp->pre_buf);
+    sc_http_response_target_close(resp);
 }
 
 static bool sc_http_response_header_date_prep(ScHttpResponse* resp) {
@@ -138,7 +157,6 @@ void sc_http_response_send(ScHttpResponse* resp) {
     assert(resp);
 
     ScHttpConnection* conn = sc_http_response_connection(resp);
-    A3Buffer*         buf  = sc_http_response_send_buf(resp);
 
     A3_TRACE_F("Sending response:\n" A3_S_F, A3_S_FORMAT(a3_buf_read_ptr(&resp->pre_buf)));
 
@@ -146,15 +164,47 @@ void sc_http_response_send(ScHttpResponse* resp) {
         { .iov_base = (void*)a3_buf_read_ptr(&resp->pre_buf).ptr,
           .iov_len  = a3_buf_read_ptr(&resp->pre_buf).len },
         { .iov_base = "\r\n", .iov_len = 2 },
-        { .iov_base = (void*)a3_buf_read_ptr(buf).ptr, .iov_len = a3_buf_read_ptr(buf).len },
     };
+    unsigned int iov_count = 2;
 
-    if (SC_IO_IS_ERR(sc_io_writev(conn->conn->socket, iov, 3))) {
+    switch (resp->target) {
+    case SC_HTTP_RESPONSE_FILE: {
+        ScFd      file = resp->target_data.file;
+        size_t    size = (size_t)resp->content_length;
+        A3Buffer* buf  = sc_http_response_send_buf(resp);
+
+        if (conn->request.method == SC_HTTP_METHOD_HEAD)
+            break;
+
+        SC_IO_RESULT(size_t) maybe_size = sc_io_read(file, a3_buf_write_ptr(buf), size, 0);
+        if (SC_IO_IS_ERR(maybe_size)) {
+            A3_WARN("Failed to read requested file.");
+            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
+            return;
+        }
+
+        a3_buf_wrote(buf, maybe_size.ok);
+
+        iov[2].iov_base = (void*)a3_buf_read_ptr(buf).ptr;
+        iov[2].iov_len  = a3_buf_read_ptr(buf).len;
+        iov_count       = 3;
+
+        break;
+    }
+    case SC_HTTP_RESPONSE_STR:
+        iov[2].iov_base = (void*)a3_string_cptr(resp->target_data.str);
+        iov[2].iov_len  = a3_string_len(resp->target_data.str);
+        iov_count       = 3;
+
+        break;
+    default:
+        break;
+    }
+
+    if (SC_IO_IS_ERR(sc_io_writev(conn->conn->socket, iov, iov_count))) {
         A3_WARN("Failed to send response: writev error.");
         sc_connection_close(conn->conn);
     }
-
-    a3_buf_reset(buf);
 }
 
 static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus status) {
@@ -182,7 +232,9 @@ static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus 
 
     size_t wrote = (a3_buf_len(buf) - init_len);
     assert(wrote <= SSIZE_MAX);
-    resp->content_length = (ssize_t)wrote;
+    resp->content_length  = (ssize_t)wrote;
+    resp->target          = SC_HTTP_RESPONSE_STR;
+    resp->target_data.str = a3_buf_read_ptr(buf);
 
     return true;
 }
@@ -302,23 +354,12 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
         return;
     }
 
+    resp->target           = SC_HTTP_RESPONSE_FILE;
+    resp->target_data.file = file;
+
     A3Buffer* buf = sc_http_response_send_buf(resp);
     if (!a3_buf_ensure_cap(buf, (size_t)statbuf.st_size))
         A3_PANIC("TODO: Handle files larger than the send buffer.");
-
-    if (conn->request.method != SC_HTTP_METHOD_HEAD) {
-        SC_IO_RESULT(size_t)
-        maybe_size = sc_io_read(file, a3_buf_write_ptr(buf), (size_t)statbuf.st_size, 0);
-        if (SC_IO_IS_ERR(maybe_size)) {
-            A3_WARN_F("Failed to read file \"" A3_S_F "\".", A3_S_FORMAT(path));
-            sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
-            return;
-        }
-
-        a3_buf_wrote(buf, maybe_size.ok);
-    }
-
-    SC_IO_UNWRAP(sc_io_close(file));
 
     sc_http_response_send(resp);
 }
