@@ -19,21 +19,24 @@
 
 #pragma once
 
+#include <a3/buffer.h>
+
 #include <sc/http.h>
 #include <sc/mime.h>
 
 #include "headers.h"
 
 typedef struct ScHttpResponse {
-    ScHttpHeaders headers;
-    ScMimeType    content_type;
+    A3Buffer   pre_buf;
+    ssize_t    content_length;
+    ScMimeType content_type;
 } ScHttpResponse;
 
 void sc_http_response_init(ScHttpResponse*);
 void sc_http_response_reset(ScHttpResponse*);
 void sc_http_response_destroy(void*);
 
-void sc_http_response_send(ScHttpResponse*, ScHttpStatus);
+void sc_http_response_send(ScHttpResponse*);
 void sc_http_response_file_send(ScHttpResponse*, ScFd file);
 
 #define SC_HTTP_CLOSE true

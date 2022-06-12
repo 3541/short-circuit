@@ -57,11 +57,11 @@ void sc_http_response_init(ScHttpResponse* resp) {
 void sc_http_response_reset(ScHttpResponse* resp) {
     assert(resp);
 
-    resp->content_type = A3_CS_NULL;
-
-    if (sc_http_headers_count(&resp->headers) > 0)
-        sc_http_headers_destroy(&resp->headers);
-    sc_http_headers_init(&resp->headers);
+    if (!a3_buf_initialized(&resp->pre_buf))
+        a3_buf_init(&resp->pre_buf, SC_HTTP_HEADER_BUF_INIT_CAP, SC_HTTP_HEADER_BUF_MAX_CAP);
+    a3_buf_reset(&resp->pre_buf);
+    resp->content_length = SC_HTTP_CONTENT_LENGTH_UNSPECIFIED;
+    resp->content_type   = A3_CS_NULL;
 }
 
 void sc_http_response_destroy(void* data) {
@@ -69,7 +69,7 @@ void sc_http_response_destroy(void* data) {
 
     ScHttpResponse* resp = data;
 
-    sc_http_headers_destroy(&resp->headers);
+    a3_buf_destroy(&resp->pre_buf);
 }
 
 static bool sc_http_response_header_date_prep(ScHttpResponse* resp) {
@@ -88,86 +88,80 @@ static bool sc_http_response_header_date_prep(ScHttpResponse* resp) {
         LAST_TIME = current;
     }
 
-    return sc_http_header_set(&resp->headers, A3_CS("Date"), DATE);
+    return a3_buf_write_fmt(&resp->pre_buf, "Date: " A3_S_F "\r\n", A3_S_FORMAT(DATE));
 }
 
-static bool sc_http_headers_default_prep(ScHttpResponse* resp) {
+static bool sc_http_response_status_line_prep(ScHttpResponse* resp, ScHttpStatus status) {
+    assert(resp);
+    assert(status != SC_HTTP_STATUS_INVALID);
+
+    ScHttpConnection* conn = sc_http_response_connection(resp);
+
+    return a3_buf_write_fmt(&resp->pre_buf, A3_S_F " %d " A3_S_F "\r\n",
+                            A3_S_FORMAT(sc_http_version_string(conn->version)), status,
+                            A3_S_FORMAT(sc_http_status_reason(status)));
+}
+
+static bool sc_http_response_headers_default_prep(ScHttpResponse* resp) {
     assert(resp);
 
     ScHttpConnection* conn = sc_http_response_connection(resp);
 
     A3_TRYB(sc_http_response_header_date_prep(resp));
-    A3_TRYB(sc_http_header_set(&resp->headers, A3_CS("Connection"),
-                               sc_http_connection_keep_alive(conn) ? A3_CS("Keep-Alive")
-                                                                   : A3_CS("Close")));
-    A3_TRYB(sc_http_header_set_num(&resp->headers, A3_CS("Content-Length"),
-                                   a3_buf_len(sc_http_response_send_buf(resp))));
-    A3_TRYB(sc_http_header_set(&resp->headers, A3_CS("Content-Type"), resp->content_type));
+    A3_TRYB(a3_buf_write_fmt(&resp->pre_buf, "Connection: %s\r\n",
+                             sc_http_connection_keep_alive(conn) ? "Keep-Alive" : "Close"));
+    if (resp->content_length != SC_HTTP_CONTENT_LENGTH_UNSPECIFIED)
+        A3_TRYB(a3_buf_write_fmt(&resp->pre_buf, "Content-Length: %zu\r\n",
+                                 (size_t)resp->content_length));
+    if (resp->content_type.ptr)
+        A3_TRYB(a3_buf_write_fmt(&resp->pre_buf, "Content-Type: " A3_S_F "\r\n",
+                                 A3_S_FORMAT(resp->content_type)));
 
     return true;
 }
 
-void sc_http_response_send(ScHttpResponse* resp, ScHttpStatus status) {
+static bool sc_http_response_start_prep(ScHttpResponse* resp, ScHttpStatus status) {
     assert(resp);
     assert(status != SC_HTTP_STATUS_INVALID);
+
+    if (!sc_http_response_status_line_prep(resp, status) ||
+        !sc_http_response_headers_default_prep(resp)) {
+        A3_WARN("Failed preparing pre-body section.");
+        sc_connection_close(sc_http_response_connection(resp)->conn);
+        return false;
+    }
+
+    return true;
+}
+
+void sc_http_response_send(ScHttpResponse* resp) {
+    assert(resp);
 
     ScHttpConnection* conn = sc_http_response_connection(resp);
     A3Buffer*         buf  = sc_http_response_send_buf(resp);
 
-    if (!sc_http_headers_default_prep(resp)) {
-        A3_WARN("Failed preparing default headers.");
-        sc_connection_close(conn->conn);
-        return;
-    }
+    struct iovec iov[3] = {
+        { .iov_base = (void*)a3_buf_read_ptr(&resp->pre_buf).ptr,
+          .iov_len  = a3_buf_read_ptr(&resp->pre_buf).len },
+        { .iov_base = "\r\n", .iov_len = 2 },
+        { .iov_base = (void*)a3_buf_read_ptr(buf).ptr, .iov_len = a3_buf_read_ptr(buf).len },
+    };
 
-    struct iovec  iov_local[256];
-    struct iovec* iov = iov_local;
-
-    size_t iov_count = 4 * sc_http_headers_count(&resp->headers) + 3;
-    if (conn->request.method == SC_HTTP_METHOD_HEAD)
-        iov_count--;
-    if (iov_count > sizeof(iov_local) / sizeof(iov_local[0]))
-        A3_UNWRAPN(iov, calloc(iov_count, sizeof(*iov)));
-
-    uint8_t  status_line[PATH_MAX + 128] = { '\0' };
-    A3Buffer status_buf = { .data    = a3_string_new(status_line, sizeof(status_line)),
-                            .max_cap = sizeof(status_line),
-                            .head    = 0,
-                            .tail    = 0 };
-    a3_buf_write_fmt(&status_buf, A3_S_F " %d " A3_S_F A3_S_F,
-                     A3_S_FORMAT(sc_http_version_string(conn->version)), status,
-                     A3_S_FORMAT(sc_http_status_reason(status)), A3_S_FORMAT(SC_HTTP_EOL));
-    iov[0] = (struct iovec) { .iov_base = status_line, a3_buf_len(&status_buf) };
-
-    size_t i = 0;
-    SC_HTTP_HEADERS_FOR_EACH(&resp->headers, name, value) {
-        assert(i < iov_count);
-
-        iov[++i] = (struct iovec) { .iov_base = (void*)name->ptr, .iov_len = name->len };
-        iov[++i] = (struct iovec) { .iov_base = ": ", .iov_len = 2 };
-        iov[++i] = (struct iovec) { .iov_base = (void*)value->ptr, .iov_len = value->len };
-        iov[++i] =
-            (struct iovec) { .iov_base = (void*)SC_HTTP_EOL.ptr, .iov_len = SC_HTTP_EOL.len };
-    }
-    iov[++i] = (struct iovec) { .iov_base = (void*)SC_HTTP_EOL.ptr, .iov_len = SC_HTTP_EOL.len };
-    if (conn->request.method != SC_HTTP_METHOD_HEAD)
-        iov[++i] = (struct iovec) { .iov_base = (void*)a3_buf_read_ptr(buf).ptr,
-                                    .iov_len  = a3_buf_len(buf) };
-
-    if (SC_IO_IS_ERR(sc_io_writev(conn->conn->socket, iov, (unsigned)iov_count))) {
+    if (SC_IO_IS_ERR(sc_io_writev(conn->conn->socket, iov, 3))) {
         A3_WARN("Failed to send response: writev error.");
         sc_connection_close(conn->conn);
     }
 
     a3_buf_reset(buf);
-
-    if (iov != iov_local)
-        free(iov);
 }
 
 static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus status) {
     assert(resp);
     assert(status >= 400);
+
+    A3Buffer* buf = sc_http_response_send_buf(resp);
+
+    size_t init_len = a3_buf_len(buf);
 
     A3_TRYB(a3_buf_write_fmt(
         sc_http_response_send_buf(resp),
@@ -183,6 +177,10 @@ static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus 
         "</html>\n",
         status, A3_S_FORMAT(sc_http_version_string(sc_http_response_connection(resp)->version)),
         status, A3_S_FORMAT(sc_http_status_reason(status))));
+
+    size_t wrote = (a3_buf_len(buf) - init_len);
+    assert(wrote <= SSIZE_MAX);
+    resp->content_length = (ssize_t)wrote;
 
     return true;
 }
@@ -212,7 +210,11 @@ void sc_http_response_error_send(ScHttpResponse* resp, ScHttpStatus status, bool
         return;
     }
 
-    sc_http_response_send(resp, status);
+    if (!sc_http_response_start_prep(resp, status))
+        return;
+
+    sc_http_response_send(resp);
+
     if (close)
         sc_connection_close(conn->conn);
 }
@@ -270,14 +272,29 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
     else
         resp->content_type = sc_mime_from_path(path);
 
-    // TODO: Last-Modified.
-    if (!sc_http_header_set_fmt(&resp->headers, A3_CS("Etag"), "\"%lluX%lX%lX\"", statbuf.st_ino,
-                                statbuf.st_mtim.tv_sec, statbuf.st_size)) {
+    resp->content_length = statbuf.st_size;
+
+    if (!sc_http_response_start_prep(resp, SC_HTTP_STATUS_OK))
+        return;
+
+    if (!a3_buf_write_fmt(&resp->pre_buf, "ETag: \"%lluX%lX%lX\"\r\n", statbuf.st_ino,
+                          statbuf.st_mtim.tv_sec, statbuf.st_size)) {
         A3_WARN("Failed to write Etag.");
         sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
         return;
     }
-    if (!sc_http_header_set_time(&resp->headers, A3_CS("Last-Modified"), statbuf.st_mtim.tv_sec)) {
+
+    uint8_t   time_buf[SC_HTTP_TIME_BUF_SIZE] = { '\0' };
+    struct tm tv;
+
+    size_t len = strftime((char*)time_buf, SC_HTTP_TIME_BUF_SIZE, SC_HTTP_TIME_FORMAT,
+                          gmtime_r(&statbuf.st_mtim.tv_sec, &tv));
+    if (!len) {
+        A3_WARN("Failed to format Last-Modified header.");
+        sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
+        return;
+    }
+    if (!a3_buf_write_fmt(&resp->pre_buf, "Last-Modified: %s\r\n", time_buf)) {
         A3_WARN("Failed to write Last-Modified.");
         sc_http_response_error_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
         return;
@@ -301,5 +318,5 @@ void sc_http_response_file_send(ScHttpResponse* resp, ScFd file) {
 
     SC_IO_UNWRAP(sc_io_close(file));
 
-    sc_http_response_send(resp, SC_HTTP_STATUS_OK);
+    sc_http_response_send(resp);
 }
