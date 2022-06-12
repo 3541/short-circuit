@@ -140,6 +140,8 @@ void sc_http_response_send(ScHttpResponse* resp) {
     ScHttpConnection* conn = sc_http_response_connection(resp);
     A3Buffer*         buf  = sc_http_response_send_buf(resp);
 
+    A3_TRACE_F("Sending response:\n" A3_S_F, A3_S_FORMAT(a3_buf_read_ptr(&resp->pre_buf)));
+
     struct iovec iov[3] = {
         { .iov_base = (void*)a3_buf_read_ptr(&resp->pre_buf).ptr,
           .iov_len  = a3_buf_read_ptr(&resp->pre_buf).len },
