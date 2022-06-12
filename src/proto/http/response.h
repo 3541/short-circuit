@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include <a3/buffer.h>
 
 #include <sc/http.h>
@@ -33,23 +35,18 @@ typedef enum ScHttpResponseTarget {
 } ScHttpResponseTarget;
 
 typedef struct ScHttpResponse {
-    A3Buffer             pre_buf;
-    ssize_t              content_length;
+    A3Buffer             headers;
     ScMimeType           content_type;
+    ScHttpStatus         status;
     ScHttpResponseTarget target;
     union {
         ScFd      file;
         A3CString str;
     } target_data;
+    ssize_t content_length;
+    bool    frozen;
 } ScHttpResponse;
 
 void sc_http_response_init(ScHttpResponse*);
 void sc_http_response_reset(ScHttpResponse*);
 void sc_http_response_destroy(void*);
-
-void sc_http_response_send(ScHttpResponse*);
-void sc_http_response_file_send(ScHttpResponse*, ScFd file);
-
-#define SC_HTTP_CLOSE true
-#define SC_HTTP_KEEP  false
-void sc_http_response_error_send(ScHttpResponse*, ScHttpStatus, bool close);

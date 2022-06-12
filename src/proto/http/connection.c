@@ -89,7 +89,8 @@ void sc_http_connection_handle(ScConnection* conn) {
         case SC_IO_EOF:
             break;
         case SC_IO_TIMEOUT:
-            sc_http_response_error_send(&http.response, SC_HTTP_STATUS_TIMEOUT, SC_HTTP_CLOSE);
+            sc_http_response_error_prep_and_send(&http.response, SC_HTTP_STATUS_TIMEOUT,
+                                                 SC_HTTP_CLOSE);
             break;
         default:
             SC_IO_UNWRAP(rc);

@@ -27,6 +27,7 @@
 
 #include <sc/http.h>
 #include <sc/io.h>
+#include <sc/mime.h>
 #include <sc/route.h>
 #include <sc/uri.h>
 
@@ -46,11 +47,13 @@ static void sc_http_file_handle(void* conn, ScRouteData dir) {
     if (SC_IO_IS_ERR(maybe_file)) {
         A3_TRACE_F("Failed to open file \"" A3_S_F "\". " A3_S_F, A3_S_FORMAT(path),
                    A3_S_FORMAT(sc_io_error_to_string(maybe_file.err)));
-        sc_http_response_error_send(&http->response, SC_HTTP_STATUS_NOT_FOUND, SC_HTTP_KEEP);
+        sc_http_response_error_prep_and_send(&http->response, SC_HTTP_STATUS_NOT_FOUND,
+                                             SC_HTTP_KEEP);
         return;
     }
 
-    sc_http_response_file_send(&http->response, maybe_file.ok);
+    sc_http_response_file_prep(&http->response, maybe_file.ok, sc_mime_from_path(path));
+    sc_http_response_send(&http->response);
 }
 
 ScRouter* sc_http_handle_file_serve(A3CString path) {

@@ -26,6 +26,8 @@
 #include <sc/forward.h>
 #include <sc/route.h>
 
+#include "sc/mime.h"
+
 A3_H_BEGIN
 
 #define SC_HTTP_VERSION_ENUM                                                                       \
@@ -115,6 +117,13 @@ typedef enum ScHttpTransferEncoding { SC_HTTP_TRANSFER_ENCODING_ENUM } ScHttpTra
 
 bool sc_http_connection_keep_alive(ScHttpConnection*);
 
-ScRouter* sc_http_handle_file_serve(A3CString path);
+A3_EXPORT void sc_http_response_file_prep(ScHttpResponse*, ScFd file, ScMimeType);
+
+A3_EXPORT void sc_http_response_send(ScHttpResponse*);
+#define SC_HTTP_CLOSE true
+#define SC_HTTP_KEEP  false
+A3_EXPORT void sc_http_response_error_prep_and_send(ScHttpResponse*, ScHttpStatus, bool close);
+
+A3_EXPORT ScRouter* sc_http_handle_file_serve(A3CString path);
 
 A3_H_END
