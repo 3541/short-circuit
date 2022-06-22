@@ -53,9 +53,8 @@ if (c.get_id() != 'gcc' or not c.version().startswith('9'))
 endif
 
 a3 = dependency('a3', fallback: ['a3', 'a3_dep'])
-a3_hash = dependency('a3_hash', fallback: ['a3', 'a3_hash_dep'])
 
-sc_deps = [a3, a3_hash]
+sc_deps = [a3]
 
 backend = get_option('io_backend')
 
@@ -169,7 +168,7 @@ sc_lib = library(
 )
 sc = declare_dependency(
   link_with: sc_lib,
-  dependencies: [a3, a3_hash],
+  dependencies: a3,
   include_directories: include_directories('src/include'),
 )
 sc_dep = sc
