@@ -60,3 +60,16 @@ TEST_F(UriTest, parse_components) {
 
     a3_string_free(&s);
 }
+
+TEST_F(UriTest, reject_escape) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/../.."));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+}
+
+TEST_F(UriTest, allow_not_escape) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/..."));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_OK);
+    EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.path), A3_CS("/...")), 0);
+}
