@@ -1,4 +1,4 @@
-Checks: 'bugprone*,cert*,clang-analyzer*,concurrency*,misc*,performance*,readability*,-readability-named-parameter,-performance-no-int-to-ptr,-readability-magic-numbers,-readability-braces-around-statements,-cert-err58-cpp,-readability-function-cognitive-complexity,-readability-implicit-bool-conversion,-misc-no-recursion'
+Checks: 'bugprone*,cert*,clang-analyzer*,concurrency*,misc*,performance*,readability*,-readability-named-parameter,-performance-no-int-to-ptr,-readability-magic-numbers,-readability-braces-around-statements,-cert-err58-cpp,-readability-function-cognitive-complexity,-readability-implicit-bool-conversion,-misc-no-recursion,-bugprone-not-null-terminated-result'
 HeaderFilterRegex: '.*sc.*'
 CheckOptions:
   - key: bugprone-easily-swappable-parameters.MinimumLength
