@@ -3,5 +3,6 @@
 build
 subprojects/*
 .envrc
+compile_commands.json
 
 !subprojects/*.wrap
