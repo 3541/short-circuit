@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <csignal>
 #include <fstream>
 #include <iterator>
