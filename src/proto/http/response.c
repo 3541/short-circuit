@@ -137,11 +137,13 @@ static bool sc_http_response_headers_default_prep(ScHttpResponse* resp) {
     ScHttpConnection* conn = sc_http_response_connection(resp);
 
     A3_TRYB(sc_http_response_header_date_prep(resp));
-    A3_TRYB(a3_buf_write_fmt(&resp->headers, "Connection: %s\r\n",
-                             sc_http_connection_keep_alive(conn) ? "Keep-Alive" : "Close"));
     if (resp->content_length != SC_HTTP_CONTENT_LENGTH_UNSPECIFIED)
         A3_TRYB(a3_buf_write_fmt(&resp->headers, "Content-Length: %zu\r\n",
                                  (size_t)resp->content_length));
+    else
+        conn->connection_type = SC_HTTP_CONNECTION_TYPE_CLOSE;
+    A3_TRYB(a3_buf_write_fmt(&resp->headers, "Connection: %s\r\n",
+                             sc_http_connection_keep_alive(conn) ? "Keep-Alive" : "Close"));
     if (resp->content_type.ptr)
         A3_TRYB(a3_buf_write_fmt(&resp->headers, "Content-Type: " A3_S_F "\r\n",
                                  A3_S_FORMAT(resp->content_type)));
