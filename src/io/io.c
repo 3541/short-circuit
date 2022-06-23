@@ -114,6 +114,16 @@ SC_IO_RESULT(size_t) sc_io_read(ScFd fd, A3String dst, size_t count, off_t offse
     return SC_IO_OK(size_t, to_read - left);
 }
 
+SC_IO_RESULT(size_t) sc_io_write(ScFd fd, A3CString src) {
+    assert(fd >= 0);
+    assert(src.ptr);
+
+    return sc_io_writev(
+        fd,
+        &(struct iovec) { .iov_base = (void*)a3_string_cptr(src), .iov_len = a3_string_len(src) },
+        1);
+}
+
 SC_IO_RESULT(size_t) sc_io_writev(ScFd fd, struct iovec* iov, unsigned count) {
     assert(fd >= 0);
     assert(iov);

@@ -121,6 +121,7 @@ A3_EXPORT SC_IO_RESULT(void)   sc_io_close(ScFd);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_recv(ScFd sock, A3String dst);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read(ScFd, A3String dst, size_t count, off_t);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_read_raw(ScFd, A3String dst, size_t count, off_t);
+A3_EXPORT SC_IO_RESULT(size_t) sc_io_write(ScFd, A3CString);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev(ScFd, struct iovec*, unsigned count);
 A3_EXPORT SC_IO_RESULT(size_t) sc_io_writev_raw(ScFd, struct iovec const*, unsigned count);
 A3_EXPORT SC_IO_RESULT(void)   sc_io_stat(ScFd file, struct stat*);
