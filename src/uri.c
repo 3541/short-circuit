@@ -78,14 +78,14 @@ static bool sc_uri_decode(A3String* path) {
     return true;
 }
 
-static void sc_uri_path_collapse(A3String path) {
-    assert(path.ptr && path.len);
-    assert(*path.ptr == '/');
+static void sc_uri_path_collapse(A3String* path) {
+    assert(path->ptr && path->len);
+    assert(*path->ptr == '/');
 
     uint8_t* SEGMENTS[10] = { 0 };
 
     size_t segment_count = 0;
-    for (size_t i = 0; i < path.len; segment_count += path.ptr[i++] == '/')
+    for (size_t i = 0; i < path->len; segment_count += path->ptr[i++] == '/')
         ;
     if (!segment_count)
         return;
@@ -94,8 +94,8 @@ static void sc_uri_path_collapse(A3String path) {
     if (segment_count > sizeof(SEGMENTS) / sizeof(SEGMENTS[0]))
         A3_UNWRAPN(segments, calloc(segment_count, sizeof(*segments)));
 
-    uint8_t const* end           = a3_string_end(A3_S_CONST(path));
-    uint8_t*       w             = path.ptr;
+    uint8_t const* end           = a3_string_end(A3_S_CONST(*path));
+    uint8_t*       w             = path->ptr;
     uint8_t*       r             = w;
     size_t         segment_index = 0;
 
@@ -125,11 +125,12 @@ static void sc_uri_path_collapse(A3String path) {
                 *w++ = *r++;
             }
         } else {
-            w                         = r++;
+            r++;
             segments[segment_index++] = w++;
         }
     }
 
+    path->len = (size_t)(w - path->ptr);
     if (segments != SEGMENTS)
         free(segments);
 }
@@ -139,7 +140,7 @@ static bool sc_uri_path_normalize(A3String* path) {
     assert(path->ptr && path->len);
 
     A3_TRYB(sc_uri_decode(path));
-    sc_uri_path_collapse(*path);
+    sc_uri_path_collapse(path);
 
     // After collapse of legal '..' segments, there should be none remaining. Anything else is a
     // directory escape.
