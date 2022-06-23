@@ -40,6 +40,7 @@ typedef struct ScTimeout {
 A3_EXPORT ScTimer*               sc_timer_new(void);
 A3_EXPORT void                   sc_timer_free(ScTimer*);
 A3_EXPORT struct timespec const* sc_timer_next(ScTimer const*);
+A3_EXPORT void                   sc_timer_tick_manual(ScTimer*, struct timespec now);
 A3_EXPORT void                   sc_timer_tick(ScTimer*);
 
 A3_EXPORT void sc_timeout_init(ScTimeout*, ScTimeoutCb, time_t delay_s);

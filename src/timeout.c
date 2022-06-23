@@ -53,11 +53,8 @@ static ssize_t sc_timespec_compare(struct timespec lhs, struct timespec rhs) {
     return (lhs.tv_sec != rhs.tv_sec) ? lhs.tv_sec - rhs.tv_sec : lhs.tv_nsec - rhs.tv_nsec;
 }
 
-void sc_timer_tick(ScTimer* timer) {
+void sc_timer_tick_manual(ScTimer* timer, struct timespec now) {
     assert(timer);
-
-    struct timespec now;
-    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &now));
 
     A3_LL_FOR_EACH(ScTimeout, timeout, &timer->queue, link) {
         if (sc_timespec_compare(now, timeout->deadline) < 0)
@@ -66,6 +63,15 @@ void sc_timer_tick(ScTimer* timer) {
         A3_LL_REMOVE(timeout, link);
         timeout->done(timeout);
     }
+}
+
+void sc_timer_tick(ScTimer* timer) {
+    assert(timer);
+
+    struct timespec now;
+    A3_UNWRAPSD(clock_gettime(CLOCK_MONOTONIC, &now));
+
+    sc_timer_tick_manual(timer, now);
 }
 
 static struct timespec sc_time_delay_to_timespec_deadline(time_t time_s) {
