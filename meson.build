@@ -47,9 +47,20 @@ sc_warnings_wanted = [
 ]
 sc_cflags += c.get_supported_arguments(sc_warnings_wanted)
 
-if (c.get_id() != 'gcc' or not c.version().startswith('9'))
-  # -Wconversion is too aggressive on GCC <= 9.
-  sc_cflags += c.get_supported_arguments(['-Wconversion'])
+wconversion_test = '''
+#include <stdint.h>
+
+int main(void) {
+    uint8_t x = 1;
+    x *= 16;
+    return (int)x;
+}
+'''
+if c.compiles(wconversion_test, args: ['-Werror=conversion', '-Wconversion'])
+  message('-Wconversion works correctly.')
+  sc_cflags += '-Wconversion'
+else
+  message('-Wconversion missing or broken.')
 endif
 
 a3 = dependency('a3', fallback: ['a3', 'a3_dep'])
