@@ -12,6 +12,7 @@ BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ColumnLimit: 100
 AllowShortBlocksOnASingleLine: true
+TypenameMacros: ['SC_IO_RESULT']
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^<[[:alnum:]_]+>$'
