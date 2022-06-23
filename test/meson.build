@@ -4,6 +4,7 @@ sc_test_src = files(
   [
     'coroutine.cc',
     'io.cc',
+    'timeout.cc',
     'uri.cc',
   ]
 )
