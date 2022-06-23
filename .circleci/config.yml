@@ -27,13 +27,13 @@ jobs:
       - checkout
       - run:
           name: "Configure"
-          command: "CC=gcc-10 CXX=g++-10 meson setup --buildtype debug --werror -Dio_backend=<<parameters.backend>> -Db_sanitize=address,undefined -Dci=true build"
+          command: "ci/configure.sh build -Dio_backend=<<parameters.backend>>"
       - run:
           name: "Build"
-          command: "meson compile -C build"
+          command: "ci/build.sh build"
       - run:
           name: "Test"
-          command: "meson test -C build"
+          command: "ci/test.sh build"
       - store_test_results:
           path: build/sc_gtest.xml
 workflows:

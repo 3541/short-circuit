@@ -25,7 +25,12 @@ jobs:
           - os: ubuntu-latest
             architecture: amd64
             backend: uring
-
+    env:
+      CC: ${{ matrix.c_compiler }}
+      CXX: ${{ matrix.cxx_compiler }}
+    defaults:
+      run:
+        shell: bash
     steps:
     - uses: actions/checkout@v2
       with:
@@ -39,22 +44,23 @@ jobs:
         path: liburing
 
     - name: Fixup cross triple quirks.
-      if: matrix.os == 'ubuntu-latest' && matrix.architecture != 'amd64' && matrix.architecture != 'ppc' && matrix.architecture != 'arm'
+      if: matrix.os == 'ubuntu-latest' && matrix.architecture != 'amd64'
+      id: cross
       run: |
-        echo "DEB_ARCH=${{ matrix.architecture }}" >> $GITHUB_ENV
-        echo "CROSS_TRIPLE=${{ matrix.architecture }}-linux-gnu" >> $GITHUB_ENV
-
-    - name: Fixup cross triple quirks.
-      if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'arm'
-      run: |
-        echo "DEB_ARCH=armel" >> $GITHUB_ENV
-        echo "CROSS_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
-
-    - name: Fixup cross triple quirks.
-      if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'ppc'
-      run: |
-        echo "DEB_ARCH=powerpc" >> $GITHUB_ENV
-        echo "CROSS_TRIPLE=powerpc-linux-gnu" >> $GITHUB_ENV
+        case "${{ matrix.architecture }}" in
+            arm)
+                echo "DEB_ARCH=armel" >> $GITHUB_ENV
+                echo "CROSS_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
+                ;;
+            ppc)
+                echo "DEB_ARCH=powerpc" >> $GITHUB_ENV
+                echo "CROSS_TRIPLE=powerpc-linux-gnu" >> $GITHUB_ENV
+                ;;
+            *)
+                echo "DEB_ARCH=${{ matrix.architecture }}" >> $GITHUB_ENV
+                echo "CROSS_TRIPLE=${{ matrix.architecture }}-linux-gnu" >> $GITHUB_ENV
+                ;;
+        esac
 
     - name: Set up cross toolchain and emulator.
       if: matrix.os == 'ubuntu-latest' && matrix.architecture != 'amd64'
@@ -67,6 +73,8 @@ jobs:
         sed -i "/^\[binaries\]/a exe_wrapper = 'qemu-${{ matrix.architecture }}'" ${{ matrix.architecture }}.ini
         sudo apt-get remove -y meson
         echo "MESON_CROSS_ARG=--cross-file ${{ matrix.architecture }}.ini" >> $GITHUB_ENV
+        echo "CC=$CROSS_TRIPLE-gcc" >> $GITHUB_ENV
+        echo "CXX=$CROSS_TRIPLE-g++" >> $GITHUB_ENV
 
     - name: Build and install liburing
       if: matrix.backend == 'uring'
@@ -89,13 +97,13 @@ jobs:
       run: echo "MESON_SAN_ARG=-Db_sanitize=address,undefined" >> $GITHUB_ENV
 
     - name: Configure
-      run: meson setup $MESON_CROSS_ARG $MESON_SAN_ARG --buildtype debug --werror -Dio_backend=${{ matrix.backend }} -Dci=true build
+      run: ci/configure.sh build -Dio_backend=${{ matrix.backend }} $MESON_CROSS_ARG
 
     - name: Build
-      run: meson compile -C build
+      run: ci/build.sh build
 
     - name: Test
-      run: meson test -C build
+      run: ci/test.sh build
 
     - name: Upload failed logs
       if: failure()
