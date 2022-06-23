@@ -30,6 +30,7 @@
 #include <a3/util.h>
 
 #include <sc/http.h>
+#include <sc/io.h>
 #include <sc/mime.h>
 
 #include "config.h"
@@ -240,6 +241,41 @@ static struct iovec sc_str_to_iovec(A3CString str) {
     return (struct iovec) { .iov_base = (void*)a3_string_cptr(str), .iov_len = a3_string_len(str) };
 }
 
+static void sc_http_response_file_send(ScHttpResponse* resp) {
+    assert(resp);
+    assert(resp->frozen);
+    assert(resp->content_length > 0);
+    assert(resp->target == SC_HTTP_RESPONSE_FILE);
+
+    ScHttpConnection* conn    = sc_http_response_connection(resp);
+    A3Buffer*         buf     = sc_http_response_send_buf(resp);
+    size_t            sent    = 0;
+    size_t            to_send = (size_t)resp->content_length;
+
+    while (sent < to_send) {
+        SC_IO_RESULT(size_t) res =
+            sc_io_read(resp->target_data.file, a3_buf_write_ptr(buf), to_send - sent, (off_t)sent);
+        if (SC_IO_IS_ERR(res)) {
+            A3_WARN_F("Failed to send response file (read()): " A3_S_F,
+                      A3_S_FORMAT(sc_io_error_to_string(res.err)));
+            sc_connection_close(conn->conn);
+            return;
+        }
+        a3_buf_wrote(buf, res.ok);
+
+        res = sc_io_write(conn->conn->socket, a3_buf_read_ptr(buf));
+        if (SC_IO_IS_ERR(res)) {
+            A3_WARN_F("Failed to send response file (write()): " A3_S_F,
+                      A3_S_FORMAT(sc_io_error_to_string(res.err)));
+            sc_connection_close(conn->conn);
+            return;
+        }
+        a3_buf_read(buf, res.ok);
+
+        sent += res.ok;
+    }
+}
+
 void sc_http_response_send(ScHttpResponse* resp) {
     assert(resp);
     assert(!resp->frozen);
@@ -261,16 +297,21 @@ void sc_http_response_send(ScHttpResponse* resp) {
         if (conn->request.method == SC_HTTP_METHOD_HEAD)
             break;
 
-        SC_IO_RESULT(size_t) maybe_size = sc_io_read(file, a3_buf_write_ptr(buf), size, 0);
-        if (SC_IO_IS_ERR(maybe_size)) {
-            A3_WARN("Failed to read requested file.");
-            sc_http_response_error_prep_and_send(resp, SC_HTTP_STATUS_SERVER_ERROR, SC_HTTP_CLOSE);
-            return;
+        // If the file fits in the connection buffer entirely, read it now and make it part of the
+        // writev() call. Otherwise, a write() loop will be invoked later.
+        if (size < a3_buf_space(buf)) {
+            SC_IO_RESULT(size_t) maybe_size = sc_io_read(file, a3_buf_write_ptr(buf), size, 0);
+            if (SC_IO_IS_ERR(maybe_size)) {
+                A3_WARN("Failed to read requested file.");
+                sc_http_response_error_prep_and_send(resp, SC_HTTP_STATUS_SERVER_ERROR,
+                                                     SC_HTTP_CLOSE);
+                return;
+            }
+
+            a3_buf_wrote(buf, maybe_size.ok);
+
+            output = a3_buf_read_ptr(buf);
         }
-
-        a3_buf_wrote(buf, maybe_size.ok);
-
-        output = a3_buf_read_ptr(buf);
         break;
     }
     case SC_HTTP_RESPONSE_STR:
@@ -309,6 +350,10 @@ void sc_http_response_send(ScHttpResponse* resp) {
         A3_WARN("Failed to send response: writev error.");
         sc_connection_close(conn->conn);
     }
+
+    // If the file was not already sent as part of the writev() call (too large), send it now.
+    if (!output.ptr && resp->target == SC_HTTP_RESPONSE_FILE)
+        sc_http_response_file_send(resp);
 }
 
 static bool sc_http_response_error_body_prep(ScHttpResponse* resp, ScHttpStatus status) {
