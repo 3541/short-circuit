@@ -1,3 +1,5 @@
+#include <string_view>
+
 #include <gtest/gtest.h>
 
 #include <a3/str.h>
@@ -49,6 +51,14 @@ TEST_F(UriTest, parse_scheme_authority) {
     a3_string_free(&s2);
 }
 
+TEST_F(UriTest, reject_invalid_scheme) {
+    A3String s = a3_string_clone(A3_CS("gopher://example.com/test.txt"));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+
+    a3_string_free(&s);
+}
+
 TEST_F(UriTest, parse_components) {
     A3String s = a3_string_clone(A3_CS("http://example.com/test.txt?query=1#fragment"));
 
@@ -69,11 +79,59 @@ TEST_F(UriTest, reject_escape) {
     a3_string_free(&s);
 }
 
-TEST_F(UriTest, allow_not_escape) {
+TEST_F(UriTest, parse_not_escape) {
     A3String s = a3_string_clone(A3_CS("http://example.com/..."));
 
     EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_OK);
     EXPECT_EQ(a3_string_cmp(A3_S_CONST(uri.path), A3_CS("/...")), 0);
+
+    a3_string_free(&s);
+}
+
+TEST_F(UriTest, parse_normalize) {
+    A3String s =
+        a3_string_clone(A3_CS("http://example.com/a/b/.long/d/.././also_long/./f/../../g"));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_OK);
+    EXPECT_EQ(std::string_view { uri.path }, "/a/b/.long/g");
+
+    a3_string_free(&s);
+}
+
+TEST_F(UriTest, parse_percent_encoding) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/abc%20xyz%5buvw%5B"));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_OK);
+    EXPECT_EQ(std::string_view { uri.path }, "/abc xyz[uvw[");
+
+    a3_string_free(&s);
+}
+
+TEST_F(UriTest, reject_malformed_percent) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/abc%ZZ"));
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+    a3_string_free(&s);
+
+    s = a3_string_clone(A3_CS("http://example.com/abc%a-"));
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+    a3_string_free(&s);
+
+    s = a3_string_clone(A3_CS("http://example.com/abc%a"));
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+    a3_string_free(&s);
+}
+
+TEST_F(UriTest, reject_null_percent) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/abc%00"));
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_BAD_URI);
+    a3_string_free(&s);
+}
+
+TEST_F(UriTest, uri_path_relative) {
+    A3String s = a3_string_clone(A3_CS("http://example.com/abc"));
+
+    EXPECT_EQ(sc_uri_parse(&uri, s), SC_URI_PARSE_OK);
+    EXPECT_EQ(std::string_view { sc_uri_path_relative(&uri) }, "abc");
 
     a3_string_free(&s);
 }
