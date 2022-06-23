@@ -19,5 +19,6 @@ pkgs.mkShell {
     inetutils
     hotspot
     linuxPackages.perf
+    gcovr
   ];
 }
