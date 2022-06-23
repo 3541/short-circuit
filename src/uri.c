@@ -43,36 +43,37 @@ static ScUriScheme sc_uri_scheme_parse(A3CString scheme) {
     return SC_URI_SCHEME_INVALID;
 }
 
-static bool sc_uri_decode(A3String path) {
-    assert(path.ptr && path.len);
+static bool sc_uri_decode(A3String* path) {
+    assert(path);
+    assert(path->ptr && path->len);
 
-    uint8_t const* end = a3_string_end(A3_S_CONST(path));
-    uint8_t*       w   = path.ptr;
-    uint8_t*       r   = w;
-
-    while (r < end && *r) {
-        if (*r == '%') {
-            if (end - r < 3 || !(isxdigit(r[1]) && isxdigit(r[2])))
-                return false;
-
-            uint8_t n = 0;
-            for (uint8_t i = 0; i < 2; i++) {
-                n *= 16;
-                uint8_t c = r[2 - i];
-                if ('0' <= c && c <= '9')
-                    n += (uint8_t)(c - '0');
-                else
-                    n += (uint8_t)(toupper(c) - 'A' + 10);
-            }
-
-            A3_TRYB(n);
-
-            *w++ = n;
-            r += 3;
-        } else {
-            *w++ = *r++;
+    size_t removed = 0;
+    for (size_t r = 0, w = 0; r < path->len;) {
+        if (path->ptr[r] != '%') {
+            path->ptr[w++] = path->ptr[r++];
+            continue;
         }
+
+        if (path->len - r < 3 || !isxdigit(path->ptr[r + 1]) || !isxdigit(path->ptr[r + 2]))
+            return false;
+
+        uint8_t n = 0;
+        for (uint8_t i = 1; i <= 2; i++) {
+            n *= 16;
+            uint8_t c = path->ptr[r + i];
+            if ('0' <= c && c <= '9')
+                n += (uint8_t)(c - '0');
+            else
+                n += (uint8_t)(toupper(c) - 'A' + 10);
+        }
+        A3_TRYB(n);
+
+        path->ptr[w++] = n;
+        path->ptr[w]   = '\0';
+        removed += 2;
+        r += 3;
     }
+    path->len -= removed;
 
     return true;
 }
@@ -133,17 +134,18 @@ static void sc_uri_path_collapse(A3String path) {
         free(segments);
 }
 
-static bool sc_uri_path_normalize(A3String path) {
-    assert(path.ptr && path.len);
+static bool sc_uri_path_normalize(A3String* path) {
+    assert(path);
+    assert(path->ptr && path->len);
 
     A3_TRYB(sc_uri_decode(path));
-    sc_uri_path_collapse(path);
+    sc_uri_path_collapse(*path);
 
     // After collapse of legal '..' segments, there should be none remaining. Anything else is a
     // directory escape.
-    for (size_t i = 0; i < path.len - 1; i++) {
-        if (path.ptr[i] == '.' && path.ptr[i + 1] == '.' &&
-            (i + 1 >= path.len || path.ptr[i + 2] == '/'))
+    for (size_t i = 0; i < path->len - 1; i++) {
+        if (path->ptr[i] == '.' && path->ptr[i + 1] == '.' &&
+            (i + 1 >= path->len || path->ptr[i + 2] == '/'))
             return false;
     }
 
@@ -183,13 +185,13 @@ ScUriParseResult sc_uri_parse(ScUri* uri, A3String str) {
     // <path>[?<query>][#<fragment>]
     uri->path = A3_S_CONST(a3_buf_token_next(&buf, A3_CS("?\r\n"), A3_PRES_END_YES));
     A3_TRYB_MAP(uri->path.ptr && uri->path.len, SC_URI_PARSE_BAD_URI);
-    A3_TRYB_MAP(sc_uri_path_normalize(A3_CS_MUT(uri->path)), SC_URI_PARSE_BAD_URI);
+    A3_TRYB_MAP(sc_uri_path_normalize((A3String*)&uri->path), SC_URI_PARSE_BAD_URI);
 
     // [?<query>][#<fragment>]
     if (a3_buf_consume(&buf, A3_CS("?"))) {
         uri->query = A3_S_CONST(a3_buf_token_next(&buf, A3_CS("#"), A3_PRES_END_YES));
         A3_TRYB_MAP(uri->query.ptr, SC_URI_PARSE_BAD_URI);
-        A3_TRYB_MAP(sc_uri_decode(A3_CS_MUT(uri->query)), SC_URI_PARSE_BAD_URI);
+        A3_TRYB_MAP(sc_uri_decode((A3String*)&uri->query), SC_URI_PARSE_BAD_URI);
     }
 
     // Fragment need not be parsed.
