@@ -1,0 +1,7 @@
+Checks: 'bugprone*,cert*,clang-analyzer*,concurrency*,cppcoreguidelines*,misc*,performance*,portability*,readability*,-bugprone-macro-parentheses,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-cert-dcl37-c,-cert-dcl51-cpp,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-owning-memory,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-avoid-non-const-global-variables,-cppcoreguidelines-init-variables,-cppcoreguidelines-macro-usage,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-vararg,-cppcoreguidelines-non-private-member-variables-in-classes,-cppcoreguidelines-pro-type-cstyle-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidelines-avoid-c-arrays,-cppcoreguidelines-no-malloc,-cppcoreguidelines-pro-type-union-access,-performance-no-int-to-ptr,-readability-braces-around-statements,-readability-magic-numbers,-readability-use-anyofallof,-readability-named-parameter,-readability-implicit-bool-conversion,-readability-uppercase-literal-suffix,-readability-function-cognitive-complexity,-clang-analyzer-cplusplus.Move,-cert-dcl21-cpp,-readability-convert-member-functions-to-static,-cppcoreguidelines-special-member-functions,-misc-non-private-member-variables-in-classes,-cppcoreguidelines-pro-type-member-init'
+HeaderFilterRegex: '.*a3.*'
+CheckOptions:
+  - key: bugprone-easily-swappable-parameters.MinimumLength
+    value: 3
+  - key: bugprone-reserved-identifier.AllowedIdentifiers
+    value: '_GNU_SOURCE;_DARWIN_C_SOURCE'
