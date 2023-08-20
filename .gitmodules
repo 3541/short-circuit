@@ -1,4 +1,4 @@
 [submodule "boilerplate"]
 	path = boilerplate
-	url = ../boilerplate.git
+	url = https://github.com/3541/boilerplate.git
 	branch = trunk
