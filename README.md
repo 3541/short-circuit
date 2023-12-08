@@ -3,6 +3,11 @@
 [![.github/workflows/build.yml](https://github.com/3541/short-circuit/actions/workflows/build.yml/badge.svg)](https://github.com/3541/short-circuit/actions/workflows/build.yml)
 [![Build and test (aarch64)](https://circleci.com/gh/3541/short-circuit.svg?style=shield)](https://circleci.com/gh/3541/short-circuit)
 
+## Paused Branch
+This branch is an experimental rewrite using stackful coroutines. It is currently on hold in favor of `cc3`, which uses C++20 coroutines.
+
+---
+
 A lightweight and performant web server for Linux, built on top of io_uring. Capable of ~~60,000~~
 ~~80,000~~ ~~120,000~~ ~~135,000 requests per second on static files~~. Suffice it to say, it is
 fast, and getting faster. Actual, more rigorous benchmarks will come once the project gets closer to
