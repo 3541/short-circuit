@@ -1,0 +1,62 @@
+/*
+ * FILE -- RAII file descriptor wrapper.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+export module sc.io.file;
+
+import sc.io.owner;
+
+namespace sc::io {
+
+template <Ownership O>
+struct FileBase {
+private:
+    unsigned m_fd;
+
+public:
+    using Descriptor = unsigned;
+
+    operator FileBase<Ownership::Borrowed>() const noexcept;
+    operator int() const noexcept;
+
+    explicit FileBase(unsigned) noexcept;
+
+    // clang-format off
+    FileBase(FileBase&&) requires (O == Ownership::Owned);
+    FileBase& operator=(FileBase&&) requires (O == Ownership::Owned);
+
+    FileBase(FileBase const&) requires (O == Ownership::Owned) = delete;
+    FileBase& operator=(FileBase const&) requires (O == Ownership::Owned) = delete;
+
+    FileBase(FileBase const&) requires (O == Ownership::Borrowed) = default;
+    FileBase& operator=(FileBase const&) requires (O == Ownership::Borrowed) = default;
+
+    ~FileBase() requires (O == Ownership::Owned);
+    ~FileBase() requires (O == Ownership::Borrowed) = default;
+    // clang-format on
+};
+
+template <Ownership O>
+struct SocketBase : public FileBase<O> {
+public:
+    using FileBase<O>::FileBase;
+
+    operator SocketBase<Ownership::Borrowed>() const noexcept;
+};
+
+export {
+    using File    = FileBase<Ownership::Owned>;
+    using FileRef = FileBase<Ownership::Borrowed>;
+
+    using Socket    = SocketBase<Ownership::Owned>;
+    using SocketRef = SocketBase<Ownership::Borrowed>;
+}
+
+void close(File&&) noexcept;
+
+} // namespace sc::io

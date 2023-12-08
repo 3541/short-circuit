@@ -1,0 +1,55 @@
+/*
+ * ALLOC -- IO buffer allocator.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <climits>
+// Must be first
+
+#include <array>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+export module sc.io.alloc;
+
+import sc.io.buf;
+
+export namespace sc::io {
+
+struct Allocator {
+private:
+    static constexpr std::size_t BLOCK_SIZE{512};
+
+    struct Storage {
+        std::array<std::byte, 16384> m_buf;
+    };
+    static_assert(sizeof(Storage) == 16384);
+
+    Allocator() noexcept;
+
+    std::vector<std::array<Storage, BLOCK_SIZE>> m_blocks;
+    std::vector<Buf::Id>                         m_free;
+
+public:
+    static Allocator& the() noexcept;
+
+    void consume_free(std::invocable<Buf> auto const&) noexcept;
+    Buf  get_unsafe(Buf::Id) noexcept;
+    void free(Buf&&) noexcept;
+};
+
+void Allocator::consume_free(std::invocable<Buf> auto const& f) noexcept {
+    for (auto const id : m_free)
+        f(get_unsafe(id));
+    m_free.clear();
+}
+
+} // namespace sc::io

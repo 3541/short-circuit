@@ -1,0 +1,45 @@
+/*
+ * BUF -- IO buffer.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <climits>
+#include <cstdint>
+#include <span>
+
+#include <a3/util.hh>
+
+export module sc.io.buf;
+
+export namespace sc::io {
+
+struct Buf {
+    A3_NO_COPY(Buf);
+
+public:
+    enum class Id : std::uint16_t {};
+
+private:
+    std::span<std::byte> m_buf;
+    Id                   m_id;
+
+public:
+    Buf(Id, std::span<std::byte>) noexcept;
+    ~Buf();
+
+    Buf(Buf&&) noexcept;
+    Buf& operator=(Buf&&) noexcept;
+
+
+    Id id() const noexcept;
+
+    Buf slice(std::size_t len) && noexcept;
+};
+
+} // namespace sc::io

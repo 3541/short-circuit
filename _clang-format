@@ -1,0 +1,33 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+PointerAlignment: Left
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+Cpp11BracedListStyle: true
+SpaceBeforeCpp11BracedList: false
+AlwaysBreakTemplateDeclarations: true
+AccessModifierOffset: -4
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ColumnLimit: 100
+AllowShortBlocksOnASingleLine: true
+IncludeBlocks: Regroup
+MacroBlockBegin: "^A3_M_BEGIN$"
+MacroBlockEnd: "^A3_M_END$"
+ForEachMacros: ['A3_VEC_FOR_EACH', 'A3_LL_FOR_EACH', 'A3_LL_FOR_EACH_REV', 'A3_SLL_FOR_EACH', 'A3_HT_FOR_EACH']
+IncludeCategories:
+  - Regex: '^<[[:alnum:]_]+>$'
+    Priority: 1
+  - Regex: '^<a3/[[:alnum:]_.]+>$'
+    Priority: 3
+  - Regex: '^<sc/[[:alnum:]_.]+>$'
+    Priority: 4
+  - Regex: '^<[[:alnum:]./]+>$'
+    Priority: 2
+  - Regex: '^<a3/shim/[[:alnum:]_.]+>$'
+    Priority: 2
+  - Regex: '"shim/[[:alnum:]./_]+"$'
+    Priority: 2
+  - Regex: '^".*"$'
+    Priority: 5

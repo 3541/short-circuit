@@ -1,0 +1,44 @@
+/*
+ * CAST -- Slightly safer casts.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <cassert>
+#include <concepts>
+#include <exception>
+#include <limits>
+#include <type_traits>
+
+export module sc.lib.cast;
+
+export namespace sc::lib {
+
+template <typename F, typename T>
+concept Narrowing = std::integral<F> && std::integral<T> &&
+                    (sizeof(F) > sizeof(T) ||
+                     (sizeof(F) == sizeof(T) && std::is_signed_v<T> && !std::is_signed_v<F>) ||
+                     (std::is_signed_v<F> && !std::is_signed_v<T>));
+
+template <std::integral T, std::integral F>
+constexpr T narrow_cast(F v) noexcept
+    requires Narrowing<F, T> && (!Narrowing<T, F>)
+{
+    static constexpr auto MAX{static_cast<F>(std::numeric_limits<T>::max())};
+    static constexpr auto MIN{static_cast<F>(std::numeric_limits<T>::min())};
+    if consteval {
+        if (!(MIN <= v && v <= MAX))
+            std::terminate();
+    } else {
+        assert(MIN <= v && v <= MAX);
+    }
+
+    return static_cast<T>(v);
+}
+
+} // namespace sc::lib

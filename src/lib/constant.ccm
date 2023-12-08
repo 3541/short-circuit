@@ -1,0 +1,15 @@
+module;
+
+#include <type_traits>
+
+export module sc.lib.constant;
+
+export namespace sc::lib {
+
+template <auto V>
+using Constant = std::integral_constant<decltype(V), V>;
+
+template <auto V>
+constexpr Constant<V> CONSTANT{};
+
+}

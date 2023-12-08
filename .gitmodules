@@ -1,0 +1,3 @@
+[submodule "boilerplate"]
+	path = boilerplate
+	url = git@github.com:3541/boilerplate.git

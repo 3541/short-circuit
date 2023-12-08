@@ -1,0 +1,46 @@
+/*
+ * FUTURE -- A generic repeatable coroutine type.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <climits>
+#include <coroutine>
+#include <type_traits>
+
+export module sc.co.generator;
+
+namespace sc::co {
+
+export {
+    template <typename T>
+    struct Generator {
+    private:
+        struct Promise;
+
+        explicit Generator(std::coroutine_handle<Promise>);
+
+    public:
+        using promise_type = Promise;
+    };
+}
+
+template <typename T>
+struct Generator<T>::Promise {
+    std::suspend_never  initial_suspend() const noexcept;
+    std::suspend_always final_suspend() const noexcept;
+
+    Generator<T> get_return_object() noexcept;
+
+    void unhandled_exception() noexcept;
+
+    void return_void() noexcept;
+    std::suspend_always yield_value(T) noexcept;
+};
+
+} // namespace sc::co

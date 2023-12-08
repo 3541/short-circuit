@@ -1,0 +1,57 @@
+diff --git a/pkgs/development/compilers/gcc/common/dependencies.nix b/pkgs/development/compilers/gcc/common/dependencies.nix
+index a38cdcb9e20f..a8362f24d06b 100644
+--- a/pkgs/development/compilers/gcc/common/dependencies.nix
++++ b/pkgs/development/compilers/gcc/common/dependencies.nix
+@@ -50,7 +50,7 @@ in
+   ]
+   ++ optionals (perl != null) [ perl ]
+   ++ optionals javaAwtGtk [ pkg-config ]
+-  ++ optionals (with stdenv.targetPlatform; isVc4 || isRedox && flex != null) [ flex ]
++  ++ optionals (with stdenv.targetPlatform; isVc4 || isRedox || (lib.versionAtLeast version "14") && flex != null) [ flex ]
+   ++ optionals langAda [ gnat-bootstrap ]
+   # The builder relies on GNU sed (for instance, Darwin's `sed' fails with
+   # "-i may not be used with stdin"), and `stdenvNative' doesn't provide it.
+diff --git a/pkgs/development/compilers/gcc/default.nix b/pkgs/development/compilers/gcc/default.nix
+index 0fe23000cc90..a16f153d6e64 100644
+--- a/pkgs/development/compilers/gcc/default.nix
++++ b/pkgs/development/compilers/gcc/default.nix
+@@ -143,6 +143,7 @@ let inherit version;
+         enableShared
+         fetchpatch
+         fetchurl
++        flex
+         gettext
+         gmp
+         gnat-bootstrap
+@@ -183,7 +184,6 @@ let inherit version;
+     } // lib.optionalAttrs (!atLeast7) {
+       inherit
+         boehmgc
+-        flex
+         gnat-bootstrap
+         gtk2
+         langAda
+@@ -438,4 +438,3 @@ lib.pipe ((callFile ./common/builder.nix {}) ({
+ ] ++ optionals atLeast11 [
+   (callPackage ./common/checksum.nix { inherit langC langCC; })
+ ])
+-
+diff --git a/pkgs/development/compilers/gcc/versions.nix b/pkgs/development/compilers/gcc/versions.nix
+index 261ffc634544..e8f6c6237579 100644
+--- a/pkgs/development/compilers/gcc/versions.nix
++++ b/pkgs/development/compilers/gcc/versions.nix
+@@ -1,5 +1,6 @@
+ let
+   majorMinorToVersionMap = {
++    "14" = "14.0.0-20231206";
+     "13" = "13.2.0";
+     "12" = "12.3.0";
+     "11" = "11.4.0";
+@@ -19,6 +20,7 @@ let
+   srcHashForVersion = version: {
+     # NOTE: there is no need to remove hashes of obsolete minor
+     # versions when adding a new minor version.
++    "14.0.0-20231206" = "sha256-L8mg4hOFbn5yVvv8dHHgDPXMw4Z4BZQX3JD2FufJ4RM=";
+     "13.2.0" = "sha256-4nXnZEKmBnNBon8Exca4PYYTFEAEwEE1KIY9xrXHQ9o=";
+     "12.3.0" = "sha256-lJpdT5nnhkIak7Uysi/6tVeN5zITaZdbka7Jet/ajDs=";
+     "11.4.0" = "sha256-Py2yIrAH6KSiPNW6VnJu8I6LHx6yBV7nLBQCzqc6jdk=";

@@ -1,0 +1,5 @@
+add_executable(test_io_uring sqe.cc)
+sc_target(test_io_uring)
+target_link_libraries(test_io_uring PRIVATE gmock_main io_impl)
+gtest_discover_tests(test_io_uring)
+add_dependencies(check test_io_uring)

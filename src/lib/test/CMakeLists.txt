@@ -1,0 +1,5 @@
+add_executable(test_lib deque.cc nonnull.cc)
+sc_target(test_lib)
+target_link_libraries(test_lib PRIVATE gmock_main lib)
+gtest_discover_tests(test_lib)
+add_dependencies(check test_lib)

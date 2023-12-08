@@ -1,0 +1,310 @@
+/*
+ * DEQUE -- A contiguous double-ended queue.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <climits>
+// Must be first
+
+#include <algorithm>
+#include <cassert>
+#include <compare>
+#include <concepts>
+#include <cstddef>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <span>
+#include <type_traits>
+#include <utility>
+
+#include "sc/lib/fwd.hh"
+
+export module sc.lib.deque;
+
+import sc.lib.nonnull;
+
+export namespace sc::lib {
+
+template <typename T>
+struct Deque {
+private:
+    enum class Const : bool { No = false, Yes = true };
+
+    template <Const C>
+    struct Iterator;
+
+    using Slot = std::aligned_storage_t<sizeof(T), alignof(T)>;
+
+    NonNull<std::unique_ptr<Slot[]>> m_data;
+    std::size_t                      m_cap{0};
+    std::size_t                      m_start{0};
+    std::size_t                      m_len{0};
+
+    constexpr explicit Deque(std::size_t);
+
+    constexpr std::size_t       slot(std::size_t) noexcept;
+    constexpr NonNull<T*>       element(std::size_t) noexcept;
+    constexpr NonNull<T const*> element(std::size_t) const noexcept;
+    constexpr std::size_t       index(std::size_t) const noexcept;
+
+    constexpr std::pair<std::span<T>, std::span<T>> ranges() noexcept;
+
+public:
+    using value_type     = T;
+    using iterator       = Iterator<Const::No>;
+    using const_iterator = Iterator<Const::Yes>;
+
+    constexpr Deque();
+    constexpr Deque(std::initializer_list<T>);
+    constexpr ~Deque() noexcept(std::is_nothrow_destructible_v<T>);
+
+    constexpr Deque(Deque&&) noexcept            = default;
+    constexpr Deque& operator=(Deque&&) noexcept = default;
+
+    constexpr Deque(Deque const&);
+    constexpr Deque& operator=(Deque const&);
+
+    constexpr std::size_t len() const noexcept;
+    constexpr std::size_t capacity() const noexcept;
+    constexpr bool        is_empty() const noexcept;
+
+    constexpr void             reserve(std::size_t);
+    constexpr void             emplace_front(auto&&...);
+    constexpr void             emplace_back(auto&&...);
+    constexpr void             push_front(T);
+    constexpr void             push_back(T);
+    constexpr std::optional<T> pop_front() noexcept;
+    constexpr std::optional<T> pop_back() noexcept;
+
+    constexpr iterator       begin() noexcept;
+    constexpr const_iterator begin() const noexcept;
+    constexpr const_iterator cbegin() const noexcept;
+    constexpr iterator       end() noexcept;
+    constexpr const_iterator end() const noexcept;
+    constexpr const_iterator cend() const noexcept;
+
+    constexpr T& operator[](std::size_t) noexcept;
+    constexpr T const& operator[](std::size_t) const noexcept;
+};
+
+template <typename T>
+constexpr Deque<T>::Deque(std::size_t capacity) :
+    m_data{std::make_unique<Slot[]>(capacity)}, m_cap{capacity}, m_start{capacity / 2} {}
+
+template <typename T>
+constexpr Deque<T>::Deque() : Deque<T>(16) {}
+
+template <typename T>
+constexpr Deque<T>::Deque(std::initializer_list<T> list) : Deque<T>(list.size()) {
+    std::ranges::copy(list, std::back_inserter(*this));
+}
+
+template <typename T>
+constexpr Deque<T>::~Deque() noexcept(std::is_nothrow_destructible_v<T>) {
+    auto [first, second] = ranges();
+    std::ranges::destroy(first);
+    std::ranges::destroy(second);
+}
+
+template <typename T>
+constexpr Deque<T>::Deque(Deque const& other) : Deque<T>(other.capacity()) {
+    std::ranges::copy(other, std::back_inserter(*this));
+}
+
+template <typename T>
+constexpr std::size_t Deque<T>::slot(std::size_t index) noexcept {
+    assert(index <= m_len); // Past-the-end pointer intentionally permitted.
+
+    return (m_start + index) % m_cap;
+}
+
+template <typename T>
+constexpr NonNull<T*> Deque<T>::element(std::size_t index) noexcept {
+    return NonNull{reinterpret_cast<T*>(&m_data[slot(index)])};
+}
+
+template <typename T>
+constexpr NonNull<T const*> Deque<T>::element(std::size_t index) const noexcept {
+    return const_cast<Deque<T>*>(this)->element(index);
+}
+
+template <typename T>
+constexpr std::pair<std::span<T>, std::span<T>> Deque<T>::ranges() noexcept {
+    auto      start = element(0);
+    auto      end   = element(m_len);
+    std::span first{&*start, end > start ? &*end : reinterpret_cast<T*>(&m_data[m_cap])};
+
+    return {first, {&*element(0), &*element(0) + m_cap - first.size()}};
+}
+
+template <typename T>
+constexpr std::size_t Deque<T>::len() const noexcept {
+    return m_len;
+}
+
+template <typename T>
+constexpr std::size_t Deque<T>::capacity() const noexcept {
+    return m_cap;
+}
+
+template <typename T>
+constexpr bool Deque<T>::is_empty() const noexcept {
+    return !m_len;
+}
+
+template <typename T>
+constexpr void Deque<T>::reserve(std::size_t additional) {
+    if (m_len + additional <= m_cap) {
+        return;
+    }
+
+    auto const cap = std::max(m_cap * 2, m_len + additional);
+    NonNull    storage{std::make_unique<Slot[]>(cap)};
+
+    for (std::size_t i = 0; i < m_len; ++i) {
+        new (&*storage + slot(i)) T{std::move(*element(i))};
+    }
+
+    m_data = std::move(storage);
+}
+
+template <typename T>
+constexpr void Deque<T>::emplace_front(auto&&... args) {
+    reserve(1);
+
+    m_start = m_start > 0 ? m_start - 1 : m_cap - 1;
+    new (&*element(0)) T{SC_FWD(args)...};
+    ++m_len;
+}
+
+template <typename T>
+constexpr void Deque<T>::emplace_back(auto&&... args) {
+    reserve(1);
+
+    new (&*element(m_len++)) T{SC_FWD(args)...};
+}
+
+template <typename T>
+constexpr void Deque<T>::push_front(T value) {
+    emplace_front(std::move(value));
+}
+
+template <typename T>
+constexpr void Deque<T>::push_back(T value) {
+    emplace_back(std::move(value));
+}
+
+template <typename T>
+constexpr std::optional<T> Deque<T>::pop_front() noexcept {
+    if (is_empty()) {
+        return {};
+    }
+
+    T ret   = std::move(*element(0));
+    m_start = (m_start + 1) % m_cap;
+    --m_len;
+    return ret;
+}
+
+template <typename T>
+constexpr std::optional<T> Deque<T>::pop_back() noexcept {
+    if (is_empty()) {
+        return {};
+    }
+
+    T ret = std::move(*element(m_len - 1));
+    --m_len;
+    return ret;
+}
+
+template <typename T>
+constexpr auto Deque<T>::begin() noexcept -> iterator {
+    return iterator{NonNull{this}};
+}
+
+template <typename T>
+constexpr auto Deque<T>::begin() const noexcept -> const_iterator {
+    return const_iterator{NonNull{this}};
+}
+
+template <typename T>
+constexpr auto Deque<T>::cbegin() const noexcept -> const_iterator {
+    return begin();
+}
+
+template <typename T>
+constexpr auto Deque<T>::end() noexcept -> iterator {
+    return iterator{NonNull{this}, m_len};
+}
+
+template <typename T>
+constexpr auto Deque<T>::end() const noexcept -> const_iterator {
+    return const_iterator{NonNull{this}, m_len};
+}
+
+template <typename T>
+constexpr auto Deque<T>::cend() const noexcept -> const_iterator {
+    return end();
+}
+
+template <typename T>
+constexpr T& Deque<T>::operator[](std::size_t index) noexcept {
+    return *element(index);
+}
+
+template <typename T>
+constexpr T const& Deque<T>::operator[](std::size_t index) const noexcept {
+    return *element(index);
+}
+
+template <typename T>
+template <Deque<T>::Const C>
+struct Deque<T>::Iterator {
+private:
+    template <typename U>
+    using ConstT = std::conditional_t<static_cast<bool>(C), U const, U>;
+
+    NonNull<ConstT<Deque>*> m_parent;
+    std::size_t             m_index;
+
+    friend struct Deque;
+
+    constexpr explicit Iterator(NonNull<ConstT<Deque>*> parent, std::size_t index = 0) noexcept :
+        m_parent{parent}, m_index{index} {}
+
+public:
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = ConstT<T>;
+    using pointer           = ConstT<T>*;
+    using reference         = ConstT<T>&;
+    using iterator_category = std::bidirectional_iterator_tag;
+
+    constexpr Iterator& operator++() noexcept {
+        assert(m_index < m_parent->len());
+
+        ++m_index;
+        return *this;
+    }
+
+    constexpr Iterator& operator++(int) noexcept {
+        auto ret = *this;
+        ++*this;
+        return ret;
+    }
+
+    constexpr reference operator*() noexcept { return *m_parent->element(m_index); }
+    constexpr pointer   operator->() noexcept { return m_parent->element(m_index); }
+
+    friend constexpr bool operator==(Iterator const& lhs, Iterator const& rhs) noexcept {
+        return lhs.m_index == rhs.m_index;
+    }
+};
+
+} // namespace sc::lib

@@ -1,0 +1,63 @@
+/*
+ * FUTURE -- A generic coroutine type.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <climits>
+#include <coroutine>
+
+export module sc.co.future;
+
+namespace sc::co {
+
+template <typename T>
+struct PromiseBase {
+    void return_value(T) noexcept;
+};
+
+template <>
+struct PromiseBase<void> {
+    void return_void() noexcept;
+};
+
+export {
+    template <typename T = void>
+    struct Future {
+    private:
+        struct Promise;
+
+        explicit Future(std::coroutine_handle<Future>);
+
+    public:
+        using promise_type = Promise;
+    };
+}
+
+template <typename T>
+struct Future<T>::Promise : public PromiseBase<T> {
+public:
+    std::suspend_never  initial_suspend() const noexcept;
+    std::suspend_always final_suspend() const noexcept;
+
+    Future<T> get_return_object() noexcept;
+
+    void unhandled_exception() noexcept;
+};
+
+template <typename T>
+std::suspend_never Future<T>::Promise::initial_suspend() const noexcept {
+    return {};
+}
+
+template <typename T>
+std::suspend_always Future<T>::Promise::final_suspend() const noexcept {
+    return {};
+}
+
+} // namespace sc::co

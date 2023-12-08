@@ -1,0 +1,75 @@
+module;
+
+#include <climits>
+#include <expected>
+#include <functional>
+#include <variant>
+
+#include <liburing.h>
+
+export module sc.io.impl.uring;
+
+import sc.co.future;
+import sc.co.generator;
+import sc.config;
+import sc.io.buf;
+import sc.io.file;
+
+export namespace sc::io::impl::uring {
+
+struct Uring {
+private:
+    io_uring m_uring{};
+
+    io_uring_sqe* sqe() noexcept;
+
+    template <template <typename> typename S>
+    auto prep(std::invocable<io_uring_sqe&> auto);
+
+    template <template <typename> typename S>
+    auto prep(std::invocable<io_uring_sqe*> auto);
+
+public:
+    struct Errors {
+        struct RingFull {};
+
+        struct RequestFailed {
+            std::error_code m_reason;
+
+            RequestFailed(std::error_code);
+        };
+
+        struct OutOfBuffers {};
+    };
+
+    using Error = std::variant<Errors::RingFull, Errors::RequestFailed, Errors::OutOfBuffers>;
+
+    explicit Uring(unsigned entries = config::URING_ENTRIES) noexcept;
+
+    co::Future<std::expected<void, Error>>      nop() noexcept;
+    co::Generator<std::expected<Socket, Error>> accept(SocketRef) noexcept;
+    co::Generator<std::expected<Buf, Error>>    recv(SocketRef) noexcept;
+    void                                        close(File&&) noexcept;
+};
+
+template <template <typename> typename S>
+auto Uring::prep(std::invocable<io_uring_sqe&> auto f) {
+    return S{[f = std::move(f), this]() mutable noexcept {
+        auto* s = sqe();
+        if (s) {
+            s->buf_group = 0;
+            std::invoke(std::move(f), *s);
+        }
+
+        return s;
+    }};
+}
+
+template <template <typename> typename S>
+auto Uring::prep(std::invocable<io_uring_sqe*> auto f) {
+    return prep<S>([f = std::move(f)](io_uring_sqe& sqe) mutable noexcept {
+        std::invoke(std::move(f), &sqe);
+    });
+}
+
+} // namespace sc::io::impl::uring

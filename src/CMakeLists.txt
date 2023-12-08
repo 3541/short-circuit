@@ -1,0 +1,36 @@
+function(sc_target target)
+    include(AddWarnings)
+    include(Sanitize)
+    include(ClangTidy)
+    include(StackProtector)
+    include(DisableExceptions)
+    include(DisableRTTI)
+
+    target_add_extra_warnings("${target}")
+    target_add_clang_tidy("${target}")
+    target_add_stack_protector("${target}")
+    target_add_stack_clash_protection("${target}")
+    target_disable_exceptions("${target}")
+    target_disable_rtti("${target}")
+    target_add_flag_cxx("${target}" "fdiagnostics-color=always" FALSE FALSE)
+
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_add_sanitizers("${target}" TRUE)
+    else()
+        target_add_sanitizers("${target}" FALSE)
+    endif()
+endfunction()
+
+find_library(a3 a3 REQUIRED)
+
+add_library(config)
+sc_target(config)
+target_sources(config PUBLIC FILE_SET conf TYPE CXX_MODULES FILES config.ccm)
+
+add_subdirectory(co)
+add_subdirectory(io)
+add_subdirectory(lib)
+
+add_executable(sc main.cc)
+sc_target(sc)
+target_link_libraries(sc PRIVATE io)

@@ -1,0 +1,31 @@
+module;
+
+#include <cinttypes>
+#include <concepts>
+#include <source_location>
+#include <string>
+#include <string_view>
+
+#include <a3/shim/strerror.h>
+
+#include <a3/log.h>
+#include <a3/util.h>
+
+export module sc.lib.error;
+
+export namespace sc::lib::error {
+
+template <std::signed_integral T>
+T must(T value, std::string_view msg = "Fatal error",
+       std::source_location loc = std::source_location::current()) noexcept {
+    if (value < 0) {
+        const std::string buf{msg};
+        A3_ERRNO_F(-value, "[%s %" PRIuLEAST32 ":%" PRIuLEAST32 "] %s: %s", loc.file_name(),
+                   loc.line(), loc.column(), loc.function_name(), buf.data());
+        A3_PANIC("must()");
+    }
+
+    return value;
+}
+
+} // namespace sc::lib::error

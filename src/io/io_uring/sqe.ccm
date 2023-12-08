@@ -1,0 +1,147 @@
+/*
+ * SQE -- An awaitable io_uring submission.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <cassert>
+#include <climits>
+#include <coroutine>
+#include <cstdint>
+#include <exception>
+#include <expected>
+#include <functional>
+#include <optional>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
+#include <liburing.h>
+
+#include "sc/lib/option.hh"
+
+export module sc.io.impl.uring.sqe;
+
+import sc.io.buf;
+import sc.lib.deque;
+
+namespace sc::io::impl::uring {
+
+struct Cqe {
+protected:
+    ~Cqe() = default;
+
+public:
+    virtual void complete(io_uring_cqe const&) noexcept = 0;
+};
+
+struct Result {
+    std::int32_t           m_res;
+    std::optional<Buf::Id> m_buffer;
+
+    explicit Result(io_uring_cqe const&) noexcept;
+
+    std::expected<std::uint32_t, std::error_code> result() const noexcept;
+};
+
+struct SingleCqe final : public Cqe {
+private:
+    std::coroutine_handle<> m_handle;
+    std::optional<Result>   m_result;
+
+    template <typename C>
+        requires std::is_nothrow_invocable_r_v<io_uring_sqe*, C>
+    friend struct Sqe;
+
+    explicit SingleCqe(io_uring_sqe&) noexcept;
+
+public:
+    void                    complete(io_uring_cqe const&) noexcept final;
+    std::coroutine_handle<> handle() const noexcept;
+
+    bool   await_ready() const noexcept;
+    void   await_suspend(std::coroutine_handle<>) noexcept;
+    Result await_resume() noexcept;
+};
+
+export {
+    template <typename C>
+        requires std::is_nothrow_invocable_r_v<io_uring_sqe*, C>
+    struct Sqe {
+    private:
+        C m_sqe;
+
+    public:
+        constexpr explicit Sqe(C sqe) : m_sqe{std::move(sqe)} {}
+
+        auto operator co_await() && {
+            auto* sqe = std::invoke(std::move(m_sqe));
+            if (!sqe) {
+                // TODO
+                std::terminate();
+            }
+
+            return SingleCqe{*sqe};
+        }
+    };
+
+    template <typename C>
+        requires std::is_nothrow_invocable_r_v<io_uring_sqe*, C>
+    struct MultishotSqe final : public Cqe {
+    public:
+        enum class State : bool { Alive, Resubmit };
+
+    private:
+        std::variant<std::monostate, C, std::coroutine_handle<>> m_state;
+        State                                                    m_request_state;
+        lib::Deque<Result>                                       m_results;
+
+    public:
+        constexpr explicit MultishotSqe(C sqe) : m_state{std::move(sqe)} {}
+
+        bool await_ready() const noexcept {
+            return !m_results.is_empty() || m_request_state == State::Resubmit;
+        }
+
+        void await_suspend(std::coroutine_handle<> handle) noexcept {
+            assert(!std::holds_alternative<std::coroutine_handle<>>(m_state));
+
+            if (std::holds_alternative<C>(m_state)) {
+                auto* sqe = std::invoke(std::get<C>(std::exchange(m_state, std::monostate{})));
+                if (!sqe) {
+                    // TODO
+                    std::terminate();
+                }
+            }
+
+            m_state = handle;
+        }
+
+        std::optional<Result> await_resume() noexcept {
+            return SC_OPTION_IF(m_request_state == State::Alive && !m_results.is_empty(),
+                                *m_results.pop_front());
+        }
+
+        void complete(io_uring_cqe const& cqe) noexcept final {
+            m_results.emplace_back(cqe);
+            if (!(cqe.flags & IORING_CQE_F_MORE))
+                m_request_state = State::Resubmit;
+
+            if (std::holds_alternative<std::coroutine_handle<>>(m_state)) {
+                std::get<std::coroutine_handle<>>(std::exchange(m_state, std::monostate{}))
+                    .resume();
+            }
+        }
+
+        bool done() const noexcept {
+            return m_request_state == State::Resubmit && m_results.is_empty();
+        }
+    };
+}
+
+} // namespace sc::io::impl::uring

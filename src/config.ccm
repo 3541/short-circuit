@@ -1,0 +1,11 @@
+export module sc.config;
+
+export namespace sc::config {
+
+#ifdef SC_CONFIG_URING_ENTRIES
+constexpr unsigned URING_ENTRIES{SC_CONFIG_URING_ENTRIES};
+#else
+constexpr unsigned URING_ENTRIES{2048};
+#endif
+
+} // namespace sc::config
