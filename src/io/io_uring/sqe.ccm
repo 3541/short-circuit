@@ -45,6 +45,9 @@ struct Result {
     std::optional<Buf::Id> m_buffer;
 
     explicit Result(io_uring_cqe const&) noexcept;
+    Result(std::int32_t, std::optional<Buf::Id>) noexcept;
+
+    constexpr bool operator==(Result const&) const noexcept = default;
 
     std::expected<std::uint32_t, std::error_code> result() const noexcept;
 };
@@ -59,10 +62,10 @@ private:
     friend struct Sqe;
 
     explicit SingleCqe(io_uring_sqe&) noexcept;
+    ~SingleCqe();
 
 public:
     void                    complete(io_uring_cqe const&) noexcept final;
-    std::coroutine_handle<> handle() const noexcept;
 
     bool   await_ready() const noexcept;
     void   await_suspend(std::coroutine_handle<>) noexcept;
@@ -104,6 +107,11 @@ export {
     public:
         constexpr explicit MultishotSqe(C sqe) : m_state{std::move(sqe)} {}
 
+        ~MultishotSqe() {
+            if (auto* handle = std::get_if<std::coroutine_handle<>>(&m_state))
+                handle->destroy();
+        }
+
         bool await_ready() const noexcept {
             return !m_results.is_empty() || m_request_state == State::Resubmit;
         }
@@ -133,8 +141,7 @@ export {
                 m_request_state = State::Resubmit;
 
             if (std::holds_alternative<std::coroutine_handle<>>(m_state)) {
-                std::get<std::coroutine_handle<>>(std::exchange(m_state, std::monostate{}))
-                    .resume();
+                std::get<std::coroutine_handle<>>(std::exchange(m_state, std::monostate{}))();
             }
         }
 

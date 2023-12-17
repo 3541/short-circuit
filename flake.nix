@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
     nixpkgs-unstable.url = "nixpkgs/nixos-unstable";
-    nixpkgs-llvm17.url = "github:ExpidusOS/nixpkgs/feat/llvm-17";
+    nixpkgs-master.url = "nixpkgs/master";
     utils.url = "github:numtide/flake-utils";
 
     flake-compat = {
@@ -25,12 +25,12 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-llvm17, utils, a3, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-master, utils, a3, ... }:
     utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        pkgsLlvm17 = nixpkgs-llvm17.legacyPackages.${system};
-        llvm = pkgsLlvm17.llvmPackages_17;
+        pkgsMaster = nixpkgs-master.legacyPackages.${system};
+        llvm = pkgsMaster.llvmPackages_17;
 
         pkgsGcc14 = import
           (nixpkgs-unstable.legacyPackages.${system}.applyPatches {
@@ -55,12 +55,12 @@
         gcc14 = pkgsGcc14.wrapCC ((pkgsGcc14.gcc_latest.cc.override {
           majorMinorVersion = "14";
         }).overrideAttrs (prev: {
-          version = "14.0.0-20231206";
+          version = "14.0.0-20231209";
 
           src = pkgs.fetchgit {
             url = "https://gcc.gnu.org/git/gcc.git";
-            rev = "c73cc6fe6207b2863afa31a3be8ad87b70d3df0a";
-            sha256 = "sha256-L8mg4hOFbn5yVvv8dHHgDPXMw4Z4BZQX3JD2FufJ4RM=";
+            rev = "d9965fef40794d548021d2e34844e5fafeca4ce5";
+            sha256 = "sha256-prSN7brFE51ZPyQO+PWAiOa1svJtzk9Ce2URoeQO+IM=";
           };
         }));
       in rec {
@@ -119,7 +119,7 @@
           packages = with pkgs; [
             gdb
             rr
-            (pkgsLlvm17.clang-tools_17.override { enableLibcxx = true; })
+            (pkgsMaster.clang-tools_17.override { enableLibcxx = true; })
             (let unwrapped = include-what-you-use;
             in stdenv.mkDerivation {
               pname = "include-what-you-use";

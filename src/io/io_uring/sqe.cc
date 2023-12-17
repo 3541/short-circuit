@@ -42,13 +42,18 @@ std::expected<std::uint32_t, std::error_code> Result::result() const noexcept {
 
 SingleCqe::SingleCqe(io_uring_sqe& sqe) noexcept { io_uring_sqe_set_data(&sqe, this); }
 
-void SingleCqe::complete(io_uring_cqe const& cqe) noexcept {
-    assert(!m_result);
-    m_result.emplace(cqe);
-    m_handle.resume();
+SingleCqe::~SingleCqe() {
+    if (m_handle)
+        m_handle.destroy();
 }
 
-std::coroutine_handle<> SingleCqe::handle() const noexcept { return m_handle; }
+void SingleCqe::complete(io_uring_cqe const& cqe) noexcept {
+    assert(!m_result);
+    assert(m_handle);
+
+    m_result.emplace(cqe);
+    std::exchange(m_handle, {})();
+}
 
 bool SingleCqe::await_ready() const noexcept { return false; }
 
