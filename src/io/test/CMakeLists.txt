@@ -1,0 +1,5 @@
+add_executable(test_io alloc.cc ops.cc)
+sc_target(test_io)
+target_link_libraries(test_io PRIVATE gmock_main io lib)
+gtest_discover_tests(test_io)
+add_dependencies(check test_io)

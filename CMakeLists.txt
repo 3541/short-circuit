@@ -13,30 +13,13 @@ set(
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-message(STATUS ${CMAKE_C_COMPILER})
-message(STATUS ${CMAKE_CXX_COMPILER})
-
-if (CMAKE_SYSTEM_NAME STREQUAL Linux AND CMAKE_BUILD_TYPE STREQUAL Debug)
-    include(CheckCXXSourceCompiles)
-
-    set(prev "${CMAKE_REQUIRED_FLAGS}")
-    set(CMAKE_REQUIRED_FLAGS -Werror)
-    set(trivial_source "#include <features.h>\nint main() {}")
-    check_cxx_source_compiles("${trivial_source}" trivial)
-
-    if (NOT trivial)
-        set(CMAKE_REQUIRED_FLAGS "-U_FORTIFY_SOURCE -Werror")
-        check_cxx_source_compiles("${trivial_source}" trivial_no_fortify)
-
-        if (trivial_no_fortify)
-            add_compile_options(-U_FORTIFY_SOURCE)
-        else()
-            message(FATAL_ERROR "Unable to compile trivial program.")
-        endif()
-    endif()
-
-    set(CMAKE_REQUIRED_FLAGS "${prev}")
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-O0 HAVE_O0)
+if (HAVE_O0)
+    add_compile_options($<$<CONFIG:Debug>:-O0>)
 endif()
+
+add_compile_definitions($<$<CONFIG:Release>:_FORTIFY_SOURCE=3>)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT lto)
@@ -60,7 +43,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(INSTALL_GTEST FALSE CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
-    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+    add_custom_target(check COMMAND "${CMAKE_CTEST_COMMAND}" --output-on-failure)
 endif()
 
 add_subdirectory(src)

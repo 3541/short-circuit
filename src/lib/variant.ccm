@@ -1,0 +1,36 @@
+/*
+ * VARIANT -- Extra utilities for std::variant.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <ostream>
+#include <variant>
+
+export module sc.lib.variant;
+
+import sc.lib.stream;
+
+export namespace sc::lib {
+
+template <Streamable... S>
+std::ostream& operator<<(std::ostream& stream, Stream<std::variant<S...>> variant) {
+    return std::visit([&](const auto& value) -> std::ostream& { return stream << value; },
+                      variant.m_inner);
+}
+
+template <typename... V>
+auto stream_view(Stream<std::variant<V...> const&> variant) {
+    return Stream{std::visit(
+        [](auto const& value) -> std::variant<decltype(stream_view(std::declval<V>()))...> {
+            return stream_view(value);
+        },
+        variant.m_inner)};
+}
+
+} // namespace sc::lib

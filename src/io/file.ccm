@@ -7,8 +7,16 @@
  * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+module;
+
+#include <cstdint>
+#include <expected>
+#include <ostream>
+#include <utility>
+
 export module sc.io.file;
 
+import sc.io.file.close;
 import sc.io.owner;
 
 namespace sc::io {
@@ -16,15 +24,30 @@ namespace sc::io {
 template <Ownership O>
 struct FileBase {
 private:
-    unsigned m_fd;
+    static constexpr int INVALID{-1};
+
+    int m_fd;
+
+#ifdef SC_IO_BACKEND_FILE_FLAGS
+    std::uint8_t m_flags;
+#endif
 
 public:
     using Descriptor = unsigned;
 
     operator FileBase<Ownership::Borrowed>() const noexcept;
+    operator Descriptor() const noexcept;
     operator int() const noexcept;
 
-    explicit FileBase(unsigned) noexcept;
+#ifdef SC_IO_BACKEND_FILE_FLAGS
+    operator std::pair<unsigned, std::uint8_t>() const noexcept;
+
+    bool flag(std::uint8_t) const noexcept;
+
+    explicit FileBase(Descriptor, std::uint8_t flags = 0) noexcept;
+#else
+    explicit FileBase(Descriptor) noexcept;
+#endif
 
     // clang-format off
     FileBase(FileBase&&) requires (O == Ownership::Owned);
@@ -39,7 +62,36 @@ public:
     ~FileBase() requires (O == Ownership::Owned);
     ~FileBase() requires (O == Ownership::Borrowed) = default;
     // clang-format on
+
+    friend std::ostream& operator<<(std::ostream& stream, FileBase const& file) {
+        return stream << "File{" << static_cast<Descriptor>(file) << "}";
+    }
 };
+
+template <Ownership O>
+FileBase<O>::~FileBase()
+    requires(O == Ownership::Owned)
+{
+    if (m_fd == INVALID)
+        return;
+
+    io::close(*this);
+    m_fd = INVALID;
+}
+
+template <Ownership O>
+FileBase<O>& FileBase<O>::operator=(FileBase&& other)
+    requires(O == Ownership::Owned)
+{
+    if (m_fd != INVALID)
+        io::close(*this);
+
+    m_fd = std::exchange(other.m_fd, INVALID);
+#ifdef SC_IO_BACKEND_FILE_FLAGS
+    m_flags = other.m_flags;
+#endif
+    return *this;
+}
 
 template <Ownership O>
 struct SocketBase : public FileBase<O> {
@@ -55,8 +107,8 @@ export {
 
     using Socket    = SocketBase<Ownership::Owned>;
     using SocketRef = SocketBase<Ownership::Borrowed>;
-}
 
-void close(File&&) noexcept;
+    static_assert(sizeof(File) <= sizeof(std::size_t));
+}
 
 } // namespace sc::io

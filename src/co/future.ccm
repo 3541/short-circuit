@@ -9,16 +9,28 @@
 
 module;
 
+#include <cassert>
 #include <climits>
 #include <coroutine>
+#include <optional>
+#include <utility>
+
+#include <a3/util.hh>
 
 export module sc.co.future;
+
+import sc.co.resume;
 
 namespace sc::co {
 
 template <typename T>
 struct PromiseBase {
+private:
+    std::optional<T> m_value;
+
+public:
     void return_value(T) noexcept;
+    T    take() noexcept;
 };
 
 template <>
@@ -26,24 +38,36 @@ struct PromiseBase<void> {
     void return_void() noexcept;
 };
 
-export {
-    template <typename T = void>
-    struct Future {
-    private:
-        struct Promise;
+export template <typename T = void>
+struct Future {
+    A3_NO_COPY(Future);
 
-        explicit Future(std::coroutine_handle<Future>);
+private:
+    struct Promise;
 
-    public:
-        using promise_type = Promise;
-    };
-}
+    std::coroutine_handle<Promise> m_handle;
+
+    explicit Future(std::coroutine_handle<Promise>);
+
+public:
+    using promise_type = Promise;
+
+    auto operator co_await() && noexcept;
+
+    bool done() const noexcept;
+    T    take() && noexcept;
+};
 
 template <typename T>
 struct Future<T>::Promise : public PromiseBase<T> {
+private:
+    std::coroutine_handle<> m_caller;
+
 public:
-    std::suspend_never  initial_suspend() const noexcept;
-    std::suspend_always final_suspend() const noexcept;
+    friend struct Future<T>;
+
+    std::suspend_never initial_suspend() const noexcept;
+    Resume             final_suspend() const noexcept;
 
     Future<T> get_return_object() noexcept;
 
@@ -51,13 +75,67 @@ public:
 };
 
 template <typename T>
+void PromiseBase<T>::return_value(T value) noexcept {
+    assert(!m_value);
+    m_value = std::move(value);
+}
+
+template <typename T>
+T PromiseBase<T>::take() noexcept {
+    assert(m_value);
+
+    return *std::exchange(m_value, {});
+}
+
+template <typename T>
 std::suspend_never Future<T>::Promise::initial_suspend() const noexcept {
     return {};
 }
 
 template <typename T>
-std::suspend_always Future<T>::Promise::final_suspend() const noexcept {
-    return {};
+Resume Future<T>::Promise::final_suspend() const noexcept {
+    return Resume{m_caller};
+}
+
+template <typename T>
+Future<T> Future<T>::Promise::get_return_object() noexcept {
+    return Future{std::coroutine_handle<Promise>::from_promise(*this)};
+}
+
+template <typename T>
+Future<T>::Future(std::coroutine_handle<Promise> handle) : m_handle{handle} {}
+
+template <typename T>
+auto Future<T>::operator co_await() && noexcept {
+    struct Awaiter {
+        std::coroutine_handle<Promise> m_handle;
+
+        bool await_ready() const noexcept { return m_handle.done(); }
+
+        void await_suspend(std::coroutine_handle<> handle) noexcept {
+            m_handle.promise().m_caller = handle;
+        }
+
+        T await_resume() noexcept {
+            assert(m_handle.done());
+            auto result = m_handle.promise().take();
+            m_handle.destroy();
+
+            return result;
+        }
+    };
+
+    return Awaiter{m_handle};
+}
+
+template <typename T>
+bool Future<T>::done() const noexcept {
+    return m_handle.done();
+}
+
+template <typename T>
+T Future<T>::take() && noexcept {
+    return std::move(*this).operator co_await().await_resume();
 }
 
 } // namespace sc::co

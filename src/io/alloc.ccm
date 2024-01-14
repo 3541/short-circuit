@@ -9,9 +9,6 @@
 
 module;
 
-#include <climits>
-// Must be first
-
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -20,18 +17,18 @@ module;
 
 export module sc.io.alloc;
 
+import sc.config;
 import sc.io.buf;
 
 export namespace sc::io {
 
 struct Allocator {
 private:
-    static constexpr std::size_t BLOCK_SIZE{512};
+    static constexpr std::size_t BLOCK_SIZE{config::IO_BUFFER_GROUP_SIZE};
 
     struct Storage {
-        std::array<std::byte, 16384> m_buf;
+        std::array<std::byte, config::IO_BUFFER_SIZE> m_buf;
     };
-    static_assert(sizeof(Storage) == 16384);
 
     Allocator() noexcept;
 
@@ -39,16 +36,22 @@ private:
     std::vector<Buf::Id>                         m_free;
 
 public:
+    enum class Group : std::uint16_t {};
+
     static Allocator& the() noexcept;
 
     void consume_free(std::invocable<Buf> auto const&) noexcept;
+
     Buf  get_unsafe(Buf::Id) noexcept;
     void free(Buf&&) noexcept;
+
+    static Group group(Buf::Id) noexcept;
 };
 
 void Allocator::consume_free(std::invocable<Buf> auto const& f) noexcept {
     for (auto const id : m_free)
         f(get_unsafe(id));
+
     m_free.clear();
 }
 

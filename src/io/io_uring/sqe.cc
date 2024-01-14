@@ -14,6 +14,7 @@ module;
 #include <coroutine>
 #include <cstdint>
 #include <expected>
+#include <ostream>
 #include <system_error>
 #include <type_traits>
 
@@ -28,15 +29,17 @@ import sc.io.buf;
 
 namespace sc::io::impl::uring {
 
+Cqe::RequestFailed::RequestFailed(std::error_code error) : m_reason{error} {}
+
 Result::Result(io_uring_cqe const& cqe) noexcept :
     m_res{cqe.res},
-    m_buffer{SC_OPTION_IF(cqe.flags & IORING_CQE_F_BUFFER,
-                          Buf::Id{lib::narrow_cast<std::underlying_type_t<Buf::Id>>(
-                              cqe.flags >> IORING_CQE_BUFFER_SHIFT)})} {}
+    m_buf{SC_OPTION_IF(cqe.flags & IORING_CQE_F_BUFFER,
+                       Buf::Id{lib::narrow_cast<std::underlying_type_t<Buf::Id>>(
+                           cqe.flags >> IORING_CQE_BUFFER_SHIFT)})} {}
 
-std::expected<std::uint32_t, std::error_code> Result::result() const noexcept {
+std::expected<std::uint32_t, Cqe::RequestFailed> Result::result() const noexcept {
     if (m_res < 0)
-        return std::unexpected{std::error_code{-m_res, std::system_category()}};
+        return std::unexpected{Cqe::RequestFailed{std::error_code{-m_res, std::system_category()}}};
     return static_cast<std::uint32_t>(m_res);
 }
 
@@ -62,6 +65,10 @@ void SingleCqe::await_suspend(std::coroutine_handle<> handle) noexcept { m_handl
 Result SingleCqe::await_resume() noexcept {
     assert(m_result);
     return *m_result;
+}
+
+std::ostream& operator<<(std::ostream& stream, Cqe::RequestFailed const& error) {
+    return stream << "Request failed: " << error.m_reason;
 }
 
 } // namespace sc::io::impl::uring

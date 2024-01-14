@@ -1,0 +1,60 @@
+/*
+ * STREAM -- Stream printing.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <concepts>
+#include <iosfwd>
+#include <sstream>
+#include <string>
+
+#include "sc/lib/fwd.hh"
+
+export module sc.lib.stream;
+
+export namespace sc::lib {
+
+template <typename T>
+concept Streamable = requires(T value) {
+    { std::declval<std::ostream&>() << value } -> std::same_as<std::ostream&>;
+};
+
+template <typename T>
+struct Stream {
+    using Inner = T;
+
+    T m_inner;
+};
+
+template <Streamable T>
+std::ostream& operator<<(std::ostream& stream, Stream<T> const& value) {
+    return stream << value.m_inner;
+}
+
+template <typename T>
+concept StreamWrapped = requires {
+    typename T::Inner;
+    requires std::same_as<Stream<typename T::Inner>, T>;
+};
+
+decltype(auto) stream_view(StreamWrapped auto&& value) { return SC_FWD(value); }
+
+template <typename T>
+    requires(!StreamWrapped<T>)
+auto stream_view(T const& value) {
+    return stream_view(Stream<T const&>{value});
+}
+
+std::string stream(auto&&... args) {
+    std::ostringstream s;
+    (s << ... << SC_FWD(args));
+    return s.str();
+}
+
+} // namespace sc::lib

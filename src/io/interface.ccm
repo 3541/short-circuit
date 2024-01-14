@@ -7,18 +7,39 @@
  * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+module;
+
+#include <expected>
+
 export module sc.io.interface;
 
+import sc.co.future;
+import sc.io.addr;
+import sc.io.file;
 import sc.io.impl;
 
 export namespace sc::io {
 
-struct Interface : public impl::Interface {
+struct Interface : private impl::Interface {
 private:
     using impl::Interface::Interface;
 
 public:
     static Interface& the() noexcept;
+
+    using impl::Interface::Error;
+
+    using impl::Interface::accept;
+    using impl::Interface::close;
+    using impl::Interface::nop;
+    using impl::Interface::recv;
+    using impl::Interface::send;
+
+    using impl::Interface::pump;
+    using impl::Interface::run;
+
+    co::Future<std::expected<Socket, Error>>
+    listen_socket(Addr const& = Addr::any(Port{0})) noexcept;
 };
 
-}
+} // namespace sc::io

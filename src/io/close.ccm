@@ -14,18 +14,14 @@ module;
 #include <utility>
 #endif
 
-module sc.io.file.close;
+export module sc.io.file.close;
 
-import sc.io.interface;
-
-namespace sc::io {
+export namespace sc::io {
 
 #ifdef SC_IO_BACKEND_FILE_FLAGS
-void close(std::pair<unsigned, std::uint8_t> file) noexcept {
+void close(std::pair<unsigned, std::uint8_t>) noexcept;
 #else
-void close(unsigned file) noexcept {
+void close(unsigned) noexcept;
 #endif
-    Interface::the().close(file);
-}
 
 } // namespace sc::io

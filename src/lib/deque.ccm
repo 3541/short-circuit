@@ -49,10 +49,12 @@ private:
 
     constexpr explicit Deque(std::size_t);
 
-    constexpr std::size_t       slot(std::size_t) noexcept;
+    constexpr NonNull<T*>       element_raw(std::size_t) noexcept;
+    constexpr NonNull<T const*> element_raw(std::size_t) const noexcept;
+
+    constexpr std::size_t       slot(std::size_t) const noexcept;
     constexpr NonNull<T*>       element(std::size_t) noexcept;
     constexpr NonNull<T const*> element(std::size_t) const noexcept;
-    constexpr std::size_t       index(std::size_t) const noexcept;
 
     constexpr std::pair<std::span<T>, std::span<T>> ranges() noexcept;
 
@@ -119,7 +121,19 @@ constexpr Deque<T>::Deque(Deque const& other) : Deque<T>(other.capacity()) {
 }
 
 template <typename T>
-constexpr std::size_t Deque<T>::slot(std::size_t index) noexcept {
+constexpr NonNull<T*> Deque<T>::element_raw(std::size_t index) noexcept {
+    assert(index <= m_cap);
+
+    return NonNull{reinterpret_cast<T*>(&m_data[index])};
+}
+
+template <typename T>
+constexpr NonNull<T const*> Deque<T>::element_raw(std::size_t index) const noexcept {
+    return const_cast<Deque<T>*>(this)->element_raw(index);
+}
+
+template <typename T>
+constexpr std::size_t Deque<T>::slot(std::size_t index) const noexcept {
     assert(index <= m_len); // Past-the-end pointer intentionally permitted.
 
     return (m_start + index) % m_cap;
@@ -127,21 +141,21 @@ constexpr std::size_t Deque<T>::slot(std::size_t index) noexcept {
 
 template <typename T>
 constexpr NonNull<T*> Deque<T>::element(std::size_t index) noexcept {
-    return NonNull{reinterpret_cast<T*>(&m_data[slot(index)])};
+    return element_raw(slot(index));
 }
 
 template <typename T>
 constexpr NonNull<T const*> Deque<T>::element(std::size_t index) const noexcept {
-    return const_cast<Deque<T>*>(this)->element(index);
+    return element_raw(slot(index));
 }
 
 template <typename T>
 constexpr std::pair<std::span<T>, std::span<T>> Deque<T>::ranges() noexcept {
     auto      start = element(0);
     auto      end   = element(m_len);
-    std::span first{&*start, end > start ? &*end : reinterpret_cast<T*>(&m_data[m_cap])};
+    std::span first{&*start, end > start || !m_len ? &*end : &*element_raw(m_cap)};
 
-    return {first, {&*element(0), &*element(0) + m_cap - first.size()}};
+    return {first, {&*element_raw(0), &*element_raw(m_len - first.size())}};
 }
 
 template <typename T>

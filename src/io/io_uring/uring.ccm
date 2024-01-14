@@ -1,75 +1,99 @@
+/*
+ * URING -- io_uring bindings.
+ *
+ * Copyright (c) 2023-2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 module;
 
 #include <climits>
+#include <cstdint>
 #include <expected>
-#include <functional>
+#include <iosfwd>
+#include <span>
+#include <utility>
 #include <variant>
 
 #include <liburing.h>
+
+#include <a3/util.hh>
 
 export module sc.io.impl.uring;
 
 import sc.co.future;
 import sc.co.generator;
 import sc.config;
+import sc.io.addr;
 import sc.io.buf;
 import sc.io.file;
+import sc.io.impl.uring.buf;
+import sc.io.impl.uring.sqe;
 
 export namespace sc::io::impl::uring {
 
 struct Uring {
+    A3_PINNED(Uring);
+
 private:
-    io_uring m_uring{};
+    static constexpr std::uint64_t IMMEDIATE_FLAG{1ULL << 63};
 
-    io_uring_sqe* sqe() noexcept;
+    io_uring   m_uring{};
+    BufManager m_buffers{m_uring};
+
+    void buffer_flush() noexcept;
+
+    ::io_uring_sqe* sqe() noexcept;
 
     template <template <typename> typename S>
-    auto prep(std::invocable<io_uring_sqe&> auto);
+    auto prep(std::invocable<::io_uring_sqe&> auto);
 
     template <template <typename> typename S>
-    auto prep(std::invocable<io_uring_sqe*> auto);
+    auto prep(std::invocable<::io_uring_sqe*> auto);
+
+    bool prep_immediate(std::invocable<::io_uring_sqe&> auto, std::uint64_t data);
 
 public:
     struct Errors {
-        struct RingFull {};
+        using RequestFailed = Cqe::RequestFailed;
 
-        struct RequestFailed {
-            std::error_code m_reason;
-
-            RequestFailed(std::error_code);
+        struct RingFull {
+            friend std::ostream& operator<<(std::ostream&, RingFull);
         };
 
-        struct OutOfBuffers {};
+        struct OutOfBuffers {
+            friend std::ostream& operator<<(std::ostream&, OutOfBuffers);
+        };
     };
 
     using Error = std::variant<Errors::RingFull, Errors::RequestFailed, Errors::OutOfBuffers>;
 
     explicit Uring(unsigned entries = config::URING_ENTRIES) noexcept;
+    ~Uring();
 
-    co::Future<std::expected<void, Error>>      nop() noexcept;
+    co::Future<std::expected<void, Error>> nop() noexcept;
+
+    co::Future<std::expected<Socket, Error>>    socket() noexcept;
     co::Generator<std::expected<Socket, Error>> accept(SocketRef) noexcept;
-    co::Generator<std::expected<Buf, Error>>    recv(SocketRef) noexcept;
-    void                                        close(File&&) noexcept;
+    co::Future<std::expected<Buf, Error>>       recv(SocketRef) noexcept;
+    co::Future<std::expected<void, Error>> send(SocketRef, std::span<std::byte const>) noexcept;
+
+    std::expected<void, Errors::RingFull> close(std::pair<File::Descriptor, std::uint8_t>) noexcept;
+
+    template <typename T>
+    T run(co::Future<T>) noexcept;
+
+    void pump(bool wait = true) noexcept;
 };
 
-template <template <typename> typename S>
-auto Uring::prep(std::invocable<io_uring_sqe&> auto f) {
-    return S{[f = std::move(f), this]() mutable noexcept {
-        auto* s = sqe();
-        if (s) {
-            s->buf_group = 0;
-            std::invoke(std::move(f), *s);
-        }
+template <typename T>
+T Uring::run(co::Future<T> f) noexcept {
+    while (!f.done())
+        pump();
 
-        return s;
-    }};
-}
-
-template <template <typename> typename S>
-auto Uring::prep(std::invocable<io_uring_sqe*> auto f) {
-    return prep<S>([f = std::move(f)](io_uring_sqe& sqe) mutable noexcept {
-        std::invoke(std::move(f), &sqe);
-    });
+    return std::move(f).take();
 }
 
 } // namespace sc::io::impl::uring

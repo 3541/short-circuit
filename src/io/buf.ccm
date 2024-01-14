@@ -9,9 +9,11 @@
 
 module;
 
-#include <climits>
 #include <cstdint>
+#include <iosfwd>
 #include <span>
+#include <string_view>
+#include <utility>
 
 #include <a3/util.hh>
 
@@ -36,10 +38,14 @@ public:
     Buf(Buf&&) noexcept;
     Buf& operator=(Buf&&) noexcept;
 
-
     Id id() const noexcept;
 
-    Buf slice(std::size_t len) && noexcept;
+    std::pair<Id, std::span<std::byte>> release() && noexcept;
+    Buf                                 slice(std::size_t len) && noexcept;
+
+    std::string_view as_str() const noexcept;
+
+    friend std::ostream& operator<<(std::ostream&, Buf const&);
 };
 
 } // namespace sc::io

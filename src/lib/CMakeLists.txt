@@ -1,4 +1,15 @@
-add_library(lib STATIC include/sc/lib/fwd.hh include/sc/lib/option.hh)
+add_library(
+    lib
+    STATIC
+
+    include/sc/lib/defer.hh
+    include/sc/lib/fwd.hh
+    include/sc/lib/option.hh
+    include/sc/lib/try.hh
+
+    error.cc
+)
+
 sc_target(lib)
 target_include_directories(lib PUBLIC include)
 target_sources(
@@ -8,7 +19,11 @@ target_sources(
     constant.ccm
     deque.ccm
     error.ccm
+    expected.ccm
     nonnull.ccm
+    stream.ccm
+    tuple.ccm
+    variant.ccm
 )
 target_link_libraries(lib PRIVATE a3)
 

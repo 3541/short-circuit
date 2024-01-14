@@ -1,0 +1,65 @@
+/*
+ * TUPLE -- Extra utilities for std::tuple.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <concepts>
+#include <ostream>
+#include <tuple>
+#include <utility>
+
+#include "sc/lib/fwd.hh"
+
+export module sc.lib.tuple;
+import sc.lib.stream;
+
+namespace sc::lib {
+
+namespace tuple {
+
+template <typename F>
+struct Transform {
+    F const& m_fn;
+
+    template <typename... Ts>
+        requires(std::invocable<F, Ts> && ...)
+    friend auto operator|(std::tuple<Ts...> tuple, Transform const& t)
+        -> std::tuple<std::invoke_result_t<F, Ts>...> {
+        return std::apply([&](auto&&... args) { return std::tuple{t.m_fn(SC_FWD(args))...}; },
+                          std::move(tuple));
+    }
+};
+
+export template <typename F>
+auto transform(F const& fn) {
+    return Transform{fn};
+}
+
+} // namespace tuple
+
+export template <Streamable... Ts>
+std::ostream& operator<<(std::ostream& stream, Stream<std::tuple<Ts...>> tuple) {
+    stream << '(';
+    std::apply([&](auto&&... args) { ((stream << args << ", "), ...); }, tuple.m_inner);
+    return stream << ')';
+}
+
+export template <typename... Ts>
+auto stream_view(Stream<std::tuple<Ts...> const&> tuple) {
+    return Stream{tuple.m_inner |
+                  tuple::transform([](auto const& value) { return stream_view(value); })};
+}
+
+export template <typename T, typename U>
+auto stream_view(Stream<std::pair<T, U> const&> pair) {
+    return Stream{std::tuple<T const&, U const&>{pair.m_inner} |
+                  tuple::transform([](auto const& value) { return stream_view(value); })};
+}
+
+} // namespace sc::lib

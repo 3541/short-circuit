@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
     nixpkgs-unstable.url = "nixpkgs/nixos-unstable";
-    nixpkgs-master.url = "nixpkgs/master";
+    nixpkgs-cmake.url = "github:gracicot/nixpkgs/grc/update-cmake";
     utils.url = "github:numtide/flake-utils";
 
     flake-compat = {
@@ -25,12 +25,11 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-master, utils, a3, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-cmake, utils, a3, ... }:
     utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        pkgsMaster = nixpkgs-master.legacyPackages.${system};
-        llvm = pkgsMaster.llvmPackages_17;
+        llvm = pkgs.llvmPackages_17;
 
         pkgsGcc14 = import
           (nixpkgs-unstable.legacyPackages.${system}.applyPatches {
@@ -39,28 +38,17 @@
             src = nixpkgs-unstable;
           }) { inherit system; };
 
-        cmake =
-          (pkgs.cmake.override { useSharedLibraries = false; }).overrideAttrs
-          (prev: rec {
-            version = "3.28.0-rc5";
-
-            src = pkgs.fetchurl {
-              url = "https://cmake.org/files/v${
-                  pkgs.lib.versions.majorMinor version
-                }/cmake-${version}.tar.gz";
-              sha256 = "sha256-+L/+5DwFB3HFulqKFQuWrd+vJzEH2wjWCLzXRM27lVo=";
-            };
-          });
+        cmake = nixpkgs-cmake.legacyPackages.${system}.cmake;
 
         gcc14 = pkgsGcc14.wrapCC ((pkgsGcc14.gcc_latest.cc.override {
           majorMinorVersion = "14";
         }).overrideAttrs (prev: {
-          version = "14.0.0-20231209";
+          version = "14.0.0-20240112";
 
           src = pkgs.fetchgit {
             url = "https://gcc.gnu.org/git/gcc.git";
-            rev = "d9965fef40794d548021d2e34844e5fafeca4ce5";
-            sha256 = "sha256-prSN7brFE51ZPyQO+PWAiOa1svJtzk9Ce2URoeQO+IM=";
+            rev = "444a31f3b3542ccbecb67cef3a01df8aa9a43802";
+            sha256 = "sha256-kmV6K61Mu8F+ykwqTvfasCZmE9fGZaQxAygWl688DpQ=";
           };
         }));
       in rec {
@@ -73,7 +61,10 @@
                 version = "0.1.0-alpha";
                 src = ./.;
 
-                buildInputs = with pkgs; [ liburing a3.packages.${system}."a3/clang/${buildType}" ];
+                buildInputs = with pkgs; [
+                  liburing
+                  a3.packages.${system}."a3/clang/${buildType}"
+                ];
                 nativeBuildInputs = with pkgs;
                   [ compiler cmake ninja pkg-config ] ++ extra;
 
@@ -107,50 +98,59 @@
               };
             });
           in (targets gcc14 [ ] "") // {
-            clang = pkgs.lib.recurseIntoAttrs
-              (targets llvm.libcxxClang [ ]
-                "--native-file boilerplate/meson/clang.ini");
+            clang = pkgs.lib.recurseIntoAttrs (targets llvm.libcxxClang [ ]
+              "--native-file boilerplate/meson/clang.ini");
           });
         };
 
         defaultPackage = packages."short-circuit/release";
 
-        devShell = pkgs.mkShell {
-          packages = with pkgs; [
-            gdb
-            rr
-            (pkgsMaster.clang-tools_17.override { enableLibcxx = true; })
-            (let unwrapped = include-what-you-use;
-            in stdenv.mkDerivation {
-              pname = "include-what-you-use";
-              version = lib.getVersion unwrapped;
+        devShells = let
+          s = build:
+            pkgs.mkShell {
+              packages = with pkgs; [
+                gdb
+                rr
+                llvm.libllvm
+                (pkgs.clang-tools_17.override { enableLibcxx = true; })
+                moreutils
+                (let unwrapped = include-what-you-use;
+                in stdenv.mkDerivation {
+                  pname = "include-what-you-use";
+                  version = lib.getVersion unwrapped;
 
-              dontUnpack = true;
+                  dontUnpack = true;
 
-              clang = llvm.libcxxClang;
-              inherit unwrapped;
+                  clang = llvm.libcxxClang;
+                  inherit unwrapped;
 
-              installPhase = ''
-                runHook preInstall
+                  installPhase = ''
+                    runHook preInstall
 
-                mkdir -p $out/bin
-                substituteAll ${./nix-wrapper} $out/bin/include-what-you-use
-                chmod +x $out/bin/include-what-you-use
+                    mkdir -p $out/bin
+                    substituteAll ${./nix-wrapper} $out/bin/include-what-you-use
+                    chmod +x $out/bin/include-what-you-use
 
-                cp ${unwrapped}/bin/iwyu_tool.py $out/bin/iwyu_tool.py
-                sed -i \
-                    "s,executable_name = '.*\$,executable_name = '$out/bin/include-what-you-use'," \
-                    $out/bin/iwyu_tool.py
+                    cp ${unwrapped}/bin/iwyu_tool.py $out/bin/iwyu_tool.py
+                    sed -i \
+                        "s,executable_name = '.*\$,executable_name = '$out/bin/include-what-you-use'," \
+                        $out/bin/iwyu_tool.py
 
-                runHook postInstall
+                    runHook postInstall
+                  '';
+                })
+              ];
+
+              inputsFrom = [ build ];
+
+              shellHook = ''
+                NIX_HARDENING_ENABLE="''${NIX_HARDENING_ENABLE/fortify/}"
+                export NIX_HARDENING_ENABLE="''${NIX_HARDENING_ENABLE/fortify3/}"
               '';
-            })
-          ];
-
-          inputsFrom = [
-            packages."short-circuit/clang/debug"
-            packages."short-circuit/debug"
-          ];
+            };
+        in {
+          default = s packages."short-circuit/clang/debug";
+          gcc = s packages."short-circuit/debug";
         };
       });
 }

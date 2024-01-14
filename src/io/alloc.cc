@@ -10,7 +10,9 @@
 module;
 
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
+#include <utility>
 
 module sc.io.alloc;
 
@@ -30,13 +32,17 @@ Allocator& Allocator::the() noexcept {
 }
 
 Buf Allocator::get_unsafe(Buf::Id id) noexcept {
-    auto const i     = static_cast<std::size_t>(id);
-    auto const block = i / 512;
-    auto const index = i % 512;
+    auto const i     = std::to_underlying(id);
+    auto const block = i / BLOCK_SIZE;
+    auto const index = i % BLOCK_SIZE;
 
     return Buf{id, m_blocks[block][index].m_buf};
 }
 
 void Allocator::free(Buf&& buf) noexcept { m_free.push_back(buf.id()); }
+
+Allocator::Group Allocator::group(Buf::Id id) noexcept {
+    return Group{static_cast<std::uint16_t>(std::to_underlying(id) / BLOCK_SIZE)};
+}
 
 } // namespace sc::io

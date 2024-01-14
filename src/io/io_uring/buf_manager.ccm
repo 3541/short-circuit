@@ -1,0 +1,42 @@
+/*
+ * URING BUFFER MANAGER -- io_uring buffer ring management.
+ *
+ * Copyright (c) 2023, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <functional>
+#include <vector>
+
+#include <liburing.h>
+
+#include "a3/util.hh"
+
+export module sc.io.impl.uring.buf;
+
+import sc.io.alloc;
+import sc.io.buf;
+
+export namespace sc::io::impl::uring {
+
+struct BufManager {
+    A3_PINNED(BufManager);
+
+private:
+    io_uring&                                              m_uring;
+    std::vector<std::reference_wrapper<io_uring_buf_ring>> m_rings;
+
+    io_uring_buf_ring& ring(Allocator::Group);
+
+public:
+    explicit BufManager(io_uring&);
+    ~BufManager();
+
+    void submit(Buf);
+};
+
+} // namespace sc::io::impl::uring

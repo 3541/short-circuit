@@ -1,0 +1,31 @@
+/*
+ * RESUME -- An awaitable which resumes a coroutine handle.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <coroutine>
+
+export module sc.co.resume;
+
+export namespace sc::co {
+
+struct Resume {
+private:
+    std::coroutine_handle<> m_handle;
+
+public:
+    explicit Resume(std::coroutine_handle<>) noexcept;
+
+    bool await_ready() const noexcept;
+    void await_resume() const noexcept;
+
+    std::coroutine_handle<> await_suspend(std::coroutine_handle<>) const noexcept;
+};
+
+}

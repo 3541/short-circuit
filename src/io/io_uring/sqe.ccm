@@ -23,7 +23,7 @@ module;
 
 #include <liburing.h>
 
-#include "sc/lib/option.hh"
+#include "sc/lib/fwd.hh"
 
 export module sc.io.impl.uring.sqe;
 
@@ -32,24 +32,32 @@ import sc.lib.deque;
 
 namespace sc::io::impl::uring {
 
-struct Cqe {
+export struct Cqe {
 protected:
     ~Cqe() = default;
 
 public:
+    struct RequestFailed {
+        std::error_code m_reason;
+
+        explicit RequestFailed(std::error_code);
+
+        friend std::ostream& operator<<(std::ostream&, RequestFailed const&);
+    };
+
     virtual void complete(io_uring_cqe const&) noexcept = 0;
 };
 
 struct Result {
     std::int32_t           m_res;
-    std::optional<Buf::Id> m_buffer;
+    std::optional<Buf::Id> m_buf;
 
     explicit Result(io_uring_cqe const&) noexcept;
     Result(std::int32_t, std::optional<Buf::Id>) noexcept;
 
     constexpr bool operator==(Result const&) const noexcept = default;
 
-    std::expected<std::uint32_t, std::error_code> result() const noexcept;
+    std::expected<std::uint32_t, Cqe::RequestFailed> result() const noexcept;
 };
 
 struct SingleCqe final : public Cqe {
@@ -62,10 +70,11 @@ private:
     friend struct Sqe;
 
     explicit SingleCqe(io_uring_sqe&) noexcept;
-    ~SingleCqe();
 
 public:
-    void                    complete(io_uring_cqe const&) noexcept final;
+    ~SingleCqe();
+
+    void complete(io_uring_cqe const&) noexcept final;
 
     bool   await_ready() const noexcept;
     void   await_suspend(std::coroutine_handle<>) noexcept;
@@ -80,7 +89,9 @@ export {
         C m_sqe;
 
     public:
-        constexpr explicit Sqe(C sqe) : m_sqe{std::move(sqe)} {}
+        template <typename T>
+            requires std::is_nothrow_invocable_r_v<io_uring_sqe*, T>
+        constexpr explicit Sqe(T&& sqe) : m_sqe{SC_FWD(sqe)} {}
 
         auto operator co_await() && {
             auto* sqe = std::invoke(std::move(m_sqe));
@@ -94,6 +105,9 @@ export {
     };
 
     template <typename C>
+    Sqe(C) -> Sqe<C>;
+
+    template <typename C>
         requires std::is_nothrow_invocable_r_v<io_uring_sqe*, C>
     struct MultishotSqe final : public Cqe {
     public:
@@ -101,7 +115,7 @@ export {
 
     private:
         std::variant<std::monostate, C, std::coroutine_handle<>> m_state;
-        State                                                    m_request_state;
+        State                                                    m_request_state{State::Alive};
         lib::Deque<Result>                                       m_results;
 
     public:
@@ -125,24 +139,22 @@ export {
                     // TODO
                     std::terminate();
                 }
+
+                ::io_uring_sqe_set_data(sqe, this);
             }
 
             m_state = handle;
         }
 
-        std::optional<Result> await_resume() noexcept {
-            return SC_OPTION_IF(m_request_state == State::Alive && !m_results.is_empty(),
-                                *m_results.pop_front());
-        }
+        std::optional<Result> await_resume() noexcept { return m_results.pop_front(); }
 
         void complete(io_uring_cqe const& cqe) noexcept final {
             m_results.emplace_back(cqe);
             if (!(cqe.flags & IORING_CQE_F_MORE))
                 m_request_state = State::Resubmit;
 
-            if (std::holds_alternative<std::coroutine_handle<>>(m_state)) {
+            if (std::holds_alternative<std::coroutine_handle<>>(m_state))
                 std::get<std::coroutine_handle<>>(std::exchange(m_state, std::monostate{}))();
-            }
         }
 
         bool done() const noexcept {

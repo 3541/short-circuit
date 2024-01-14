@@ -1,3 +1,16 @@
+/*
+ * CONFIG -- Miscellaneous constants.
+ *
+ * Copyright (c) 2023-2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <cstddef>
+
 export module sc.config;
 
 export namespace sc::config {
@@ -6,6 +19,30 @@ export namespace sc::config {
 constexpr unsigned URING_ENTRIES{SC_CONFIG_URING_ENTRIES};
 #else
 constexpr unsigned URING_ENTRIES{2048};
+#endif
+
+#ifdef SC_CONFIG_IO_BUFFER_SIZE
+constexpr std::size_t IO_BUFFER_SIZE{SC_CONFIG_IO_BUFFER_SIZE};
+#else
+constexpr std::size_t IO_BUFFER_SIZE{16384};
+#endif
+
+#ifdef SC_CONFIG_IO_BUFFER_GROUP_SIZE
+constexpr std::size_t IO_BUFFER_GROUP_SIZE{SC_CONFIG_IO_BUFFER_GROUP_SIZE};
+#else
+constexpr std::size_t IO_BUFFER_GROUP_SIZE{512};
+#endif
+
+#ifdef SC_CONFIG_FILE_LIMIT
+constexpr unsigned FILE_LIMIT{SC_CONFIG_FILE_LIMIT};
+#else
+constexpr unsigned FILE_LIMIT{65535};
+#endif
+
+#ifdef SC_CONFIG_LISTEN_BACKLOG
+constexpr int LISTEN_BACKLOG{SC_CONFIT_LISTEN_BACKLOG};
+#else
+constexpr int LISTEN_BACKLOG{1024};
 #endif
 
 } // namespace sc::config

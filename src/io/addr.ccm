@@ -1,0 +1,41 @@
+/*
+ * ADDR -- Socket address types.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <netinet/in.h>
+
+export module sc.io.addr;
+
+export namespace sc::io {
+
+struct Port {
+private:
+    in_port_t m_net_port;
+
+public:
+    explicit Port(in_port_t) noexcept;
+
+    operator in_port_t() const noexcept;
+};
+
+struct Addr {
+private:
+    sockaddr_in6 m_addr;
+
+    Addr(in6_addr, Port) noexcept;
+
+public:
+    static Addr any(Port) noexcept;
+
+    operator sockaddr const*() const noexcept;
+    socklen_t size() const noexcept;
+};
+
+} // namespace sc::io

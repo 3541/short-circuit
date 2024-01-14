@@ -1,31 +1,59 @@
+/*
+ * ERROR -- Miscellaneous error handling.
+ *
+ * Copyright (c) 2023-2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 module;
 
 #include <cinttypes>
 #include <concepts>
+#include <expected>
 #include <source_location>
 #include <string>
 #include <string_view>
-
-#include <a3/shim/strerror.h>
 
 #include <a3/log.h>
 #include <a3/util.h>
 
 export module sc.lib.error;
 
-export namespace sc::lib::error {
+import sc.lib.stream;
 
-template <std::signed_integral T>
-T must(T value, std::string_view msg = "Fatal error",
-       std::source_location loc = std::source_location::current()) noexcept {
-    if (value < 0) {
+namespace sc::lib::error {
+
+[[noreturn]] void must_fail(std::string const& msg, std::source_location loc) noexcept;
+
+export template <std::signed_integral T>
+std::make_unsigned_t<T> must(T value, std::string_view msg = "Fatal error",
+                             std::source_location loc = std::source_location::current()) noexcept {
+    if (value < 0) [[unlikely]] {
         const std::string buf{msg};
-        A3_ERRNO_F(-value, "[%s %" PRIuLEAST32 ":%" PRIuLEAST32 "] %s: %s", loc.file_name(),
+        A3_ERRNO_F(-value, "\n[%s %" PRIuLEAST32 ":%" PRIuLEAST32 "] %s: %s", loc.file_name(),
                    loc.line(), loc.column(), loc.function_name(), buf.data());
         A3_PANIC("must()");
     }
 
-    return value;
+    return static_cast<std::make_unsigned_t<T>>(value);
+}
+
+export template <std::equality_comparable T>
+void must(T const& value, T const& expected, std::string_view msg = "Fatal error",
+          std::source_location loc = std::source_location::current()) noexcept {
+    if (value != expected) [[unlikely]]
+        must_fail(stream(msg, ": ", value, " != ", expected), loc);
+}
+
+export template <typename T, typename E>
+auto must(std::expected<T, E> value, std::string_view msg = "Fatal error",
+          std::source_location loc = std::source_location::current()) {
+    if (!value) [[unlikely]]
+        must_fail(stream(msg, ": ", lib::stream_view(value)), loc);
+
+    return *std::move(value);
 }
 
 } // namespace sc::lib::error

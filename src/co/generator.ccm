@@ -9,29 +9,49 @@
 
 module;
 
+#include <cassert>
 #include <climits>
 #include <coroutine>
-#include <type_traits>
+
+#include <a3/util.hh>
+
+import sc.co.resume;
+import sc.lib.deque;
 
 export module sc.co.generator;
 
 namespace sc::co {
 
-export {
-    template <typename T>
-    struct Generator {
-    private:
-        struct Promise;
+export template <typename T>
+struct Generator {
+    A3_NO_COPY(Generator);
 
-        explicit Generator(std::coroutine_handle<Promise>);
+private:
+    struct Promise;
 
-    public:
-        using promise_type = Promise;
-    };
-}
+    std::coroutine_handle<Promise> m_handle;
+
+    explicit Generator(std::coroutine_handle<Promise>);
+
+public:
+    using promise_type = Promise;
+
+    ~Generator();
+
+    bool await_ready() const noexcept;
+    void await_suspend(std::coroutine_handle<>) noexcept;
+    T    await_resume() noexcept;
+};
 
 template <typename T>
 struct Generator<T>::Promise {
+private:
+    lib::Deque<T>           m_yielded;
+    std::coroutine_handle<> m_caller;
+
+public:
+    friend struct Generator<T>;
+
     std::suspend_never  initial_suspend() const noexcept;
     std::suspend_always final_suspend() const noexcept;
 
@@ -39,8 +59,58 @@ struct Generator<T>::Promise {
 
     void unhandled_exception() noexcept;
 
-    void return_void() noexcept;
-    std::suspend_always yield_value(T) noexcept;
+    void   return_void() noexcept;
+    Resume yield_value(T) noexcept;
 };
+
+template <typename T>
+std::suspend_never Generator<T>::Promise::initial_suspend() const noexcept {
+    return {};
+}
+
+template <typename T>
+std::suspend_always Generator<T>::Promise::final_suspend() const noexcept {
+    return {};
+}
+
+template <typename T>
+Generator<T> Generator<T>::Promise::get_return_object() noexcept {
+    return Generator{std::coroutine_handle<Promise>::from_promise(*this)};
+}
+
+template <typename T>
+Resume Generator<T>::Promise::yield_value(T value) noexcept {
+    assert(m_caller);
+
+    m_yielded.push_back(std::move(value));
+    return Resume{m_caller};
+}
+
+template <typename T>
+Generator<T>::Generator(std::coroutine_handle<Promise> handle) : m_handle{handle} {}
+
+template <typename T>
+Generator<T>::~Generator() {
+    if (m_handle)
+        m_handle.destroy();
+}
+
+template <typename T>
+bool Generator<T>::await_ready() const noexcept {
+    return !m_handle.promise().m_yielded.is_empty();
+}
+
+template <typename T>
+void Generator<T>::await_suspend(std::coroutine_handle<> handle) noexcept {
+    m_handle.promise().m_caller = handle;
+}
+
+template <typename T>
+T Generator<T>::await_resume() noexcept {
+    auto& pending = m_handle.promise().m_yielded;
+    assert(!pending.is_empty());
+
+    return *pending.pop_front();
+}
 
 } // namespace sc::co
