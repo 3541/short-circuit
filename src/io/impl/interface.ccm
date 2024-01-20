@@ -10,6 +10,7 @@
 module;
 
 #include <expected>
+#include <span>
 
 export module sc.io.interface;
 
@@ -30,16 +31,18 @@ public:
     using impl::Interface::Error;
 
     using impl::Interface::accept;
-    using impl::Interface::close;
     using impl::Interface::nop;
     using impl::Interface::recv;
-    using impl::Interface::send;
+
+    using impl::Interface::close;
 
     using impl::Interface::pump;
     using impl::Interface::run;
 
     co::Future<std::expected<Socket, Error>>
     listen_socket(Addr const& = Addr::any(Port{0})) noexcept;
+
+    co::Future<std::expected<void, Error>> send(SocketRef, std::span<std::byte const>) noexcept;
 };
 
 } // namespace sc::io

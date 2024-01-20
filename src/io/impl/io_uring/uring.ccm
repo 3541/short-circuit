@@ -75,10 +75,11 @@ public:
 
     co::Future<std::expected<void, Error>> nop() noexcept;
 
-    co::Future<std::expected<Socket, Error>>    socket() noexcept;
-    co::Generator<std::expected<Socket, Error>> accept(SocketRef) noexcept;
-    co::Future<std::expected<Buf, Error>>       recv(SocketRef) noexcept;
-    co::Future<std::expected<void, Error>> send(SocketRef, std::span<std::byte const>) noexcept;
+    co::Future<std::expected<Socket, Error>>      socket() noexcept;
+    co::Generator<std::expected<Socket, Error>>   accept(SocketRef) noexcept;
+    co::Future<std::expected<Buf, Error>>         recv(SocketRef) noexcept;
+    co::Future<std::expected<std::size_t, Error>> send_raw(SocketRef,
+                                                           std::span<std::byte const>) noexcept;
 
     std::expected<void, Errors::RingFull> close(std::pair<File::Descriptor, std::uint8_t>) noexcept;
 

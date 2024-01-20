@@ -14,7 +14,6 @@ module;
 #include <coroutine>
 #include <cstdint>
 #include <expected>
-#include <ostream>
 #include <system_error>
 #include <type_traits>
 
@@ -28,8 +27,6 @@ import sc.lib.cast;
 import sc.io.buf;
 
 namespace sc::io::impl::uring {
-
-Cqe::RequestFailed::RequestFailed(std::error_code error) : m_reason{error} {}
 
 Result::Result(io_uring_cqe const& cqe) noexcept :
     m_res{cqe.res},
@@ -65,10 +62,6 @@ void SingleCqe::await_suspend(std::coroutine_handle<> handle) noexcept { m_handl
 Result SingleCqe::await_resume() noexcept {
     assert(m_result);
     return *m_result;
-}
-
-std::ostream& operator<<(std::ostream& stream, Cqe::RequestFailed const& error) {
-    return stream << "Request failed: " << error.m_reason;
 }
 
 } // namespace sc::io::impl::uring

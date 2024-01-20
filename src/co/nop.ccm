@@ -1,0 +1,63 @@
+/*
+ * NOP -- A no-op awaitable.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * This can be used to implement an interface which is specified as asynchronous for a backend which
+ * only provides a synchronous version.
+ */
+
+module;
+
+#include <concepts>
+#include <coroutine>
+
+#include "sc/lib/fwd.hh"
+
+export module sc.co.nop;
+
+export namespace sc::co {
+
+template <typename T>
+struct Nop {
+private:
+    T m_value;
+
+public:
+    template <typename U>
+        requires(!std::same_as<Nop, std::remove_cvref_t<U>> && std::constructible_from<T, U>)
+    Nop(U&& value) : m_value{SC_FWD(value)} {}
+
+    Nop()
+        requires std::is_default_constructible_v<T>
+    = default;
+
+    auto operator co_await() && noexcept;
+    T    take() && noexcept;
+};
+
+template <typename T>
+auto Nop<T>::operator co_await() && noexcept {
+    struct Awaitable {
+        T m_value;
+
+        bool await_ready() const noexcept { return true; }
+        bool await_suspend(std::coroutine_handle<>) const noexcept { return false; }
+        T    await_resume() noexcept { return std::move(m_value); }
+    };
+
+    return Awaitable{std::move(*this).m_value};
+}
+
+template <typename T>
+T Nop<T>::take() && noexcept {
+    return std::move(*this).m_value;
+}
+
+template <typename T>
+Nop(T) -> Nop<T>;
+
+} // namespace sc::co

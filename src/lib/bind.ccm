@@ -1,0 +1,59 @@
+/*
+ * BIND -- Lightweight alternatives to std::bind*, with nameable storage.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <array>
+#include <bit>
+
+export module sc.lib.bind;
+
+namespace sc::lib {
+
+struct S {};
+
+export template <typename T>
+struct Bound;
+
+export template <typename R, typename... Args>
+struct Bound<R(Args...)> {
+private:
+    void*                                        m_obj;
+    std::array<std::byte, sizeof(void (S::*)())> m_storage;
+    R (*m_fn)(void*, decltype(m_storage)&, Args...) noexcept;
+
+public:
+    template <typename T>
+    constexpr Bound(R (T::*f)(Args...) noexcept, T&)
+        requires(sizeof(decltype(f)) <= sizeof(decltype(m_storage)));
+
+    constexpr R operator()(Args... args) noexcept;
+};
+
+template <typename R, typename... Args>
+template <typename T>
+constexpr Bound<R(Args...)>::Bound(R (T::*f)(Args...) noexcept, T& obj)
+    requires(sizeof(decltype(f)) <= sizeof(decltype(m_storage)))
+    :
+    m_obj{static_cast<void*>(&obj)},
+    m_storage{std::bit_cast<decltype(m_storage)>(f)},
+    m_fn{[](void* obj, decltype(m_storage)& storage, Args... args) noexcept {
+        auto ptr = std::bit_cast<decltype(f)>(storage);
+        return (static_cast<T*>(obj)->*ptr)(args...);
+    }} {}
+
+template <typename R, typename... Args>
+constexpr R Bound<R(Args...)>::operator()(Args... args) noexcept {
+    return m_fn(m_obj, m_storage, args...);
+}
+
+template <typename R, typename T, typename... Args>
+Bound(R (T::*)(Args...) noexcept, T&) -> Bound<R(Args...)>;
+
+} // namespace sc::lib

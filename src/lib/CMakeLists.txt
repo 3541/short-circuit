@@ -15,7 +15,9 @@ target_include_directories(lib PUBLIC include)
 target_sources(
     lib PUBLIC FILE_SET lib TYPE CXX_MODULES
     FILES
+    bind.ccm
     cast.ccm
+    concepts.ccm
     constant.ccm
     deque.ccm
     error.ccm
@@ -23,7 +25,9 @@ target_sources(
     nonnull.ccm
     stream.ccm
     tuple.ccm
+    tvec.ccm
     variant.ccm
+    wrap.ccm
 )
 target_link_libraries(lib PRIVATE a3)
 

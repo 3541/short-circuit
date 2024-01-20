@@ -1,0 +1,91 @@
+/*
+ * POLL -- poll bindings.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <expected>
+#include <span>
+#include <system_error>
+#include <type_traits>
+#include <variant>
+
+#include <poll.h>
+
+#include <a3/util.hh>
+
+export module sc.io.impl.poll;
+
+import sc.co.future;
+import sc.co.generator;
+import sc.co.nop;
+import sc.io.buf;
+import sc.io.error;
+import sc.io.file;
+import sc.io.impl.poll.pollable;
+import sc.lib.tvec;
+
+export namespace sc::io::impl::poll {
+
+struct Poll {
+    A3_NO_COPY(Poll);
+
+public:
+    struct Errors {
+        using PollFailed    = Pollable::Error;
+        using RequestFailed = RequestFailed;
+    };
+
+    using Error = std::variant<Errors::PollFailed, Errors::RequestFailed>;
+
+private:
+    lib::TVec<Pollable&, pollfd> m_waiting;
+    lib::TVec<Pollable&, pollfd> m_handling;
+
+    void wait(Pollable&, Pollable::Event, FileRef) noexcept;
+
+    co::Future<std::expected<std::size_t, Error>> wait_for(FileRef, Pollable::Event,
+                                                           auto const& attempt)
+        requires std::is_nothrow_invocable_r_v<ssize_t, decltype(attempt)>;
+
+public:
+    Poll();
+
+    co::Nop<std::expected<void, Error>> nop() noexcept;
+
+    co::Nop<std::expected<Socket, Errors::RequestFailed>> socket() noexcept;
+    co::Generator<std::expected<Socket, Error>>           accept(SocketRef) noexcept;
+    co::Future<std::expected<Buf, Error>>                 recv(SocketRef) noexcept;
+    co::Future<std::expected<std::size_t, Error>>         send_raw(SocketRef,
+                                                                   std::span<std::byte const>) noexcept;
+
+    std::expected<void, Errors::RequestFailed> close(File::Descriptor) noexcept;
+
+    template <typename T>
+    T run(co::Future<T>) noexcept;
+
+    template <typename T>
+    T run(co::Nop<T>) noexcept;
+
+    void pump(bool wait = true) noexcept;
+};
+
+template <typename T>
+T Poll::run(co::Future<T> f) noexcept {
+    while (!f.done())
+        pump();
+
+    return std::move(f).take();
+}
+
+template <typename T>
+T Poll::run(co::Nop<T> nop) noexcept {
+    return std::move(nop).take();
+}
+
+} // namespace sc::io::impl::poll

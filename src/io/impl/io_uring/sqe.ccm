@@ -28,6 +28,7 @@ module;
 export module sc.io.impl.uring.sqe;
 
 import sc.io.buf;
+import sc.io.error;
 import sc.lib.deque;
 
 namespace sc::io::impl::uring {
@@ -37,13 +38,7 @@ protected:
     ~Cqe() = default;
 
 public:
-    struct RequestFailed {
-        std::error_code m_reason;
-
-        explicit RequestFailed(std::error_code);
-
-        friend std::ostream& operator<<(std::ostream&, RequestFailed const&);
-    };
+    using RequestFailed = RequestFailed;
 
     virtual void complete(io_uring_cqe const&) noexcept = 0;
 };

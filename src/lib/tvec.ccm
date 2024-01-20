@@ -1,0 +1,205 @@
+/*
+ * TVEC -- Transposed vector (SOA).
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * A "transposed vector" is a vector of tuples, represented as a tuple of vectors.
+ */
+
+module;
+
+#include <cstddef>
+#include <iterator>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include <a3/util.hh>
+
+export module sc.lib.tvec;
+
+import sc.lib.concepts;
+import sc.lib.wrap;
+
+export namespace sc::lib {
+
+template <typename... Ts>
+struct TVec {
+    A3_DEFAULTS(TVec);
+
+private:
+    enum class Const : bool { No = false, Yes = true };
+
+    template <Const C>
+    struct Iterator;
+
+    std::tuple<std::vector<Wrap<Ts>>...> m_data;
+
+public:
+    using value_type     = std::tuple<Ts...>;
+    using iterator       = Iterator<Const::No>;
+    using const_iterator = Iterator<Const::Yes>;
+
+    constexpr TVec() = default;
+
+    // Clang ICEs if this is out of line. Possibly related to
+    // https://github.com/llvm/llvm-project/issues/76181.
+    template <typename... Us>
+        requires(sizeof...(Us) == sizeof...(Ts) && (std::constructible_from<Wrap<Ts>, Us> && ...))
+    constexpr void push_back(Us&&... values) {
+        std::apply([&](auto&... data) { (data.push_back(std::forward<Us>(values)), ...); }, m_data);
+    }
+
+    constexpr void clear() noexcept;
+
+    template <AnyOf<Ts...> T>
+    constexpr Wrap<T>* data() noexcept {
+        return std::get<std::vector<Wrap<T>>>(m_data).data();
+    }
+
+    constexpr std::size_t len() const noexcept;
+
+    constexpr iterator       begin() noexcept;
+    constexpr const_iterator begin() const noexcept;
+    constexpr const_iterator cbegin() const noexcept;
+    constexpr iterator       end() noexcept;
+    constexpr const_iterator end() const noexcept;
+    constexpr const_iterator cend() const noexcept;
+};
+
+template <typename... Ts>
+constexpr void TVec<Ts...>::clear() noexcept {
+    std::apply([](auto&... data) { (data.clear(), ...); }, m_data);
+}
+
+template <typename... Ts>
+constexpr std::size_t TVec<Ts...>::len() const noexcept {
+    return std::get<0>(m_data).size();
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::begin() noexcept -> iterator {
+    return iterator{std::apply([](auto&... data) { return std::tuple{data.begin()...}; }, m_data)};
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::begin() const noexcept -> const_iterator {
+    return const_iterator{
+        std::apply([](auto&... data) { return std::tuple{data.begin()...}; }, m_data)};
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::cbegin() const noexcept -> const_iterator {
+    return const_iterator{
+        std::apply([](auto&... data) { return std::tuple{data.cbegin()...}; }, m_data)};
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::end() noexcept -> iterator {
+    return iterator{std::apply([](auto&... data) { return std::tuple{data.end()...}; }, m_data)};
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::end() const noexcept -> const_iterator {
+    return const_iterator{
+        std::apply([](auto&... data) { return std::tuple{data.end()...}; }, m_data)};
+}
+
+template <typename... Ts>
+constexpr auto TVec<Ts...>::cend() const noexcept -> const_iterator {
+    return const_iterator{
+        std::apply([](auto&... data) { return std::tuple{data.cend()...}; }, m_data)};
+}
+
+template <typename... Ts>
+template <TVec<Ts...>::Const C>
+struct TVec<Ts...>::Iterator {
+private:
+    friend struct TVec;
+
+    template <typename T>
+    using It =
+        std::conditional_t<std::to_underlying(C), typename std::vector<Wrap<T>>::const_iterator,
+                           typename std::vector<Wrap<T>>::iterator>;
+
+    template <typename T>
+    using ConstT = std::conditional_t<std::to_underlying(C), T const, T>;
+
+    struct Ptr {
+    private:
+        std::tuple<ConstT<Ts>&...> m_ref;
+    };
+
+    std::tuple<It<Ts>...> m_it;
+
+    constexpr explicit Iterator(std::tuple<It<Ts>...> it) noexcept : m_it{it} {}
+    constexpr Iterator() noexcept = default;
+
+public:
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = std::tuple<Ts...>;
+    using reference         = std::tuple<ConstT<Ts>&...>;
+    using pointer           = Ptr;
+    using iterator_category = std::random_access_iterator_tag;
+
+    constexpr Iterator& operator++() noexcept {
+        std::apply([](auto&... it) { (++it, ...); }, m_it);
+        return *this;
+    }
+
+    constexpr Iterator& operator++(int) noexcept {
+        auto ret = *this;
+        ++*this;
+        return ret;
+    }
+
+    constexpr Iterator& operator--() noexcept {
+        std::apply([](auto&... it) { (--it, ...); }, m_it);
+        return *this;
+    }
+
+    constexpr Iterator& operator--(int) noexcept {
+        auto ret = *this;
+        --*this;
+        return ret;
+    }
+
+    constexpr Iterator& operator+=(difference_type n) noexcept {
+        std::apply([n](auto&... it) { ((it += n), ...); }, m_it);
+        return *this;
+    }
+
+    constexpr Iterator& operator+(difference_type n) noexcept {
+        auto it = *this;
+        return it += n;
+    }
+
+    constexpr Iterator& operator-=(difference_type n) noexcept {
+        std::apply([n](auto&... it) { ((it -= n), ...); }, m_it);
+        return *this;
+    }
+
+    constexpr Iterator& operator-(difference_type n) noexcept {
+        auto it = *this;
+        return it -= n;
+    }
+
+    constexpr difference_type operator-(Iterator const& other) const noexcept {
+        return std::get<0>(m_it) - std::get<0>(other.m_it);
+    }
+
+    constexpr reference operator*() noexcept {
+        return std::apply([](auto&... it) { return reference{*it...}; }, m_it);
+    }
+
+    constexpr pointer operator->() noexcept { return pointer{**this}; }
+
+    reference operator[](std::size_t index) { return *(*this + index); }
+
+    friend constexpr auto operator<=>(Iterator const&, Iterator const&) noexcept = default;
+};
+
+} // namespace sc::lib

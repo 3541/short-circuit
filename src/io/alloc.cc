@@ -31,6 +31,13 @@ Allocator& Allocator::the() noexcept {
     return INSTANCE;
 }
 
+Buf Allocator::alloc() noexcept {
+    auto const id = m_free.back();
+    m_free.pop_back();
+
+    return get_unsafe(id);
+}
+
 Buf Allocator::get_unsafe(Buf::Id id) noexcept {
     auto const i     = std::to_underlying(id);
     auto const block = i / BLOCK_SIZE;

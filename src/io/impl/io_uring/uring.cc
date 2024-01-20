@@ -152,20 +152,12 @@ co::Future<std::expected<Buf, Uring::Error>> Uring::recv(SocketRef socket) noexc
         });
 }
 
-co::Future<std::expected<void, Uring::Error>> Uring::send(SocketRef                  socket,
-                                                          std::span<std::byte const> buf) noexcept {
-    while (!buf.empty()) {
-        auto const len =
-            SC_CO_TRY((co_await prep<Sqe>([socket, buf](::io_uring_sqe& sqe) noexcept {
-                          ::io_uring_prep_send(&sqe, socket, buf.data(), buf.size(), 0);
-                          ::io_uring_sqe_set_flags(&sqe, IOSQE_FIXED_FILE);
-                      })).result());
-
-        assert(len <= buf.size());
-        buf = buf.subspan(len);
-    }
-
-    co_return {};
+co::Future<std::expected<std::size_t, Uring::Error>>
+Uring::send_raw(SocketRef socket, std::span<std::byte const> buf) noexcept {
+    co_return (co_await prep<Sqe>([socket, buf](::io_uring_sqe& sqe) noexcept {
+        ::io_uring_prep_send(&sqe, socket, buf.data(), buf.size(), 0);
+        ::io_uring_sqe_set_flags(&sqe, IOSQE_FIXED_FILE);
+    })).result();
 }
 
 co::Future<std::expected<Socket, Uring::Error>> Uring::socket() noexcept {

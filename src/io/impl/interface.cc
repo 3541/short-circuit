@@ -9,18 +9,22 @@
 
 module;
 
+#include <cassert>
 #include <coroutine>
 #include <expected>
+#include <span>
 
 #include <netinet/in.h>
 #include <sys/socket.h>
+
+#include "sc/lib/try.hh"
+
+module sc.io.interface;
 
 import sc.config;
 import sc.co.future;
 import sc.io.file;
 import sc.lib.error;
-
-module sc.io.interface;
 
 namespace sc::io {
 
@@ -46,4 +50,15 @@ Interface::listen_socket(Addr const& addr) noexcept {
     });
 }
 
+co::Future<std::expected<void, Interface::Error>>
+Interface::send(SocketRef socket, std::span<std::byte const> buf) noexcept {
+    while (!buf.empty()) {
+        auto const len = SC_CO_TRY(co_await send_raw(socket, buf));
+        assert(len <= buf.size());
+
+        buf = buf.subspan(len);
+    }
+
+    co_return {};
+}
 } // namespace sc::io

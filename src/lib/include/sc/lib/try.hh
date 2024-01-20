@@ -70,3 +70,4 @@ T with_context(T&& error) {
 
 #define SC_TRY(E, ...) SC_TRY_IMPL(E, return, __VA_ARGS__)
 #define SC_CO_TRY(E, ...) SC_TRY_IMPL(E, co_return, __VA_ARGS__)
+#define SC_CO_GEN_TRY(E, ...) SC_TRY_IMPL(E, co_yield, __VA_ARGS__)

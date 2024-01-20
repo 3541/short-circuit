@@ -52,6 +52,8 @@ std::string_view Buf::as_str() const noexcept {
     return {reinterpret_cast<char const*>(m_buf.data()), m_buf.size()};
 }
 
+std::span<std::byte> Buf::operator*() noexcept { return m_buf; }
+
 std::ostream& operator<<(std::ostream& stream, Buf const& buf) {
     return stream << "Buf(" << std::to_underlying(buf.m_id) << ") { " << buf.m_buf.size() << " @ "
                   << static_cast<void*>(buf.m_buf.data()) << " }";

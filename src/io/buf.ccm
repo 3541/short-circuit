@@ -45,6 +45,8 @@ public:
 
     std::string_view as_str() const noexcept;
 
+    std::span<std::byte> operator*() noexcept;
+
     friend std::ostream& operator<<(std::ostream&, Buf const&);
 };
 

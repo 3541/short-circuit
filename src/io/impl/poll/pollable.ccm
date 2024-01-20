@@ -1,0 +1,66 @@
+/*
+ * POLLABLE -- An awaitable poll event.
+ *
+ * Copyright (c) 2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <coroutine>
+#include <expected>
+#include <iosfwd>
+#include <tuple>
+#include <variant>
+
+#include <poll.h>
+
+export module sc.io.impl.poll.pollable;
+
+import sc.io.file;
+import sc.lib.bind;
+
+export namespace sc::io::impl::poll {
+
+struct Pollable {
+public:
+    enum class Event : short {
+        Read  = POLLIN,
+        Write = POLLOUT,
+        Prio  = POLLPRI,
+    };
+
+    using Handler = lib::Bound<void(Pollable&, Event, FileRef)>;
+
+private:
+    std::variant<std::tuple<Handler, Event, FileRef>, std::coroutine_handle<>, short> m_state;
+
+public:
+    enum class Error { Closed, Invalid };
+
+    explicit Pollable(Handler, Event, FileRef) noexcept;
+
+    bool                        await_ready() const noexcept;
+    void                        await_suspend(std::coroutine_handle<>) noexcept;
+    std::expected<Event, Error> await_resume() noexcept;
+
+    void complete(short) noexcept;
+
+    friend std::ostream& operator<<(std::ostream&, Error);
+};
+
+struct PollFor {
+private:
+    Pollable::Handler m_handler;
+    Pollable::Event   m_event;
+    FileRef           m_file;
+
+public:
+    explicit PollFor(Pollable::Handler, Pollable::Event, FileRef) noexcept;
+
+    Pollable operator co_await() && noexcept;
+};
+
+} // namespace sc::io::impl::poll

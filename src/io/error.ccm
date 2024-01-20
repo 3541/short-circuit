@@ -1,0 +1,28 @@
+/*
+ * ERROR -- Common IO errors.
+ *
+ * Copyright (c) 2023-2024, Alex O'Brien <3541@3541.website>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
+ * the MPL was not distributed with this file, you can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+module;
+
+#include <system_error>
+#include <iosfwd>
+
+export module sc.io.error;
+
+export namespace sc::io {
+
+struct RequestFailed {
+    std::error_code m_reason;
+
+    explicit RequestFailed(std::error_code);
+    static RequestFailed from_errno() noexcept;
+
+    friend std::ostream& operator<<(std::ostream&, RequestFailed const&);
+};
+
+} // namespace sc::io

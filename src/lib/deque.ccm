@@ -255,12 +255,12 @@ constexpr auto Deque<T>::cbegin() const noexcept -> const_iterator {
 
 template <typename T>
 constexpr auto Deque<T>::end() noexcept -> iterator {
-    return iterator{NonNull{this}, m_len};
+    return iterator{};
 }
 
 template <typename T>
 constexpr auto Deque<T>::end() const noexcept -> const_iterator {
-    return const_iterator{NonNull{this}, m_len};
+    return const_iterator{};
 }
 
 template <typename T>
@@ -283,24 +283,27 @@ template <Deque<T>::Const C>
 struct Deque<T>::Iterator {
 private:
     template <typename U>
-    using ConstT = std::conditional_t<static_cast<bool>(C), U const, U>;
+    using ConstT = std::conditional_t<std::to_underlying(C), U const, U>;
 
-    NonNull<ConstT<Deque>*> m_parent;
-    std::size_t             m_index;
+    ConstT<Deque>* m_parent;
+    std::size_t    m_index;
 
     friend struct Deque;
 
     constexpr explicit Iterator(NonNull<ConstT<Deque>*> parent, std::size_t index = 0) noexcept :
-        m_parent{parent}, m_index{index} {}
+        m_parent{&*parent}, m_index{index} {}
+
+    constexpr Iterator() noexcept : m_parent{nullptr}, m_index{0} {}
 
 public:
     using difference_type   = std::ptrdiff_t;
     using value_type        = ConstT<T>;
     using pointer           = ConstT<T>*;
     using reference         = ConstT<T>&;
-    using iterator_category = std::bidirectional_iterator_tag;
+    using iterator_category = std::random_access_iterator_tag;
 
     constexpr Iterator& operator++() noexcept {
+        assert(m_parent);
         assert(m_index < m_parent->len());
 
         ++m_index;
@@ -308,16 +311,90 @@ public:
     }
 
     constexpr Iterator& operator++(int) noexcept {
+        assert(m_parent);
+
         auto ret = *this;
         ++*this;
         return ret;
     }
 
-    constexpr reference operator*() noexcept { return *m_parent->element(m_index); }
-    constexpr pointer   operator->() noexcept { return m_parent->element(m_index); }
+    constexpr Iterator& operator--() noexcept {
+        assert(m_parent);
+        assert(m_index > 0);
+
+        --m_index;
+        return *this;
+    }
+
+    constexpr Iterator& operator--(int) noexcept {
+        assert(m_parent);
+
+        auto ret = *this;
+        --*this;
+        return ret;
+    }
+
+    constexpr Iterator& operator+=(difference_type n) noexcept {
+        assert(m_parent);
+        assert(n > 0 || m_index >= -n);
+        assert(m_index + n <= m_parent->len());
+
+        m_index += n;
+        return *this;
+    }
+
+    constexpr Iterator& operator+(difference_type n) noexcept {
+        auto it = *this;
+        return it += n;
+    }
+
+    constexpr Iterator& operator-=(difference_type n) noexcept { return *this += -n; }
+    constexpr Iterator& operator-(difference_type n) noexcept { return *this + -n; }
+
+    constexpr difference_type operator-(Iterator const& other) noexcept {
+        assert(m_parent);
+        assert(m_parent == other.m_parent);
+
+        return static_cast<difference_type>(m_index) - static_cast<difference_type>(other.m_index);
+    }
+
+    constexpr reference operator*() noexcept {
+        assert(m_parent);
+
+        return *m_parent->element(m_index);
+    }
+
+    constexpr pointer operator->() noexcept {
+        assert(m_parent);
+
+        return m_parent->element(m_index);
+    }
+
+    reference operator[](std::size_t index) {
+        assert(m_parent);
+        assert(m_index + index < m_parent->len());
+
+        return *m_parent->element(m_index + index);
+    }
+
+    friend constexpr std::strong_ordering operator<=>(Iterator const& lhs,
+                                                      Iterator const& rhs) noexcept {
+        assert(lhs.m_parent == rhs.m_parent || !lhs.m_parent || !rhs.m_parent);
+
+        if (lhs.m_parent && rhs.m_parent)
+            return lhs.m_index <=> rhs.m_index;
+
+        if (!lhs.m_parent && rhs.m_parent)
+            return rhs.m_index <=> rhs.m_parent->len();
+
+        if (!rhs.m_parent && lhs.m_parent)
+            return lhs.m_index <=> lhs.m_parent->len();
+
+        return std::strong_ordering::equal;
+    }
 
     friend constexpr bool operator==(Iterator const& lhs, Iterator const& rhs) noexcept {
-        return lhs.m_index == rhs.m_index;
+        return (lhs <=> rhs) == std::strong_ordering::equal;
     }
 };
 

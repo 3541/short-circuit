@@ -43,12 +43,12 @@
         gcc14 = pkgsGcc14.wrapCC ((pkgsGcc14.gcc_latest.cc.override {
           majorMinorVersion = "14";
         }).overrideAttrs (prev: {
-          version = "14.0.0-20240112";
+          version = "14.0.0-20240119";
 
           src = pkgs.fetchgit {
             url = "https://gcc.gnu.org/git/gcc.git";
-            rev = "444a31f3b3542ccbecb67cef3a01df8aa9a43802";
-            sha256 = "sha256-kmV6K61Mu8F+ykwqTvfasCZmE9fGZaQxAygWl688DpQ=";
+            rev = "c2544854ca4f5d009c88ca765e506db956d2ddba";
+            sha256 = "sha256-pnaItquqxEsdbwSdHUpt0ihpFWj+vYXCFOCebvr6fNk=";
           };
         }));
       in rec {
