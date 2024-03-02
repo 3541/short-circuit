@@ -34,12 +34,7 @@ public:
     friend std::ostream& operator<<(std::ostream& stream, WithContext const& error) {
         return stream << "[" << error.m_loc.function_name() << " @ " << error.m_loc.file_name()
                       << " " << error.m_loc.line() << ":" << error.m_loc.column() << "] "
-                      << error.m_context << ": " << error.m_error;
-    }
-
-    friend auto stream_view(Stream<WithContext<T> const&> error) {
-        return Stream{WithContext<decltype(stream_view(error.m_inner.m_error))>{
-            stream_view(error.m_inner.m_error), error.m_inner.m_context, error.m_inner.m_loc}};
+                      << error.m_context << ": " << stream_view(error.m_error);
     }
 };
 

@@ -19,18 +19,10 @@ import sc.lib.stream;
 export namespace sc::lib {
 
 template <Streamable... S>
-std::ostream& operator<<(std::ostream& stream, Stream<std::variant<S...>> variant) {
-    return std::visit([&](const auto& value) -> std::ostream& { return stream << value; },
-                      variant.m_inner);
-}
-
-template <typename... V>
-auto stream_view(Stream<std::variant<V...> const&> variant) {
-    return Stream{std::visit(
-        [](auto const& value) -> std::variant<decltype(stream_view(std::declval<V>()))...> {
-            return stream_view(value);
-        },
-        variant.m_inner)};
+std::ostream& operator<<(std::ostream& stream, Stream<std::variant<S...> const&> variant) {
+    return std::visit(
+        [&](const auto& value) -> std::ostream& { return stream << stream_view(value); },
+        variant.m_inner);
 }
 
 } // namespace sc::lib

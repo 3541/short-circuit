@@ -18,54 +18,16 @@ import sc.lib.stream;
 
 namespace sc::lib {
 
-namespace expected {
-
-struct AsRef {
-    template <typename T, typename E>
-    friend std::expected<std::reference_wrapper<T const>, std::reference_wrapper<E const>>
-    operator|(std::expected<T, E> const& value, const AsRef&) {
-        if (value)
-            return *value;
-
-        return std::unexpected{std::cref(value.error())};
-    }
-
-    template <typename E>
-    friend std::expected<void, std::reference_wrapper<E const>>
-    operator|(std::expected<void, E> const& value, const AsRef&) {
-        if (value)
-            return {};
-
-        return std::unexpected{std::cref(value.error())};
-    }
-};
-
-export constexpr AsRef as_ref{};
-
-}
-
 export template <typename T, Streamable E>
     requires Streamable<T> || std::same_as<T, void>
-std::ostream& operator<<(std::ostream& stream, Stream<std::expected<T, E>> expected) {
+std::ostream& operator<<(std::ostream& stream, Stream<std::expected<T, E> const&> expected) {
     stream << "std::expected{";
     if (!expected.m_inner)
-        stream << "std::unexpected{" << expected.m_inner.error() << '}';
+        stream << "std::unexpected{" << stream_view(expected.m_inner.error()) << '}';
     else if constexpr (!std::same_as<T, void>)
-        stream << *expected.m_inner;
+        stream << stream_view(*expected.m_inner);
 
     return stream << '}';
-}
-
-export template <typename T, typename E>
-auto stream_view(Stream<std::expected<T, E> const&> expected) {
-    return Stream{(expected.m_inner | expected::as_ref)
-                      .transform([](T const& value) { return stream_view(value); })
-                      .transform_error([](E const& err) { return stream_view(err); })};
-}
-
-export template <typename E>
-auto stream_view(Stream<std::expected<void, E> const&> expected) {
-    return Stream{expected.m_inner.transform_error([](E const& err) { return stream_view(err); })};
 }
 
 } // namespace sc::lib

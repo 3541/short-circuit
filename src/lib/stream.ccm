@@ -21,18 +21,21 @@ export module sc.lib.stream;
 export namespace sc::lib {
 
 template <typename T>
-concept Streamable = requires(T value) {
-    { std::declval<std::ostream&>() << value } -> std::same_as<std::ostream&>;
-};
-
-template <typename T>
 struct Stream {
     using Inner = T;
 
     T m_inner;
 };
 
-template <Streamable T>
+template <typename T>
+concept DirectStreamable = requires(T value) {
+    { std::declval<std::ostream&>() << value } -> std::same_as<std::ostream&>;
+};
+
+template <typename T>
+concept Streamable =  DirectStreamable<T> || DirectStreamable<Stream<T const&>>;
+
+template <DirectStreamable T>
 std::ostream& operator<<(std::ostream& stream, Stream<T> const& value) {
     return stream << value.m_inner;
 }
