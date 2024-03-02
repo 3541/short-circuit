@@ -28,6 +28,7 @@ import sc.co.generator;
 import sc.config;
 import sc.io.addr;
 import sc.io.buf;
+import sc.io.error;
 import sc.io.file;
 import sc.io.impl.uring.buf;
 import sc.io.impl.uring.sqe;
@@ -57,7 +58,7 @@ private:
 
 public:
     struct Errors {
-        using RequestFailed = Cqe::RequestFailed;
+        using RequestFailed = RequestFailed;
 
         struct RingFull {
             friend std::ostream& operator<<(std::ostream&, RingFull);

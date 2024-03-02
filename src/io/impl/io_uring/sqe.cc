@@ -25,6 +25,7 @@ module sc.io.impl.uring.sqe;
 
 import sc.lib.cast;
 import sc.io.buf;
+import sc.io.error;
 
 namespace sc::io::impl::uring {
 
@@ -34,9 +35,9 @@ Result::Result(io_uring_cqe const& cqe) noexcept :
                        Buf::Id{lib::narrow_cast<std::underlying_type_t<Buf::Id>>(
                            cqe.flags >> IORING_CQE_BUFFER_SHIFT)})} {}
 
-std::expected<std::uint32_t, Cqe::RequestFailed> Result::result() const noexcept {
+std::expected<std::uint32_t, RequestFailed> Result::result() const noexcept {
     if (m_res < 0)
-        return std::unexpected{Cqe::RequestFailed{std::error_code{-m_res, std::system_category()}}};
+        return std::unexpected{RequestFailed{std::error_code{-m_res, std::system_category()}}};
     return static_cast<std::uint32_t>(m_res);
 }
 

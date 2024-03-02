@@ -38,8 +38,6 @@ protected:
     ~Cqe() = default;
 
 public:
-    using RequestFailed = RequestFailed;
-
     virtual void complete(io_uring_cqe const&) noexcept = 0;
 };
 
@@ -52,7 +50,7 @@ struct Result {
 
     constexpr bool operator==(Result const&) const noexcept = default;
 
-    std::expected<std::uint32_t, Cqe::RequestFailed> result() const noexcept;
+    std::expected<std::uint32_t, RequestFailed> result() const noexcept;
 };
 
 struct SingleCqe final : public Cqe {

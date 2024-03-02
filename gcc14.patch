@@ -43,7 +43,7 @@ index 261ffc634544..e8f6c6237579 100644
 @@ -1,5 +1,6 @@
  let
    majorMinorToVersionMap = {
-+    "14" = "14.0.0-20240119";
++    "14" = "14.0.0-20240302";
      "13" = "13.2.0";
      "12" = "12.3.0";
      "11" = "11.4.0";
@@ -51,7 +51,7 @@ index 261ffc634544..e8f6c6237579 100644
    srcHashForVersion = version: {
      # NOTE: there is no need to remove hashes of obsolete minor
      # versions when adding a new minor version.
-+    "14.0.0-20240112" = "sha256-pnaItquqxEsdbwSdHUpt0ihpFWj+vYXCFOCebvr6fNk=";
++    "14.0.0-20240209" = "sha256-CPfdc+kbmpoeeeeeeeeeeeeeMQaQb6MwrMZISbO/xkU=";
      "13.2.0" = "sha256-4nXnZEKmBnNBon8Exca4PYYTFEAEwEE1KIY9xrXHQ9o=";
      "12.3.0" = "sha256-lJpdT5nnhkIak7Uysi/6tVeN5zITaZdbka7Jet/ajDs=";
      "11.4.0" = "sha256-Py2yIrAH6KSiPNW6VnJu8I6LHx6yBV7nLBQCzqc6jdk=";

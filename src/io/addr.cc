@@ -20,7 +20,11 @@ Port::Port(in_port_t port) noexcept : m_net_port{htons(port)} {}
 Port::operator in_port_t() const noexcept { return m_net_port; }
 
 Addr::Addr(in6_addr addr, Port port) noexcept :
-    m_addr{.sin6_family = AF_INET6, .sin6_port = port, .sin6_addr = addr} {}
+    m_addr{.sin6_family   = AF_INET6,
+           .sin6_port     = port,
+           .sin6_flowinfo = 0,
+           .sin6_addr     = addr,
+           .sin6_scope_id = 0} {}
 
 Addr Addr::any(Port port) noexcept { return Addr{IN6ADDR_ANY_INIT, port}; }
 

@@ -4,7 +4,6 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
     nixpkgs-unstable.url = "nixpkgs/nixos-unstable";
-    nixpkgs-cmake.url = "github:gracicot/nixpkgs/grc/update-cmake";
     utils.url = "github:numtide/flake-utils";
 
     flake-compat = {
@@ -25,30 +24,29 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-cmake, utils, a3, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, utils, a3, ... }:
     utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        pkgsUnstable = nixpkgs-unstable.legacyPackages.${system};
         llvm = pkgs.llvmPackages_17;
+        cmake = pkgsUnstable.cmake;
 
-        pkgsGcc14 = import
-          (nixpkgs-unstable.legacyPackages.${system}.applyPatches {
-            name = "nixpkgs-gcc14";
-            patches = [ ./gcc14.patch ];
-            src = nixpkgs-unstable;
-          }) { inherit system; };
-
-        cmake = nixpkgs-cmake.legacyPackages.${system}.cmake;
+        pkgsGcc14 = import (pkgsUnstable.applyPatches {
+          name = "nixpkgs-gcc14";
+          patches = [ ./gcc14.patch ];
+          src = nixpkgs-unstable;
+        }) { inherit system; };
 
         gcc14 = pkgsGcc14.wrapCC ((pkgsGcc14.gcc_latest.cc.override {
           majorMinorVersion = "14";
         }).overrideAttrs (prev: {
-          version = "14.0.0-20240119";
+          version = "14.0.0-20240302";
 
           src = pkgs.fetchgit {
             url = "https://gcc.gnu.org/git/gcc.git";
-            rev = "c2544854ca4f5d009c88ca765e506db956d2ddba";
-            sha256 = "sha256-pnaItquqxEsdbwSdHUpt0ihpFWj+vYXCFOCebvr6fNk=";
+            rev = "306a4c3223533d930521e80d5c455d379b0f48b5";
+            sha256 = "sha256-PCIXM1YAmnmrDhPPvn/1Gig5+6UvLifeE+PxXFMl2AE=";
           };
         }));
       in rec {

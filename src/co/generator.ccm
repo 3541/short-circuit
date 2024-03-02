@@ -12,6 +12,7 @@ module;
 #include <cassert>
 #include <climits>
 #include <coroutine>
+#include <utility>
 
 #include <a3/util.hh>
 
@@ -31,10 +32,10 @@ private:
 
     std::coroutine_handle<Promise> m_handle;
 
-    explicit Generator(std::coroutine_handle<Promise>);
-
 public:
     using promise_type = Promise;
+
+    explicit Generator(std::coroutine_handle<Promise>);
 
     ~Generator();
 

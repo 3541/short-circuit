@@ -1,3 +1,4 @@
 .cache
 .direnv
 /build/*
+/compile_commands.json
